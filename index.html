@@ -1,11 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
   <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8" />
     <title>Между Злом и Добром — Витрина Разбита</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {background:#181818;color:#f2f2f2;font-family:sans-serif;margin:0;padding:0;}
+      header {background:rgba(0,0,0,0.85);text-align:center;padding:24px;}
+      #logo {max-height:80px;}
+      .track-list {margin:32px auto;max-width:400px;}
+      .track {padding:12px 0;border-bottom:1px solid #444;cursor:pointer;}
+      .current {background:#222;}
+      #audio {width:100%;margin:24px 0;}
+      #lyrics {margin:24px auto;max-width:700px;text-align:center;line-height:1.7;}
+      .lyrics-line {opacity:0.5;transition:.3s;}
+      .lyrics-line.active {color:#ffd700;font-weight:bold;opacity:1;}
+      #social-links, #donate-btn {margin:16px 10px;display:inline-block}
+      #cover {max-width:320px;border-radius:14px;margin:20px auto 7px;display:block;}
+      #promocode-block {text-align:center;margin:40px;}
+      .hidden {display:none;}
+      @media (max-width:600px) {
+        #cover {max-width:90vw;}
+        #lyrics {max-width:98vw;font-size:15px;}
+      }
+    </style>
   </head>
   <body>
-    <h1>Добро пожаловать!</h1>
-    <p>Сайт создаётся — продолжайте по инструкции.</p>
+    <div id="promocode-block">
+      <h2>Вход по промокоду</h2>
+      <input id="promo-inp" type="text" placeholder="Введите промокод" autofocus />
+      <button onclick="checkPromo()">Войти</button>
+      <div id="promo-error" style="color:red;margin:10px;"></div>
+    </div>
+
+    <div id="main-block" class="hidden">
+      <header>
+        <img id="logo" src="" alt="Логотип"/>
+        <h1 id="album-title"></h1>
+        <h2 id="artist"></h2>
+        <img id="cover" src="" alt="Обложка" />
+      </header>
+      <div class="track-list" id="track-list"></div>
+      <audio id="audio" controls preload="metadata"></audio>
+      <div id="lyrics"></div>
+      <div style="text-align:center;">
+        <a id="download-link" href="#" download>Скачать mp3</a>
+        <button onclick="copyLyrics()">Копировать текст</button>
+        <a id="donate-btn" href="#" target="_blank">Поддержать</a>
+      </div>
+      <div id="social-links" style="text-align:center;"></div>
+    </div>
+
+    <script>
+      // -- Загрузка конфига --
+      let config, currentTrack = 0, currentLyrics = [], promoPassed = false;
+      fetch('config.json').then(r => r.json()).then(data => {
+        config = data;
+        document.getElementById('logo').src = config.logo;
+        document.getElementById('album-title').innerText = config.albumTitle;
+        document.getElementById('artist').innerText = config.artist + " (" + config.year + ")";
+        document.getElementById('donate-btn').href = config.donateLink;
+        document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
+        buildTrackList();
+        buildSocials();
+        showTrack(0);
+      });
+
+      function checkPromo() {
+        const val = document.getElementById('promo-inp').value.trim();
+        if(val && config && val.toUpperCase() === config.promoCode.toUpperCase()) {
+          document.getElementById('main-block').classList.remove('hidden');
+          document.getElementById('promocode-block').classList.add('hidden');
+          promoPassed = true;
+        } else {
+          document.getElementById('promo-error').innerText = "Неверный промокод. Попробуйте ещё!";
+        }
+      }
+
+      function buildSocials() {
+        const s = config.socials.map(x => 
+          `<a style="margin:0 8px" href="${x.url}" target="_blank">${x.title}</a>`
+        ).join(" ");
+        document.getElementById('social-links').innerHTML = s;
+      }
+
+      function buildTrackList() {
+        const t = config.tracks.map((tr, i) => 
+          `<div class="track" onclick="showTrack(${i})" id="trk${i}">${i+1}. ${tr.title}</div>`
+        ).join("");
+        document.getElementById('track-list').innerHTML = t;
+      }
+
+      function showTrack(n) {
+        currentTrack = n;
+        config.tracks.forEach((tr,i) => {
+          document.getElementById('trk'+i).classList.toggle('current', i==n);
+        });
+        const tr = config.tracks[n];
+        document.getElementById('cover').src = tr.cover ? tr.cover : config.background;
+        const audio = document.getElementById('audio');
+        audio.src = tr.audio;
+        document.getElementById('download-link').href = tr.audio;
+        loadLyrics(tr.lyrics);
+      }
+
+      function loadLyrics(file) {
+        fetch(file).then(r=>r.json()).then(js => {
+          currentLyrics = js;
+          renderLyrics(0);
+        });
+      }
+      // Караоке — подсветка
+      document.getElementById('audio').ontimeupdate = function() {
+        renderLyrics(this.currentTime);
+      };
+
+      function renderLyrics(time) {
+        let lines = '';
+        if(!currentLyrics || !currentLyrics.length) { document.getElementById('lyrics').innerHTML = ""; return;}
+        let active = 0;
+        for(let i=0;i<currentLyrics.length;i++) {
+          if(time >= currentLyrics[i].time) active = i;
+        }
+        for(let i=0;i<currentLyrics.length;i++) {
+          lines += `<div class="lyrics-line${i==active ? ' active' : ''}">${currentLyrics[i].line}</div>`
+        }
+        document.getElementById('lyrics').innerHTML = lines;
+      }
+
+      function copyLyrics() {
+        if(!currentLyrics || !currentLyrics.length) return;
+        const text = currentLyrics.map(x=>x.line).join('\n');
+        navigator.clipboard.writeText(text);
+        alert('Текст скопирован!');
+      }
+
+      // Переключение треков стрелками (лево/право)
+      window.addEventListener('keydown', function(e){
+        if(!promoPassed) return;
+        if(e.key == 'ArrowRight') {showTrack(Math.min(currentTrack+1, config.tracks.length-1));}
+        if(e.key == 'ArrowLeft') {showTrack(Math.max(currentTrack-1, 0));}
+      });
+    </script>
   </body>
 </html>
