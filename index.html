@@ -12,16 +12,54 @@
       .track {padding:12px 0;border-bottom:1px solid #444;cursor:pointer;}
       .current {background:#222;}
       #audio {width:100%;margin:24px 0;}
-      #lyrics {margin:24px auto;max-width:700px;text-align:center;line-height:1.7;}
-      .lyrics-line {opacity:0.5;transition:.3s;}
-      .lyrics-line.active {color:#E80100;font-weight:bold;opacity:1;}
+      /* Новый караоке-скролл */
+      #lyrics-window {
+        width: 100%;
+        max-width: 680px;
+        margin: 30px auto 30px auto;
+        background: rgba(34,34,34,0.95);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px #0009;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        height: 8.6em; /* Чтоб влезло ровно 5 строк */
+        position: relative;
+      }
+      .lyrics-scroll {
+        width: 100%;
+        transition: transform 0.5s cubic-bezier(.6,.05,.4,.95);
+        will-change: transform;
+      }
+      .lyrics-window-line {
+        opacity: 0.55;
+        font-size: 1.36em;
+        transition: opacity 0.25s,color 0.25s;
+        line-height: 1.7em;
+        text-align: center;
+        min-height: 1.7em;
+        max-width: 96%;
+        margin: 0 auto;
+        font-weight: 400;
+        color: #eee;
+        white-space: pre-line;
+      }
+      .lyrics-window-line.active {
+        color: #E80100;
+        font-weight: bold;
+        opacity: 1;
+        background: none;
+      }
       #social-links, #donate-btn {margin:16px 10px;display:inline-block}
       #cover {max-width:320px;border-radius:14px;margin:20px auto 7px;display:block;}
       #promocode-block {text-align:center;margin:40px;}
       .hidden {display:none;}
       @media (max-width:600px) {
         #cover {max-width:90vw;}
-        #lyrics {max-width:98vw;font-size:15px;}
+        #lyrics-window {max-width:99vw;}
+        .lyrics-window-line {font-size:1.1em;}
       }
     </style>
   </head>
@@ -41,8 +79,11 @@
         <img id="cover" src="" alt="Обложка" />
       </header>
       <div class="track-list" id="track-list"></div>
+      <!-- Новый блок с окном на 5 строк -->
+      <div id="lyrics-window" class="hidden">
+        <div class="lyrics-scroll" id="lyrics"></div>
+      </div>
       <audio id="audio" controls preload="metadata"></audio>
-      <div id="lyrics"></div>
       <div style="text-align:center;">
         <a id="download-link" href="#" download>Скачать mp3</a>
         <button onclick="copyLyrics()">Копировать текст</button>
@@ -110,23 +151,46 @@
           renderLyrics(0);
         });
       }
-      // Караоке — подсветка
-      document.getElementById('audio').ontimeupdate = function() {
-        renderLyrics(this.currentTime);
-      };
+
+      // --- КАРАОКЕ ОКНО С ПЛАВНОЙ АНИМАЦИЕЙ ---
+      let karaokeLastActive = 0;
 
       function renderLyrics(time) {
-        let lines = '';
-        if(!currentLyrics || !currentLyrics.length) { document.getElementById('lyrics').innerHTML = ""; return;}
+        if (!currentLyrics || !currentLyrics.length) {
+          document.getElementById('lyrics').innerHTML = "";
+          document.getElementById('lyrics-window').classList.add('hidden');
+          return;
+        }
+        // Найдём активную строчку
         let active = 0;
-        for(let i=0;i<currentLyrics.length;i++) {
-          if(time >= currentLyrics[i].time) active = i;
+        for (let i = 0; i < currentLyrics.length; i++) {
+          if (time >= currentLyrics[i].time) active = i;
         }
-        for(let i=0;i<currentLyrics.length;i++) {
-          lines += `<div class="lyrics-line${i==active ? ' active' : ''}">${currentLyrics[i].line}</div>`
+
+        // Собираем все строки (но анимируем смещение)
+        let lines = "";
+        for (let i = 0; i < currentLyrics.length; i++) {
+          let cls =
+            i === active
+              ? "lyrics-window-line active"
+              : "lyrics-window-line";
+          lines += `<div class="${cls}">${currentLyrics[i].line || ""}</div>`;
         }
-        document.getElementById('lyrics').innerHTML = lines;
+        document.getElementById("lyrics").innerHTML = lines;
+        document.getElementById('lyrics-window').classList.remove('hidden');
+
+        // Высота одной строки = 1.7em * font-size (по умолчанию 1.36em)
+        // Надо сдвинуть scroll-блок вверх так, чтобы активная всегда была третьей строкой
+        let lyricHeight = 1.7 * 1.36; // em
+        let scrollYem = (active - 2 > 0 ? active - 2 : 0) * 1.7;
+        document.querySelector(".lyrics-scroll").style.transform = `translateY(-${scrollYem}em)`;
+
+        karaokeLastActive = active;
       }
+
+      document.getElementById('audio').ontimeupdate = function () {
+        renderLyrics(this.currentTime);
+      };
 
       function copyLyrics() {
         if(!currentLyrics || !currentLyrics.length) return;
