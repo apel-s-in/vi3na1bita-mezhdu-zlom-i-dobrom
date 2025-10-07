@@ -1,0 +1,113 @@
+{
+  "albumTitle": "Между Злом и Добром",
+  "artist": "Витрина Разбита",
+  "year": "2025",
+  "logo": "img/logo.png",
+  "background": "img/bg.jpg",
+  "promoCode": "VITRINA2025",
+  "donateLink": "https://yoomoney.ru/to/ВАШ_СЧЁТ_ЯНДЕКС",
+  "socials": [
+    {"title": "YouTube", "url": "https://www.youtube.com/channel/UCbjm1J0V8RkWvNj4Z8-JIhA/"},
+    {"title": "Telegram", "url": "https://t.me/vitrina_razbita"},
+    {"title": "VK", "url": "https://vk.com/apelsinov"},
+    {"title": "TikTok", "url": "https://www.tiktok.com/@vi3na1bita"}
+  ],
+  "tracks": [
+    {
+      "title": "Рулетка",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/F_W5l13BPe7c7A",
+      "lyrics": "lyrics/01.json",
+      "cover": "img/tr1.jpg"
+    },
+    {
+      "title": "Дыхание 24/7",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/JcprOZWEosmTKA",
+      "lyrics": "lyrics/02.json",
+      "cover": "img/tr2.jpg"
+    },
+    {
+      "title": "Витрина разбита",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/96Na3JhCOY_MVw",
+      "lyrics": "lyrics/03.json",
+      "cover": "img/tr3.jpg"
+    },
+    {
+      "title": "Кошки-мышки",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/X5ye9cziCt9XUw",
+      "lyrics": "lyrics/04.json",
+      "cover": "img/tr4.jpg"
+    },
+    {
+      "title": "Всё включено",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/C4S3P3-DMVnKGQ",
+      "lyrics": "lyrics/05.json",
+      "cover": "img/tr5.jpg"
+    },
+    {
+      "title": "Вырвать сердце",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/uzG2NyjoQCTOkw",
+      "lyrics": "lyrics/06.json",
+      "cover": "img/tr6.jpg"
+    },
+    {
+      "title": "Все там будем",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/JyDS0mT2BnFxDQ",
+      "lyrics": "lyrics/07.json",
+      "cover": "img/tr7.jpg"
+    },
+    {
+      "title": "Зачем цветы с корнями вырываем",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/UDyhO4MYNLtJIQ",
+      "lyrics": "lyrics/08.json",
+      "cover": "img/tr8.jpg"
+    },
+    {
+      "title": "Память",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/bZDisX1COLW8cw",
+      "lyrics": "lyrics/09.json",
+      "cover": "img/tr9.jpg"
+    },
+    {
+      "title": "Маша",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/Fw05Hmu8lNiWag",
+      "lyrics": "lyrics/10.json",
+      "cover": "img/tr10.jpg"
+    },
+    {
+      "title": "Остановись, Планета",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/gbjmPaCSLgiM_g",
+      "lyrics": "lyrics/11.json",
+      "cover": "img/tr11.jpg"
+    },
+    {
+      "title": "Прости, я не фейк",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/xY3JfaLdMwNwAw",
+      "lyrics": "lyrics/12.json",
+      "cover": "img/tr12.jpg"
+    },
+    {
+      "title": "Оля у моря",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/ZI-ZHV2V45tvAA",
+      "lyrics": "lyrics/13.json",
+      "cover": "img/tr13.jpg"
+    },
+    {
+      "title": "Лови свой миг",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/DMsiCvTDFJj8Mw",
+      "lyrics": "lyrics/14.json",
+      "cover": "img/tr14.jpg"
+    },
+    {
+      "title": "Призрак",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/XT8P4Loc3oLxjg",
+      "lyrics": "lyrics/15.json",
+      "cover": "img/tr15.jpg"
+    },
+    {
+      "title": "Между злом и добром",
+      "audio": "https://getfile.dokpub.com/yandex/get/https://disk.yandex.ru/d/PM859KeYEqN2bQ",
+      "lyrics": "lyrics/16.json",
+      "cover": "img/tr16.jpg"
+    }
+  ]
+}
