@@ -15,7 +15,32 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      user-select: none;
     }
+    .cover-gallery-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 2.3em;
+      color: #fff;
+      background: rgba(0,0,0,0.22);
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 2;
+      transition: background .16s;
+    }
+    .cover-gallery-arrow:hover {
+      background: rgba(60,60,120,0.40);
+    }
+    #cover-gallery-arrow-left {left: 7px;}
+    #cover-gallery-arrow-right {right: 7px;}
     #cover {
       width: 100%;
       height: auto;
@@ -26,6 +51,12 @@
       display: block;
       margin: 0;
       box-shadow: 0 6px 32px #000a;
+      background:#202020;
+      transition: filter .2s;
+      pointer-events: none;
+      user-drag: none;
+      -webkit-user-drag: none;
+      user-select: none;
     }
     .socials-under-cover {
       margin: 16px auto 0 auto;
@@ -131,7 +162,9 @@
   <div id="main-block" class="hidden">
     <header>
       <div id="cover-wrap">
-        <img id="cover" src="Cover.png" alt="Cover album" />
+        <button class="cover-gallery-arrow" id="cover-gallery-arrow-left" title="Назад">&#8592;</button>
+        <img id="cover" src="Cover.png" alt="Cover album" draggable="false"/>
+        <button class="cover-gallery-arrow" id="cover-gallery-arrow-right" title="Вперёд">&#8594;</button>
       </div>
       <div id="social-links" class="socials-under-cover"></div>
     </header>
@@ -139,16 +172,48 @@
   </div>
 
   <script>
+    // Все картинки в галерее:
+    const coverGalleryArr = ['Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
+    let coverGalleryIdx = 0;
+
     let config, currentTrack = 0, currentLyrics = [], promoPassed = false;
 
     fetch('config.json').then(r => r.json()).then(data => {
       config = data;
-      // Загружаем cover только из Cover.png
-      document.getElementById('cover').src = 'Cover.png';
+      setCoverImage(coverGalleryIdx);
       buildSocials();
       document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
       buildTrackList();
       showTrack(0);
+    });
+
+    // ---- Галерея ----
+    function setCoverImage(idx) {
+      coverGalleryIdx = (idx + coverGalleryArr.length) % coverGalleryArr.length;
+      document.getElementById('cover').src = coverGalleryArr[coverGalleryIdx];
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      document.getElementById('cover-gallery-arrow-left').onclick = function(e){
+        setCoverImage((coverGalleryIdx - 1 + coverGalleryArr.length) % coverGalleryArr.length);
+      };
+      document.getElementById('cover-gallery-arrow-right').onclick = function(e){
+        setCoverImage((coverGalleryIdx + 1) % coverGalleryArr.length);
+      };
+      // Жесты для мобильных: свайп влево/вправо
+      let startX = null;
+      const el = document.getElementById('cover-wrap');
+      el.addEventListener('touchstart', function(e) {
+        startX = e.touches[0].clientX;
+      });
+      el.addEventListener('touchend', function(e) {
+        if(startX===null) return;
+        let dx = e.changedTouches[0].clientX - startX;
+        if(Math.abs(dx) > 30) {
+          if(dx > 0) setCoverImage(coverGalleryIdx - 1);
+          else setCoverImage(coverGalleryIdx + 1);
+        }
+        startX = null;
+      });
     });
 
     function checkPromo() {
@@ -246,7 +311,6 @@
     function showTrack(n) {
       currentTrack = n;
       buildTrackList();
-      // Cover всегда один, ничего менять не нужно
     }
 
     function copyLyrics() {
