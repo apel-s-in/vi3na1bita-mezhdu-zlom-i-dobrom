@@ -16,71 +16,32 @@
       display: flex; flex-direction: column;
       min-width: 100vw;
     }
-    #promocode-block {
-      position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      background: #181818; z-index: 100;
+    /* Модальные окна. Центрировка по экрану */
+    .modal-bg {
+      position: fixed; z-index: 99; left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.62); 
+      display: none; 
+      align-items: center; 
+      justify-content: center;
     }
-    .promo-inner {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(15,18,24, 0.98);
-      border-radius: 16px;
-      box-shadow: 0 6px 24px #0008;
-      padding: 36px 26px 32px 26px;
-      min-width: 260px;
-      min-height: 170px;
+    .modal-bg.active {display: flex;}
+    /* центрировка содержимого */
+    .modal-feedback {
+      background: #252d39;
+      border-radius: 14px;
+      padding: 34px 20px 21px 20px;
+      min-width: 215px;
+      box-shadow: 0 4px 32px #0009;
+      max-width: 96vw;
+      position: relative;
     }
-    .promo-cover {
-      width: 256px; height: 256px; object-fit:cover; border-radius:12px;
-      box-shadow:0 4px 24px #000c; margin-bottom: 19px;
-      display:block;
-      background: #181818;
-      max-width: 75vw;
-      aspect-ratio: 1/1;
+    .modal-feedback .bigclose {
+      background:none; border:none; position:absolute; top:13px; right:13px; cursor:pointer; color:#eee;border-radius:50%;width:32px;height:32px;
     }
-    #promocode-block h2 {
-      margin-top: 0; margin-bottom: 19px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      font-size: 1.12em;
-      text-align:center;
-    }
-    #promo-inp {
-      padding: 10px 12px;
-      border-radius: 6px;
-      font-size: 1.1em;
-      border: 1px solid #888;
-      outline: none;
-      background: #20242b;
-      color: #fff;
-      margin-bottom: 12px;
-      width: 180px;
-      text-align:center;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      transition: border 0.16s;
-    }
-    #promo-inp:focus {border-color:#4daaff;}
-    #promo-btn {
-      padding: 10px 22px;
-      border-radius: 6px;
-      border: none;
-      background: #4daaff;
-      color: #fff;
-      font-size: 1.05em;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-      box-shadow:0 2px 8px #0047;
-      transition: background .18s;
-    }
-    #promo-btn:active {background:#247ecf;}
-    #promo-error {color:#ff4a4a; margin:10px; min-height:19px; font-size:1.07em;}
-    #main-block {max-width:420px; margin:0 auto; flex:1 0 auto; display:flex; flex-direction:column; align-items:center;}
-    .hidden {display:none!important;}
-    header {width:100%; text-align:center; padding-bottom:0;margin:0 auto;}
+    .modal-feedback .bigclose svg {width:31px;height:31px;}
+    /* ---- ОСНОВНОЕ --------- */
+    #main-block {max-width:430px; margin:0 auto; flex:1 0 auto; display:flex; flex-direction:column; align-items:center;}
+    header {width:100%; text-align:center; margin:0 auto;}
     #cover-wrap {
       width: 100%; max-width: 400px; margin:24px auto 0 auto;
       aspect-ratio: 1/1; display:flex;align-items:center;justify-content:center;position:relative;
@@ -112,9 +73,33 @@
     }
     .socials-under-cover a:hover {color:#fff !important;}
     .track-list {margin:0 auto;margin-bottom:0;max-width:400px; width:100%;font-size:1.05em;color:#eee;background:none; padding: 0;}
-    .track {padding:10px 0 10px 24px;border-bottom:1px solid #394866;cursor:pointer;text-align:left;transition:background .15s;box-sizing: border-box;}
+    .track {
+      padding:10px 26px 10px 12px; /* отступ справа больше */
+      border-bottom:1px solid #394866;
+      cursor:pointer;
+      text-align:left;
+      transition:background .15s;
+      box-sizing: border-box;
+      display:flex; align-items:center; gap:9px; /* расстояние меж элементами */
+    }
     .track.current {background:#252d39;}
-    .track span.tnum {color:#8ab8fd;min-width:30px;display:inline-block;margin-right:7px;text-align:right; font-variant-numeric:tabular-nums;font-family:inherit;}
+    .track span.tnum {color:#8ab8fd;min-width:29px;display:inline-block;text-align:right; font-variant-numeric:tabular-nums;font-family:inherit;}
+    .like-star {
+      margin-right: 8px;
+      width: 22px; height: 22px; 
+      cursor: pointer;
+      user-select: none;
+      vertical-align: middle;
+      transition: filter .13s, opacity .14s;
+      opacity: 0.93;
+      display:inline-block;
+      box-sizing:content-box;
+    }
+    .like-star:hover {
+      filter: brightness(1.15) drop-shadow(0 0 8px #e0c45090);
+      opacity: 1;
+    }
+    .track-title {flex:1 1 0; min-width:0;}
     .lyrics-player-block {width:100%;margin:8px 0 3px 0;}
     #lyrics-window {
       width: 100%; background:rgba(34,34,34,0.98);
@@ -126,37 +111,60 @@
     .lyrics-scroll {width:100%; transition: transform 0.4s cubic-bezier(.71,.21,.43,.9); will-change:transform;word-break:break-word;}
     .lyrics-window-line {opacity:0.55;font-size:1.14em;transition:opacity 0.24s,color 0.24s;line-height:1.7em;text-align:center; min-height:1.7em;max-width:97%; margin:0 auto;font-weight:400;color:#eee;white-space:pre-line; user-select:none;letter-spacing:0.02em; word-break:break-word;}
     .lyrics-window-line.active {color:#E80100 !important;font-weight:bold;opacity:1;text-shadow:0 1px 7px #6e1818, 0 0 0 #fff;background:rgba(0,0,0,0.07);border-radius:8px;font-size:1.19em;z-index:2;}
-    .karaoke-controls {
-      text-align: center; margin-top: 8px; margin-bottom: 2px; display: flex;
-      flex-direction: row; gap: 30px; justify-content: center; align-items: center;font-size: 1.08em; font-weight: bold;
-    }
-    .karaoke-btn {
+    .audio-wrapper { width:100%; max-width:394px; margin:0 auto; }
+    #audio {width:100%;margin:6px auto 2px auto;display:block;max-width:395px;}
+    .player-buttons-center { display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:7px; margin-top:-1px;}
+    .karaoke-btn, .player-download-btn {
       color:#4daaff !important;
       background: none; border: none; cursor: pointer;
-      font-size:1.05em; text-transform: uppercase; font-weight:700; letter-spacing: .03em;
+      font-size:1em; text-transform: uppercase; font-weight:700; letter-spacing: .03em;
       text-decoration: underline; transition: color .18s;
-      padding: 2px 7px;
+      padding: 2px 14px;
+      margin:0 auto 0 auto;
+      display:block;
+      min-width:145px;
+      text-align:center;
     }
-    .karaoke-btn:focus, .karaoke-btn:hover {color: #fff !important;}
-    #audio {width:100%;margin:6px auto 2px auto;display:block;max-width:396px;}
-    .feedback-support-row {max-width:420px; margin:30px auto 0 auto;display:flex;justify-content:space-between;gap:8px; font-size:1em; width:100%;}
+    .player-download-btn {margin-top:0;}
+    .karaoke-btn:focus, .karaoke-btn:hover, .player-download-btn:focus, .player-download-btn:hover {color: #fff !important;}
+    /* ====== ЦЕНТРИРОВКА нижнего блока ========== */
+    .bottom-controls-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 30px auto 0 auto;
+      gap: 8px;
+      width: 100%;
+      max-width: 210px;
+    }
+    .logo-bottom {
+      max-width: 122px; width: 27vw; min-width: 80px; height:auto;
+      display: block; margin: 0 auto 10px auto !important;
+    }
+    .center-row-btns {
+      display: flex;
+      flex-direction: row;
+      gap: 14px;
+      justify-content: center;
+      margin: 0;
+      width: 100%;
+    }
     .feedback-link, .support-link {
       color:#4daaff !important; text-decoration:underline !important; font-weight:700; text-transform:uppercase;
       letter-spacing:.03em; cursor: pointer; transition: color .18s; font-size: 1em;
+      display:block; text-align:center; width:100%;
+      margin:0;
     }
     .feedback-link:hover, .support-link:hover {color: #fff !important;}
-    .logo-bottom {
-      display:block;
-      margin: 33px auto 0px auto !important;
-      max-width: 130px; width: 27vw; min-width: 80px; height:auto;
-    }
-    /* OFFLINE кнопка и прогрессбар */
     .offline-btn {
       min-width: 102px; height: 38px;
       font-size: 1.05em; font-weight: bold;
       border: none; border-radius: 9px; margin: 0 6px;
       cursor: pointer; letter-spacing: 0.07em;
       box-shadow:0 2px 8px #06000032; transition: background .2s, color .14s;
+      display:block;
+      margin:0 auto !important;
     }
     .offline-btn.online {background: #E80100; color: #fff;}
     .offline-btn.offline {background: #27b34c; color: #fff;}
@@ -172,39 +180,22 @@
       transition:width .33s;
     }
     .offline-desc {text-align:center;font-size:0.99em;margin-top:7px;opacity:0.85;}
-    .like-star {
-      float: right;
-      width: 25px;
-      height: 25px;
-      margin-left: 18px;
-      margin-top: -2px;
-      margin-bottom: -4px;
-      cursor: pointer;
-      user-select: none;
-      vertical-align: middle;
-      transition: filter .13s, opacity .14s;
-      opacity: 0.93;
-    }
-    .like-star:hover {
-      filter: brightness(1.15) drop-shadow(0 0 8px #e0c45090);
-      opacity: 1;
-    }
+    /* Адаптивность */
     @media (max-width:600px) {
-      .like-star {width: 22px; height: 22px; margin-left: 9px;}
+      .like-star {width: 18px; height: 18px; margin-right:6px;}
+      .logo-bottom {max-width:70vw;}
+      .audio-wrapper, #audio {max-width:99vw;}
+      .modal-feedback {padding:18px 7px;}
     }
-    /* ... остальной ваш media ... */
     @media (max-width:430px) {
       .promo-cover {width:81vw;height:auto;}
-      .modal-feedback {max-width:99vw;padding:23vw 3vw 8vw 3vw;}
-      .modal-feedback .bigclose {width:15vw;height:15vw;}
-      .modal-feedback .bigclose svg {width:15vw;height:15vw;}
+      .modal-feedback {max-width:99vw;}
       #cover-wrap, .socials-under-cover, .track-list, #lyrics-window {max-width:96vw;}
       #cover {border-radius:8px;}
       .logo-bottom {max-width:110px;}
       #promo-inp {width:62vw;}
       .lyrics-window-line {font-size:1em;}
       #audio {max-width:97vw;}
-      .feedback-support-row {max-width:99vw;}
     }
   </style>
 </head>
@@ -228,14 +219,16 @@
       <div id="social-links" class="socials-under-cover"></div>
     </header>
     <div class="track-list" id="track-list"></div>
-    <div class="feedback-support-row">
-      <span class="feedback-link" id="feedback-link">Обратная связь</span>
-      <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">
-        ONLINE
-      </button>
-      <a class="support-link" id="support-link" href="#" target="_blank">Поддержать</a>
+    <div class="bottom-controls-center">
+      <img class="logo-bottom" src="img/logo.png" alt="Логотип"/>
+      <span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span>
+      <a class="support-link" id="support-link" href="#" target="_blank">ПОДДЕРЖАТЬ</a>
+      <div class="center-row-btns">
+        <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">
+          ONLINE
+        </button>
+      </div>
     </div>
-    <img class="logo-bottom" src="img/logo.png" alt="Логотип"/>
   </div>
   <!-- Модальное окно обратной связи -->
   <div class="modal-bg" id="modal-feedback">
@@ -277,7 +270,6 @@
     let offlineDownloading = false;
     let offlineProgress = 0;
 
-    // --- PROMO LOGIC ---
     fetch('config.json').then(r => r.json()).then(data => {
       config = data;
       configLoaded = true;
@@ -311,6 +303,11 @@
       document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
       buildTrackList();
 
+      document.getElementById('feedback-link').onclick = openFeedbackModal;
+      document.getElementById('modal-feedback').onclick = function(e){
+        if(e.target === this) closeFeedbackModal();
+      };
+
       document.getElementById('cover-gallery-arrow-left').onclick = function(e){
         setCoverImage(coverGalleryIdx - 1);
         startCoverAutoPlay();
@@ -335,11 +332,6 @@
         startX = null;
       });
       startCoverAutoPlay();
-
-      document.getElementById('feedback-link').onclick = openFeedbackModal;
-      document.getElementById('modal-feedback').onclick = function(e){
-        if(e.target === this) closeFeedbackModal();
-      };
     }
     function setCoverImage(idx) {
       coverGalleryIdx = (idx + coverGalleryArr.length) % coverGalleryArr.length;
@@ -357,7 +349,7 @@
       ).join(" ");
       document.getElementById('social-links').innerHTML = s;
     }
-    // ---- Звезды
+    // ------------------- Звезды --------------------
     function getLiked() {
       try { return JSON.parse(localStorage.getItem('likedTracks')||"[]"); }
       catch(e){return [];}
@@ -369,7 +361,8 @@
       let liked = getLiked(); 
       return liked.indexOf(idx) !== -1;
     }
-    function toggleLike(idx) {
+    function toggleLike(idx, e) {
+      if (e) e.stopPropagation(); // чтобы не сбивать проигрывание трека!
       let liked = getLiked();
       let i = liked.indexOf(idx);
       if(i === -1) liked.push(idx);
@@ -382,13 +375,13 @@
       for (let i = 0; i < config.tracks.length; i++) {
         html += `<div class="track${i===currentTrack?' current':''}" id="trk${i}" onclick="pickAndPlayTrack(${i})">
           <span class="tnum">${(i+1).toString().padStart(2,'0')}.</span>
-          ${config.tracks[i].title}
           <img src="${isLiked(i)?'img/star.png':'img/star2.png'}"
             class="like-star"
             alt="звезда"
             title="${isLiked(i)?'Убрать из понравившихся':'Добавить в понравившиеся'}"
-            onclick="event.stopPropagation();toggleLike(${i});"
+            onclick="toggleLike(${i}, event)"
           />
+          <span class="track-title">${config.tracks[i].title}</span>
         </div>`;
         if (i === currentTrack) html += `
           <div class="lyrics-player-block" id="lyricsplayerblock"></div>
@@ -397,7 +390,7 @@
       document.getElementById('track-list').innerHTML = html;
       renderLyricsBlock();
     }
-    // --- ТРЕКСПИСОК + ПЛЕЕР + КАРАОКЕ ---
+    // --- ТРЕКСПИСОК + ПЛЕЕР + ЦЕНТР КНОПОК ---
     function buildTrackListAndRestoreSong() {
       buildTrackList();
       // можно добавить восстановление трека тут
@@ -419,12 +412,15 @@
       const block = document.getElementById('lyricsplayerblock');
       if(!block) return;
       let lyricsDiv = `
-  <div id="lyrics-window"><div class="lyrics-scroll" id="lyrics"></div></div>
-  <audio id="audio" controls preload="metadata"></audio>
-  <div class="karaoke-controls">
-    <a class="karaoke-btn" id="download-link" href="#" download>Скачать песню</a>
-    <button class="karaoke-btn" onclick="copyLyrics()">Скопировать текст</button>
-  </div>`;
+        <div id="lyrics-window"><div class="lyrics-scroll" id="lyrics"></div></div>
+        <div class="audio-wrapper">
+          <audio id="audio" controls preload="metadata"></audio>
+        </div>
+        <div class="player-buttons-center">
+          <button class="karaoke-btn" onclick="copyLyrics()">СКОПИРОВАТЬ ТЕКСТ</button>
+          <a class="player-download-btn" id="download-link" href="#" download>СКАЧАТЬ ПЕСНЮ</a>
+        </div>
+      `;
       block.innerHTML = lyricsDiv;
       const tr = config.tracks[currentTrack];
       document.getElementById('audio').src = tr.audio;
@@ -476,8 +472,7 @@
       if(e.key == 'ArrowRight') {showTrack(Math.min(currentTrack+1, config.tracks.length-1), true);}
       if(e.key == 'ArrowLeft') {showTrack(Math.max(currentTrack-1, 0), true);}
     });
-
-    // --- feedback modal ---
+    // ---------- feedback modal -----------
     let isRealTextarea = false;
     function openFeedbackModal() {
       document.getElementById('modal-feedback').classList.add('active');
@@ -526,11 +521,8 @@
       document.getElementById('send-feedback-btn').disabled = false;
     }
 
-    // ----- OFFLINE/ONLINE --- ШАГ 2
-    function getAudioSize(idx) {
-      // Используем значение из config.tracks[i].size, если нет — по дефолту 4.7 МБ
-      return config.tracks[idx].size || 4.7;
-    }
+    // ----- OFFLINE/ONLINE
+    function getAudioSize(idx) { return config.tracks[idx].size || 4.7; }
     function getDownloadStats() {
       let liked = getLiked();
       let allCount = config.tracks.length;
@@ -546,7 +538,6 @@
         likedCount, allCount
       };
     }
-
     function offlineUIClick() {
       if(offlineDownloading) return;
       if(!offlineMode) {
@@ -600,20 +591,17 @@
         <button class="offline-btn" style="width:99%;margin-top:8px;" onclick="closeOfflineModal()">Отмена</button>
       `;
     }
-    // ---- КЕШ
     function getAllAssetsForOffline(mode){
       let all = [];
       all.push('index.html','config.json','img/logo.png','img/star.png','img/star2.png','Cover.png','Cover01.png','Cover02.png','Cover03.png');
       let liked = getLiked();
-      for(let i=0; i<config.tracks.length; ++i) {
+      for(let i=0; i<config.tracks.length; ++i)
         if(mode==='all' || liked.indexOf(i)!==-1) {
           all.push(config.tracks[i].audio);
           all.push(config.tracks[i].lyrics);
         }
-      }
       return [...new Set(all)];
     }
-
     function startOfflineDownload() {
       offlineDownloading = true;
       closeOfflineModal();
@@ -622,23 +610,29 @@
       let files = getAllAssetsForOffline(mode);
       navigator.serviceWorker.ready.then(sw => {
         sw.active.postMessage({type: 'CACHE_FILES', files});
+        // Проверяем ВСЁ по факту — только после полного кеша OFFLINE включаемся!
         let stats = getDownloadStats();
         let needMb = (mode=='all'?stats.allSizeMb:stats.likedSizeMb);
-        let max = 100;
-        let progress = 0;
-        let stepTime = Math.max(75, 220-needMb*2);
-        let iv = setInterval(()=>{
-          progress += Math.max(2, Math.round(needMb/12));
-          if(progress>=max) {
-            clearInterval(iv);
+        let max = files.length, nowLoaded = 0;
+        function updateProgress(perc) {
+          setOfflineUIState('downloading', perc, needMb);
+        }
+        let checkAll = setInterval(async()=>{
+          let cache = await caches.open('album-offline-v1');
+          let ok = 0;
+          for (let src of files) {
+            let res = await cache.match(src);
+            if (res) ok++;
+          }
+          updateProgress(ok / max, needMb);
+          if(ok>=max) {
+            clearInterval(checkAll);
             offlineDownloading=false;
             offlineMode=true;
             setOfflineUIState('offline');
             offlineShowDone(needMb,mode);
-          } else {
-            setOfflineUIState('downloading',progress/max,needMb);
           }
-        }, stepTime);
+        }, 500);
       });
     }
     function setOfflineUIState(state, progress, needMb) {
