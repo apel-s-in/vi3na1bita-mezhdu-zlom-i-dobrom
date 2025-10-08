@@ -1,8 +1,232 @@
-<!-- ...строки до body не менялись... -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Витрина Разбита</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body {height: 100%;}
+    body {
+      min-height: 100vh;
+      background: #181818;
+      color: #f2f2f2;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex; flex-direction: column;
+      min-width: 100vw;
+    }
+    #promocode-block {
+      position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: #181818; z-index: 100;
+    }
+    .promo-inner {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(15,18,24, 0.98);
+      border-radius: 16px;
+      box-shadow: 0 6px 24px #0008;
+      padding: 36px 26px 32px 26px;
+      min-width: 260px;
+      min-height: 170px;
+    }
+    .promo-cover {
+      width: 256px; height: 256px; object-fit:cover; border-radius:12px;
+      box-shadow:0 4px 24px #000c; margin-bottom: 19px;
+      display:block;
+      background: #181818;
+      max-width: 75vw;
+      aspect-ratio: 1/1;
+    }
+    #promocode-block h2 {
+      margin-top: 0; margin-bottom: 19px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      font-size: 1.12em;
+      text-align:center;
+    }
+    #promo-inp {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 1.1em;
+      border: 1px solid #888;
+      outline: none;
+      background: #20242b;
+      color: #fff;
+      margin-bottom: 12px;
+      width: 180px;
+      text-align:center;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      transition: border 0.16s;
+    }
+    #promo-inp:focus {border-color:#4daaff;}
+    #promo-btn {
+      padding: 10px 22px;
+      border-radius: 6px;
+      border: none;
+      background: #4daaff;
+      color: #fff;
+      font-size: 1.05em;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      box-shadow:0 2px 8px #0047;
+      transition: background .18s;
+    }
+    #promo-btn:active {background:#247ecf;}
+    #promo-error {color:#ff4a4a; margin:10px; min-height:19px; font-size:1.07em;}
+    #main-block {max-width:420px; margin:0 auto; flex:1 0 auto; display:flex; flex-direction:column; align-items:center;}
+    .hidden {display:none!important;}
+    header {width:100%; text-align:center; padding-bottom:0;margin:0 auto;}
+    #cover-wrap {
+      width: 100%; max-width: 400px; margin:24px auto 0 auto;
+      aspect-ratio: 1/1; display:flex;align-items:center;justify-content:center;position:relative;
+    }
+    .cover-gallery-arrow {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      font-size: 2.3em; color: #fff; background: rgba(0,0,0,0.22); border: none;
+      border-radius: 50%; width: 44px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 2; transition: background .16s;
+    }
+    .cover-gallery-arrow:hover {background: rgba(60,60,120,0.40);}
+    #cover-gallery-arrow-left {left:7px;}
+    #cover-gallery-arrow-right {right:7px;}
+    #cover {
+      width:100%; max-width:100%; border-radius:12px;
+      aspect-ratio: 1/1; object-fit: cover; display:block; margin: 0;
+      box-shadow:0 6px 32px #000a; background:#202020;
+      pointer-events:none; user-drag:none;-webkit-user-drag:none;user-select:none;
+    }
+    .socials-under-cover {
+      margin: 14px auto 0 auto; width:100%;
+      max-width:398px; text-align:center; font-size:1.03em; display:flex;flex-wrap:wrap;justify-content:center;gap:12px;
+    }
+    .socials-under-cover a {
+      color:#4daaff !important;
+      text-decoration: underline !important;
+      font-weight:500;font-size:1em;
+    }
+    .socials-under-cover a:hover {color:#fff !important;}
+    .track-list {margin:0 auto;margin-bottom:0;max-width:400px; width:100%;font-size:1.05em;color:#eee;background:none; padding: 0;}
+    .track {padding:10px 0 10px 24px;border-bottom:1px solid #394866;cursor:pointer;text-align:left;transition:background .15s;box-sizing: border-box;}
+    .track.current {background:#252d39;}
+    .track span.tnum {color:#8ab8fd;min-width:30px;display:inline-block;margin-right:7px;text-align:right; font-variant-numeric:tabular-nums;font-family:inherit;}
+    .lyrics-player-block {width:100%;margin:8px 0 3px 0;}
+    #lyrics-window {
+      width: 100%; background:rgba(34,34,34,0.98);
+      border-radius: 12px; box-shadow:0 8px 24px #0007;
+      overflow:hidden; height:8.5em; position:relative;
+      display:flex;flex-direction:column;align-items:stretch;
+      justify-content:center;margin-bottom:7px;box-sizing:border-box;
+    }
+    .lyrics-scroll {width:100%; transition: transform 0.4s cubic-bezier(.71,.21,.43,.9); will-change:transform;word-break:break-word;}
+    .lyrics-window-line {opacity:0.55;font-size:1.14em;transition:opacity 0.24s,color 0.24s;line-height:1.7em;text-align:center; min-height:1.7em;max-width:97%; margin:0 auto;font-weight:400;color:#eee;white-space:pre-line; user-select:none;letter-spacing:0.02em; word-break:break-word;}
+    .lyrics-window-line.active {color:#E80100 !important;font-weight:bold;opacity:1;text-shadow:0 1px 7px #6e1818, 0 0 0 #fff;background:rgba(0,0,0,0.07);border-radius:8px;font-size:1.19em;z-index:2;}
+    .karaoke-controls {
+      text-align: center; margin-top: 8px; margin-bottom: 2px; display: flex;
+      flex-direction: row; gap: 30px; justify-content: center; align-items: center;font-size: 1.08em; font-weight: bold;
+    }
+    .karaoke-btn {
+      color:#4daaff !important;
+      background: none; border: none; cursor: pointer;
+      font-size:1.05em; text-transform: uppercase; font-weight:700; letter-spacing: .03em;
+      text-decoration: underline; transition: color .18s;
+      padding: 2px 7px;
+    }
+    .karaoke-btn:focus, .karaoke-btn:hover {color: #fff !important;}
+    #audio {width:100%;margin:6px auto 2px auto;display:block;max-width:396px;}
+    .feedback-support-row {max-width:400px; margin:30px auto 0 auto;display:flex;justify-content:space-between;gap:16px; font-size:1em; width:100%;}
+    .feedback-link, .support-link {
+      color:#4daaff !important; text-decoration:underline !important; font-weight:700; text-transform:uppercase;
+      letter-spacing:.03em; cursor: pointer; transition: color .18s; font-size: 1em;
+    }
+    .feedback-link:hover, .support-link:hover {color: #fff !important;}
+    .logo-bottom {
+      display:block;
+      margin: 33px auto 0px auto !important;
+      max-width: 130px; width: 27vw; min-width: 80px; height:auto;
+      /* filter убран — чтобы не было свечения! */
+      /* поднят чуть выше, увеличен на 20% */
+    }
+    /* feedback modal */
+    .modal-bg {
+      position: fixed; z-index: 99; left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.62); display: none; align-items: center; justify-content: center;
+    }
+    .modal-bg.active {display: flex;}
+    .modal-feedback {
+      background: #18181a; border-radius: 17px; padding: 38px 25px 28px 25px; width: 96vw; max-width: 357px;
+      box-shadow: 0 0 18px #222; color: #eee; text-align: center; position: relative;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .modal-feedback .bigclose {
+      position:absolute;
+      left:50%;top:0;transform:translate(-50%,-50%);
+      background:none; border:none; cursor:pointer;
+      width:58px; height:58px;
+      color:#aaa;
+      display:flex;align-items:center;justify-content:center;
+      z-index:20;
+      outline:none;
+    }
+    .modal-feedback .bigclose svg {
+      width: 56px; height: 56px;
+      display: block;
+    }
+    .modal-feedback .fake-textarea {
+      width:100%; min-height:84px; max-height:175px;
+      border-radius:9px; border:1.5px solid #aaaa;
+      padding:16px 10px 12px 10px; font-size:1.04em;
+      background:#18181b; color:#ccc;
+      margin:28px 0 17px 0; resize:none; outline:none;
+      display:block; box-sizing:border-box; transition:border .13s;
+      font-weight:400; font-family:inherit;
+      text-align:center;
+      cursor: pointer;
+      opacity:0.83;
+    }
+    .modal-feedback .real-textarea {
+      width:100%; min-height:84px; max-height:175px;
+      border-radius:9px; border:1.5px solid #aaa;
+      padding:16px 10px 12px 10px; font-size:1.04em;
+      background:#18181b; color:#fff;
+      margin:28px 0 17px 0; resize:none; outline:none;
+      display:block; box-sizing:border-box; transition:border .13s;
+      font-weight:500; font-family:inherit;
+      text-align:left;
+    }
+    .modal-feedback button {
+      background: #4daaff; color: #fff; border: none; border-radius: 8px; font-size: 1.10em; font-weight: 700;
+      padding: 8px 28px; cursor: pointer; margin-top: 7px; transition: background .18s;
+      box-shadow:0 3px 20px #101b;
+      letter-spacing:0.06em;
+    }
+    .modal-feedback button:disabled {background: #2c4779; color: #97b6d1; cursor: not-allowed;}
+    .modal-feedback .success-msg {color: #47ec92; font-size: .98em; margin: 9px 0 3px 0;}
+    .modal-feedback .err-msg {color: #fa4949; font-size: .96em;}
+    @media (max-width:430px) {
+      .promo-cover {width:81vw;height:auto;}
+      .modal-feedback {max-width:99vw;padding:23vw 3vw 8vw 3vw;}
+      .modal-feedback .bigclose {width:15vw;height:15vw;}
+      .modal-feedback .bigclose svg {width:15vw;height:15vw;}
+      #cover-wrap, .socials-under-cover, .track-list, #lyrics-window {max-width:96vw;}
+      #cover {border-radius:8px;}
+      .logo-bottom {max-width:110px;}
+      #promo-inp {width:62vw;}
+      .lyrics-window-line {font-size:1em;}
+      #audio {max-width:97vw;}
+      .feedback-support-row {max-width:99vw;}
+    }
+  </style>
+</head>
 <body>
   <div id="promocode-block">
     <div class="promo-inner">
-      <img class="promo-cover" src="Cover.png" alt="Cover" draggable="false"/>
+      <img class="promo-cover" src="Cover.png" alt="Обложка" draggable="false"/>
       <h2>Вход по промокоду</h2>
       <input id="promo-inp" type="text" placeholder="Введите промокод" autocomplete="off" autofocus />
       <button id="promo-btn" onclick="checkPromo()">Войти</button>
@@ -12,9 +236,9 @@
   <div id="main-block" class="hidden">
     <header>
       <div id="cover-wrap">
-        <button class="cover-gallery-arrow" id="cover-gallery-arrow-left">&#8592;</button>
+        <button class="cover-gallery-arrow" id="cover-gallery-arrow-left" title="Назад">&#8592;</button>
         <img id="cover" src="Cover.png" alt="Cover album" draggable="false"/>
-        <button class="cover-gallery-arrow" id="cover-gallery-arrow-right">&#8594;</button>
+        <button class="cover-gallery-arrow" id="cover-gallery-arrow-right" title="Вперёд">&#8594;</button>
       </div>
       <div id="social-links" class="socials-under-cover"></div>
     </header>
@@ -25,6 +249,7 @@
     </div>
     <img class="logo-bottom" src="img/logo.png" alt="Логотип"/>
   </div>
+  <!-- Модальное окно обратной связи -->
   <div class="modal-bg" id="modal-feedback">
     <div class="modal-feedback">
       <button class="bigclose" onclick="closeFeedbackModal()" title="Закрыть">
@@ -40,42 +265,15 @@
       <button onclick="sendFeedbackMsg()" id="send-feedback-btn" style="margin-bottom:8px;">Отправить</button>
     </div>
   </div>
-  <style>
-  /* Весь CSS не влезет — вставлен только diff! Найдите .logo-bottom (убран filter!), увеличен size, margin-top меньше */
-  .logo-bottom {
-    display:block;
-    margin:22px auto 0 auto !important;
-    max-width: 130px; width: 27vw; min-width: 80px; height:auto;
-  }
-  .promo-cover {
-    width:256px; height:256px; object-fit:cover; border-radius:12px; box-shadow:0 4px 24px #000c; margin-bottom: 19px; display:block; background:#181818; max-width:75vw; aspect-ratio:1/1;
-  }
-  .modal-feedback .bigclose {
-    position:absolute; left:50%; top:0; transform:translate(-50%,-50%);
-    background:none; border:none; cursor:pointer; width:58px; height:58px;
-    color:#aaa; display:flex;align-items:center;justify-content:center;z-index:20; outline:none;
-  }
-  .modal-feedback .bigclose svg {width:56px;height:56px;}
-  .modal-feedback .fake-textarea {
-    width:100%; min-height:84px; max-height:175px; border-radius:9px; border:1.5px solid #aaaa;
-    padding:16px 10px 12px 10px; font-size:1.04em; background:#18181b; color:#aaa;
-    margin:28px 0 17px 0; resize:none; outline:none; display:block; box-sizing:border-box; transition:border .13s;
-    font-weight:400; font-family:inherit; text-align:center; cursor: pointer; opacity:0.89;
-  }
-  .modal-feedback .real-textarea {
-    width:100%; min-height:84px; max-height:175px; border-radius:9px; border:1.5px solid #aaa;
-    padding:16px 10px 12px 10px; font-size:1.04em; background:#18181b; color:#fff;
-    margin:28px 0 17px 0; resize:none; outline:none; display:block; box-sizing:border-box; transition:border .13s;
-    font-weight:500; font-family:inherit; text-align:left;
-  }
-  </style>
   <script>
+    // --- State ---
     let config = null, promoPassed = false, configLoaded = false;
     let coverGalleryArr = ['Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
     let coverGalleryIdx = 0, coverAutoplay = null;
     let currentTrack = -1, currentLyrics = [];
     let autoPlayEnabled = false;
 
+    // --- PROMO LOGIC ---
     fetch('config.json').then(r => r.json()).then(data => {
       config = data;
       configLoaded = true;
@@ -102,6 +300,7 @@
       if(e.key === "Enter") checkPromo();
     });
 
+    // --- ОСНОВНОЙ ИНТЕРФЕЙС ---
     function initializeMainUi() {
       setCoverImage(coverGalleryIdx);
       buildSocials();
@@ -109,6 +308,7 @@
       document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
       buildTrackList();
 
+      // Галерея: перелистывание, свайп
       document.getElementById('cover-gallery-arrow-left').onclick = function(e){
         setCoverImage(coverGalleryIdx - 1);
         startCoverAutoPlay();
@@ -134,11 +334,14 @@
       });
       startCoverAutoPlay();
 
+      // feedback modal
       document.getElementById('feedback-link').onclick = openFeedbackModal;
       document.getElementById('modal-feedback').onclick = function(e){
         if(e.target === this) closeFeedbackModal();
       };
     }
+
+    // --- ГАЛЕРЕЯ ---
     function setCoverImage(idx) {
       coverGalleryIdx = (idx + coverGalleryArr.length) % coverGalleryArr.length;
       document.getElementById('cover').src = coverGalleryArr[coverGalleryIdx];
@@ -149,12 +352,14 @@
         setCoverImage(coverGalleryIdx + 1);
       }, 5000);
     }
+    // --- SOCIALS ---
     function buildSocials() {
       const s = config.socials.map(x =>
         `<a href="${x.url}" target="_blank">${x.title}</a>`
       ).join(" ");
       document.getElementById('social-links').innerHTML = s;
     }
+    // --- ТРЕКСПИСОК + ПЛЕЕР + КАРАОКЕ ---
     function buildTrackList() {
       let html = "";
       for (let i = 0; i < config.tracks.length; i++) {
@@ -167,6 +372,7 @@
       document.getElementById('track-list').innerHTML = html;
       renderLyricsBlock();
     }
+    // --- При первом запуске: музыка НЕ стартует, только после выбора песни пользователь ---
     function pickAndPlayTrack(n) {
       showTrack(n, true);  // true = автоплей
       autoPlayEnabled = true;
