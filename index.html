@@ -138,16 +138,16 @@
 if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js');}
 let config=null, promoPassed=false, configLoaded=false;
 let coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'];
-let coverGalleryIdx=0, coverAutoplay=null, currentTrack=-1, currentLyrics=[], autoPlayEnabled=false, offlineMode=false, offlineDownloading=false;
+let coverGalleryIdx=0, coverAutoplay=null, currentTrack=-1, currentLyrics=[], autoPlayEnabled=false, offlineDownloading=false;
+let offlineMode = localStorage.getItem('albumOfflineMode') === '1';
 
-// === Новый автологин по promoAccess для оффлайн-доступа ===
 fetch('config.json').then(r=>r.json()).then(data=>{
   config=data;configLoaded=true;
   document.getElementById('promo-inp').disabled=false;
   document.getElementById('promo-btn').disabled=false;
 
-  // Добавлено: если был промокод ранее, сразу вход
-  if(localStorage.getItem('promoAccess') === '1'){
+  // Автовход по promoAccess ТОЛЬКО в offline-режиме
+  if(!navigator.onLine && localStorage.getItem('promoAccess') === '1'){
     promoPassed = true;
     document.getElementById('main-block').classList.remove('hidden');
     document.getElementById('promocode-block').classList.add('hidden');
@@ -327,7 +327,11 @@ function startOfflineDownload(){
       let cache=await caches.open('album-offline-v1');let ok=0;
       for(let src of files){let res=await cache.match(src);if(res)ok++;}
       setOfflineUIState('downloading',ok/max,needMb);
-      if(ok>=max){clearInterval(checkAll);offlineDownloading=false;offlineMode=true;setOfflineUIState('offline');offlineShowDone(needMb,mode);}
+      if(ok>=max){
+        clearInterval(checkAll);offlineDownloading=false;offlineMode=true;
+        localStorage.setItem('albumOfflineMode', '1'); // сохраняем OFFLINE
+        setOfflineUIState('offline');offlineShowDone(needMb,mode);
+      }
     },400);
   });
 }
@@ -367,7 +371,9 @@ function offlineShowDone(mb,mode){
     <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">OK</button>`;
 }
 function confirmGoOnline(){
-  offlineMode=false;setOfflineUIState('online');closeOfflineModal();
+  offlineMode=false;
+  localStorage.removeItem('albumOfflineMode'); // очищаем offline
+  setOfflineUIState('online');closeOfflineModal();
   navigator.serviceWorker.ready.then(sw=>{sw.active.postMessage({type: 'CLEAR_CACHE'});});
 }
 </script>
