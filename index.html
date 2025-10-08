@@ -11,12 +11,14 @@
     .track-list {margin:32px auto 0 auto;max-width:400px;}
     .track {padding:12px 0;border-bottom:1px solid #444;cursor:pointer;}
     .current {background:#222;}
-    /* Караоке-окно под треклист, строго той же ширины, центр */
+    /* Новый караоке-блок — ширина и стиль как треклист */
+    .lyrics-player-block {
+      width:100%;
+      margin:10px 0 4px 0;
+    }
     #lyrics-window {
       width: 100%;
-      max-width: 400px;
-      margin: 18px auto 0 auto;
-      background: rgba(34,34,34,0.98);
+      background: rgba(34,34,34,0.97);
       border-radius: 12px;
       box-shadow: 0 8px 24px #0007;
       overflow: hidden;
@@ -26,6 +28,8 @@
       flex-direction: column;
       align-items: stretch;
       justify-content: center;
+      margin-bottom: 6px;
+      box-sizing: border-box;
     }
     .lyrics-scroll {
       width: 100%;
@@ -34,8 +38,8 @@
     }
     .lyrics-window-line {
       opacity: 0.55;
-      font-size: 1.2em;
-      transition: opacity 0.22s,color 0.22s;
+      font-size: 1.14em;
+      transition: opacity 0.24s,color 0.24s;
       line-height: 1.7em;
       text-align: center;
       min-height: 1.7em;
@@ -45,31 +49,36 @@
       color: #eee;
       white-space: pre-line;
       user-select: none;
+      letter-spacing: 0.02em;
     }
     .lyrics-window-line.active {
       color: #E80100;
-      font-weight: 700;
+      font-weight: bold;
       opacity: 1;
-      text-shadow: 0 1px 4px #500, 0 0 0 #fff;
-      background: rgba(0,0,0,0.01);
-      border-radius: 9px;
-      font-size: 1.23em;
+      text-shadow: 0 1px 7px #6e1818, 0 0 0 #fff;
+      background: rgba(0,0,0,0.07);
+      border-radius: 8px;
+      font-size: 1.19em;
       z-index: 2;
     }
-    #audio {width:100%;margin:26px auto 20px auto;display:block;max-width:700px;}
+    .karaoke-controls {
+      text-align: center;
+      margin-top: 4px;
+    }
+    .karaoke-controls a, .karaoke-controls button {
+      margin: 0 3px;
+      display:inline-block;
+    }
+    #audio {width:100%;margin:6px auto 2px auto;display:block;max-width:398px;}
     #social-links, #donate-btn {margin:16px 10px;display:inline-block}
     #cover {max-width:320px;border-radius:14px;margin:20px auto 7px;display:block;}
     #promocode-block {text-align:center;margin:40px;}
     .hidden {display:none;}
-    @media (max-width:650px) {
-      .track-list,
-      #lyrics-window {max-width:97vw;}
-      #lyrics-window {font-size:0.98em;}
-    }
     @media (max-width:430px) {
       .track-list, #lyrics-window {max-width:99vw;}
       .lyrics-window-line {font-size:1em;}
       #cover {max-width:90vw;}
+      #audio {max-width:99vw;}
     }
   </style>
 </head>
@@ -89,31 +98,21 @@
       <img id="cover" src="" alt="Обложка" />
     </header>
     <div class="track-list" id="track-list"></div>
-    <!-- Окно караоке ЛИРИК -->
-    <div id="lyrics-window" class="hidden">
-      <div class="lyrics-scroll" id="lyrics"></div>
-    </div>
-    <audio id="audio" controls preload="metadata"></audio>
-    <div style="text-align:center;">
-      <a id="download-link" href="#" download>Скачать mp3</a>
-      <button onclick="copyLyrics()">Копировать текст</button>
-      <a id="donate-btn" href="#" target="_blank">Поддержать</a>
-    </div>
-    <div id="social-links" style="text-align:center;"></div>
+    <div id="social-links" style="text-align:center;margin-top:16px"></div>
   </div>
 
   <script>
-    // -- Загрузка конфига --
+    // --- Глобальное ---
     let config, currentTrack = 0, currentLyrics = [], promoPassed = false;
+
     fetch('config.json').then(r => r.json()).then(data => {
       config = data;
       document.getElementById('logo').src = config.logo;
       document.getElementById('album-title').innerText = config.albumTitle;
       document.getElementById('artist').innerText = config.artist + " (" + config.year + ")";
-      document.getElementById('donate-btn').href = config.donateLink;
+      buildSocials();
       document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
       buildTrackList();
-      buildSocials();
       showTrack(0);
     });
 
@@ -136,25 +135,48 @@
     }
 
     function buildTrackList() {
-      const t = config.tracks.map((tr, i) =>
-        `<div class="track" onclick="showTrack(${i})" id="trk${i}">${i+1}. ${tr.title}</div>`
-      ).join("");
-      document.getElementById('track-list').innerHTML = t;
+      const list = document.createElement('div');
+      list.className = "track-list";
+      let html = "";
+      for (let i = 0; i < config.tracks.length; i++) {
+        html += `<div class="track${i===currentTrack?' current':''}" id="trk${i}" onclick="showTrack(${i})">${i+1}. ${config.tracks[i].title}</div>`;
+        // Если это выбранный текущий трек — вставляем караоке_PLAYER_блок после него!
+        if (i === currentTrack) html += `
+    <div class="lyrics-player-block" id="lyricsplayerblock"></div>
+        `;
+      }
+      document.getElementById('track-list').innerHTML = html;
+      renderLyricsBlock();
     }
 
-    function showTrack(n) {
-      currentTrack = n;
-      config.tracks.forEach((tr,i) => {
-        document.getElementById('trk'+i).classList.toggle('current', i==n);
-      });
-      const tr = config.tracks[n];
-      document.getElementById('cover').src = tr.cover ? tr.cover : config.background;
-      const audio = document.getElementById('audio');
-      audio.src = tr.audio;
+    // --- Основная функция: рендерит lyrics + плеер-блок ПОД активным треком
+    function renderLyricsBlock() {
+      const block = document.getElementById('lyricsplayerblock');
+      if(!block) return;
+
+      // --- караоке окно
+      let lyricsDiv = `<div id="lyrics-window"><div class="lyrics-scroll" id="lyrics"></div></div>
+<audio id="audio" controls preload="metadata"></audio>
+<div class="karaoke-controls">
+  <a id="download-link" href="#" download>Скачать mp3</a>
+  <button onclick="copyLyrics()">Копировать текст</button>
+  <a id="donate-btn" href="#" target="_blank">Поддержать</a>
+</div>`;
+
+      block.innerHTML = lyricsDiv;
+      document.getElementById('donate-btn').href = config.donateLink;
+      const tr = config.tracks[currentTrack];
+      document.getElementById('audio').src = tr.audio;
       document.getElementById('download-link').href = tr.audio;
+      // Загружаем лирику
       loadLyrics(tr.lyrics);
+      // Вешаем ontimeupdate
+      document.getElementById('audio').ontimeupdate = function () {
+        renderLyrics(this.currentTime);
+      };
     }
 
+    // |-- Синхронизация lyrics (караоке)
     function loadLyrics(file) {
       fetch(file).then(r=>r.json()).then(js => {
         currentLyrics = js;
@@ -162,37 +184,34 @@
       });
     }
 
-    // --- Караоке окно с анимацией и верной шириной ---
     function renderLyrics(time) {
       if (!currentLyrics || !currentLyrics.length) {
         document.getElementById('lyrics').innerHTML = "";
-        document.getElementById('lyrics-window').classList.add('hidden');
         return;
       }
-      // Найдём активную строчку
       let active = 0;
       for (let i = 0; i < currentLyrics.length; i++) {
         if (time >= currentLyrics[i].time) active = i;
       }
-      // Собираем всё для анимации
       let lines = "";
       for (let i = 0; i < currentLyrics.length; i++) {
         let cls = (i === active) ? "lyrics-window-line active" : "lyrics-window-line";
         lines += `<div class="${cls}">${currentLyrics[i].line || ""}</div>`;
       }
       document.getElementById("lyrics").innerHTML = lines;
-      document.getElementById('lyrics-window').classList.remove('hidden');
-
       // Окно из 5 строк, активная всегда третья
-      // Сдвиг scroll контейнера: (active-2) * высота_строки
-      let lyricHeight = 1.7;  // em, см. line-height
+      let lyricHeight = 1.7;
       let scrollYem = (active - 2 > 0 ? active - 2 : 0) * lyricHeight;
       document.querySelector(".lyrics-scroll").style.transform = `translateY(-${scrollYem}em)`;
     }
 
-    document.getElementById('audio').ontimeupdate = function () {
-      renderLyrics(this.currentTime);
-    };
+    function showTrack(n) {
+      currentTrack = n;
+      buildTrackList();
+      // Смена обложки, если надо
+      const tr = config.tracks[n];
+      document.getElementById('cover').src = tr.cover ? tr.cover : config.background;
+    }
 
     function copyLyrics() {
       if(!currentLyrics || !currentLyrics.length) return;
@@ -207,6 +226,9 @@
       if(e.key == 'ArrowRight') {showTrack(Math.min(currentTrack+1, config.tracks.length-1));}
       if(e.key == 'ArrowLeft') {showTrack(Math.max(currentTrack-1, 0));}
     });
+
+    // --- for onclick on new block
+    window.showTrack = showTrack;
   </script>
 </body>
 </html>
