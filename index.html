@@ -138,9 +138,9 @@
 if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js');}
 let config=null, promoPassed=false, configLoaded=false;
 let coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'];
-let coverGalleryIdx=0, coverAutoplay=null, currentTrack=-1, currentLyrics=[], autoPlayEnabled=false, offlineMode=false, offlineDownloading=false;
+let coverGalleryIdx=0, coverAutoplay=null, currentTrack=-1, currentLyrics=[], autoPlayEnabled=false;
+let offlineMode = localStorage.getItem('offlineMode') === '1', offlineDownloading = false;
 
-// Разовая авторизация: автологин, если уже был вход по промокоду
 fetch('config.json').then(r=>r.json()).then(data=>{
   config=data;configLoaded=true;
   document.getElementById('promo-inp').disabled=false;
@@ -150,6 +150,7 @@ fetch('config.json').then(r=>r.json()).then(data=>{
     document.getElementById('main-block').classList.remove('hidden');
     document.getElementById('promocode-block').classList.add('hidden');
     initializeMainUi();
+    setOfflineUIState(offlineMode ? 'offline' : 'online');
   }
 });
 function checkPromo() {
@@ -160,10 +161,11 @@ function checkPromo() {
   }
   if (val && config && val.toUpperCase() === config.promoCode.toUpperCase()) {
     promoPassed = true;
-    localStorage.setItem('promoPassed', '1'); // флаг успешной авторизации
+    localStorage.setItem('promoPassed', '1');
     document.getElementById('main-block').classList.remove('hidden');
     document.getElementById('promocode-block').classList.add('hidden');
     initializeMainUi();
+    setOfflineUIState(offlineMode ? 'offline' : 'online');
   } else {
     document.getElementById('promo-error').innerText = "Неверный промокод. Попробуйте ещё!";
   }
@@ -325,7 +327,11 @@ function startOfflineDownload(){
       let cache=await caches.open('album-offline-v1');let ok=0;
       for(let src of files){let res=await cache.match(src);if(res)ok++;}
       setOfflineUIState('downloading',ok/max,needMb);
-      if(ok>=max){clearInterval(checkAll);offlineDownloading=false;offlineMode=true;setOfflineUIState('offline');offlineShowDone(needMb,mode);}
+      if(ok>=max){
+        clearInterval(checkAll);offlineDownloading=false;offlineMode=true;
+        localStorage.setItem('offlineMode', '1');
+        setOfflineUIState('offline');offlineShowDone(needMb,mode);
+      }
     },400);
   });
 }
@@ -365,7 +371,9 @@ function offlineShowDone(mb,mode){
     <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">OK</button>`;
 }
 function confirmGoOnline(){
-  offlineMode=false;setOfflineUIState('online');closeOfflineModal();
+  offlineMode=false;
+  localStorage.removeItem('offlineMode');
+  setOfflineUIState('online');closeOfflineModal();
   navigator.serviceWorker.ready.then(sw=>{sw.active.postMessage({type: 'CLEAR_CACHE'});});
 }
 </script>
