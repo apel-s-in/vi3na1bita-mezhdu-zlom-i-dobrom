@@ -221,6 +221,26 @@
       #audio {max-width:97vw;}
       .feedback-support-row {max-width:99vw;}
     }
+    .like-star {
+  float: right;
+  width: 25px;
+  height: 25px;
+  margin-left: 18px; /* чтобы звезда не прилипала к тексту */
+  margin-top: -2px;
+  margin-bottom: -4px;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  transition: filter .13s, opacity .14s;
+  opacity: 0.93;
+}
+.like-star:hover {
+  filter: brightness(1.15) drop-shadow(0 0 8px #e0c45090);
+  opacity: 1;
+}
+@media (max-width:600px) {
+  .like-star {width: 22px; height: 22px; margin-left: 9px;}
+}
   </style>
 </head>
 <body>
@@ -360,18 +380,46 @@
       document.getElementById('social-links').innerHTML = s;
     }
     // --- ТРЕКСПИСОК + ПЛЕЕР + КАРАОКЕ ---
+    function getLiked() {
+  try {
+    return JSON.parse(localStorage.getItem('likedTracks')||"[]");
+  } catch(e){return [];}
+}
+function saveLiked(arr) {
+  localStorage.setItem('likedTracks', JSON.stringify(arr));
+}
+function isLiked(idx) {
+  let liked = getLiked(); 
+  return liked.indexOf(idx) !== -1;
+}
+function toggleLike(idx) {
+  let liked = getLiked();
+  let i = liked.indexOf(idx);
+  if(i === -1) liked.push(idx);
+  else liked.splice(i,1);
+  saveLiked(liked);
+  buildTrackList();
+}
     function buildTrackList() {
-      let html = "";
-      for (let i = 0; i < config.tracks.length; i++) {
-        html += `<div class="track${i===currentTrack?' current':''}" id="trk${i}" onclick="pickAndPlayTrack(${i})">
-          <span class="tnum">${(i+1).toString().padStart(2,'0')}.</span>${config.tracks[i].title}</div>`;
-        if (i === currentTrack) html += `
-    <div class="lyrics-player-block" id="lyricsplayerblock"></div>
-        `;
-      }
-      document.getElementById('track-list').innerHTML = html;
-      renderLyricsBlock();
-    }
+  let html = "";
+  for (let i = 0; i < config.tracks.length; i++) {
+    html += `<div class="track${i===currentTrack?' current':''}" id="trk${i}" onclick="pickAndPlayTrack(${i})">
+      <span class="tnum">${(i+1).toString().padStart(2,'0')}.</span>
+      ${config.tracks[i].title}
+      <img src="${isLiked(i)?'img/star.png':'img/star2.png'}"
+        class="like-star"
+        alt="звезда"
+        title="${isLiked(i)?'Убрать из понравившихся':'Добавить в понравившиеся'}"
+        onclick="event.stopPropagation();toggleLike(${i});"
+      />
+    </div>`;
+    if (i === currentTrack) html += `
+      <div class="lyrics-player-block" id="lyricsplayerblock"></div>
+    `;
+  }
+  document.getElementById('track-list').innerHTML = html;
+  renderLyricsBlock();
+}
     // --- При первом запуске: музыка НЕ стартует, только после выбора песни пользователь ---
     function pickAndPlayTrack(n) {
       showTrack(n, true);  // true = автоплей
