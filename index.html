@@ -2,14 +2,51 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Между Злом и Добром — Витрина Разбита</title>
+  <title>Витрина Разбита</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {background:#181818;color:#f2f2f2;font-family:sans-serif;margin:0;padding:0;}
-    header {background:rgba(0,0,0,0.85);text-align:center;padding:24px;}
-    #logo {max-height:80px;}
-    #cover {max-width:320px;border-radius:14px;margin:20px auto 7px;display:block;}
-    #social-links {margin-top:10px;}
+    header {background:none; text-align:center; padding-bottom:0;}
+    #cover-wrap {
+      width: 100%;
+      max-width: 400px;
+      margin: 24px auto 0 auto;
+      aspect-ratio: 1/1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #cover {
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      border-radius: 12px;
+      aspect-ratio: 1/1;
+      object-fit: cover;
+      display: block;
+      margin: 0;
+      box-shadow: 0 6px 32px #000a;
+    }
+    .socials-under-cover {
+      margin: 16px auto 0 auto;
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+      font-size: 1.05em;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+    }
+    .socials-under-cover a {
+      color: #4da7ff;
+      text-decoration: underline;
+      transition:color .18s;
+      font-weight: 500;
+    }
+    .socials-under-cover a:hover {
+      color: #fff;
+    }
     .track-list {margin:0 auto 0 auto;max-width:400px;}
     .track {padding:12px 0;border-bottom:1px solid #444;cursor:pointer;}
     .current {background:#222;}
@@ -76,9 +113,9 @@
     #promocode-block {text-align:center;margin:40px;}
     .hidden {display:none;}
     @media (max-width:430px) {
-      .track-list, #lyrics-window {max-width:99vw;}
+      #cover-wrap, .socials-under-cover, .track-list, #lyrics-window {max-width:94vw;}
+      #cover {border-radius:8px;}
       .lyrics-window-line {font-size:1em;}
-      #cover {max-width:90vw;}
       #audio {max-width:99vw;}
     }
   </style>
@@ -93,11 +130,10 @@
 
   <div id="main-block" class="hidden">
     <header>
-      <img id="logo" src="" alt="Логотип"/>
-      <h1 id="album-title"></h1>
-      <h2 id="artist"></h2>
-      <img id="cover" src="" alt="Обложка" />
-      <div id="social-links" style="text-align:center;"></div>
+      <div id="cover-wrap">
+        <img id="cover" src="Cover.png" alt="Cover album" />
+      </div>
+      <div id="social-links" class="socials-under-cover"></div>
     </header>
     <div class="track-list" id="track-list"></div>
   </div>
@@ -107,9 +143,8 @@
 
     fetch('config.json').then(r => r.json()).then(data => {
       config = data;
-      document.getElementById('logo').src = config.logo;
-      document.getElementById('album-title').innerText = config.albumTitle;
-      document.getElementById('artist').innerText = config.artist + " (" + config.year + ")";
+      // Загружаем cover только из Cover.png
+      document.getElementById('cover').src = 'Cover.png';
       buildSocials();
       document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
       buildTrackList();
@@ -129,7 +164,7 @@
 
     function buildSocials() {
       const s = config.socials.map(x =>
-        `<a style="margin:0 8px" href="${x.url}" target="_blank">${x.title}</a>`
+        `<a href="${x.url}" target="_blank">${x.title}</a>`
       ).join(" ");
       document.getElementById('social-links').innerHTML = s;
     }
@@ -166,14 +201,12 @@
       document.getElementById('audio').ontimeupdate = function () {
         renderLyrics(this.currentTime);
       };
-      // ===== автопроигрывание трека =====
       setTimeout(()=>{
         const audio = document.getElementById('audio');
         audio.currentTime = 0;
         let playPromise = audio.play();
         if(playPromise) playPromise.catch(()=>{});
       },250);
-      // ===== автопереход к следующей песне =====
       document.getElementById('audio').onended = function () {
         let next = (currentTrack + 1) % config.tracks.length;
         showTrack(next);
@@ -187,7 +220,6 @@
       });
     }
 
-    // Первая строка всегда в центре из 5, по мере проигрывания окно поднимается
     function renderLyrics(time) {
       if (!currentLyrics || !currentLyrics.length) {
         document.getElementById('lyrics').innerHTML = "";
@@ -214,8 +246,7 @@
     function showTrack(n) {
       currentTrack = n;
       buildTrackList();
-      const tr = config.tracks[n];
-      document.getElementById('cover').src = tr.cover ? tr.cover : config.background;
+      // Cover всегда один, ничего менять не нужно
     }
 
     function copyLyrics() {
