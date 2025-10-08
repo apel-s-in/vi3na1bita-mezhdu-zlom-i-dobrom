@@ -6,13 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
-      background:#181818;color:#f2f2f2;font-family:sans-serif;margin:0;padding:0;
-      min-height:100vh;display:flex;flex-direction:column;
+      background:#181818;color:#f2f2f2;font-family:sans-serif;margin:0;padding:0;min-height:100vh;
+      display:flex;flex-direction:column;
     }
-    header {background:none; text-align:center; padding-bottom:0;}
+    #main-block {
+      max-width:420px; margin:0 auto; flex:1 0 auto; display:flex; flex-direction:column; align-items:center;
+    }
+    header {width:100%; text-align:center; padding-bottom:0;margin:0 auto;}
     #cover-wrap {
-      width: 100%; max-width: 400px; margin: 24px auto 0 auto;
-      aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; position: relative;
+      width: 100%; max-width: 400px; margin:24px auto 0 auto;
+      aspect-ratio: 1/1; display:flex;align-items:center;justify-content:center;position:relative;
     }
     .cover-gallery-arrow {
       position: absolute; top: 50%; transform: translateY(-50%);
@@ -22,39 +25,90 @@
       cursor: pointer; z-index: 2; transition: background .16s;
     }
     .cover-gallery-arrow:hover {background: rgba(60,60,120,0.40);}
-    #cover-gallery-arrow-left {left: 7px;}
-    #cover-gallery-arrow-right {right: 7px;}
+    #cover-gallery-arrow-left {left:7px;}
+    #cover-gallery-arrow-right {right:7px;}
     #cover {
-      width: 100%; height: auto; max-width: 100%; border-radius: 12px; aspect-ratio: 1/1;
-      object-fit: cover; display: block; margin: 0; box-shadow: 0 6px 32px #000a;
-      background:#202020; transition: filter .2s; pointer-events: none; user-drag: none; -webkit-user-drag: none; user-select: none;
+      width:100%; max-width:100%; border-radius:12px;
+      aspect-ratio: 1/1; object-fit: cover; display:block; margin: 0;
+      box-shadow:0 6px 32px #000a; background:#202020;
+      transition:filter .2s;
+      pointer-events:none; user-drag:none;-webkit-user-drag:none;user-select:none;
     }
     .socials-under-cover {
-      margin: 12px auto 0 auto;text      color:#4daaff; background: none; border: none; padding:0 7px; cursor:pointer;
+      margin: 14px auto 0 auto; width:100%;
+      max-width:398px; text-align:center; font-size:1.03em; display:flex;flex-wrap:wrap;justify-content:center;gap:12px;
+    }
+    .socials-under-cover a {
+      color: #4daaff; text-decoration:underline;transition:color .18s; font-weight:500;
+      font-size:1em;
+    }
+    .socials-under-cover a:hover {color:#fff;}
+    .track-list {
+      margin:0 auto;margin-bottom:0;max-width:400px; width:100%;
+      font-size:1.05em;color:#eee;
+      background: none;
+      padding: 0;
+    }
+    .track {
+      padding:10px 0 10px 24px;
+      border-bottom:1px solid #394866;
+      cursor:pointer;text-align:left;transition:background .15s;
+      box-sizing: border-box;
+    }
+    .track.current {background:#252d39;}
+    .track span.tnum {
+      color:#8ab8fd; min-width:30px;display:inline-block;margin-right:7px;text-align:right; font-variant-numeric:tabular-nums;
+      font-family:inherit;
+    }
+    .lyrics-player-block {width:100%;margin:9px 0 2px 0;}
+    #lyrics-window {
+      width: 100%; background:rgba(34,34,34,0.98);
+      border-radius: 12px; box-shadow:0 8px 24px #0007;
+      overflow:hidden; height:8.5em; position:relative;
+      display:flex;flex-direction:column;align-items:stretch;
+      justify-content:center;margin-bottom:7px;box-sizing:border-box;
+    }
+    .lyrics-scroll {
+      width:100%; transition: transform 0.4s cubic-bezier(.71,.21,.43,.9);
+      will-change:transform;word-break:break-word;
+    }
+    .lyrics-window-line {
+      opacity:0.55;font-size:1.14em;transition:opacity 0.24s,color 0.24s;
+      line-height:1.7em;text-align:center; min-height:1.7em;
+      max-width:97%; margin:0 auto;font-weight:400;color:#eee;white-space:pre-line; user-select:none;
+      letter-spacing:0.02em; word-break:break-word;
+    }
+    .lyrics-window-line.active {
+      color:#E80100 !important;font-weight:bold;opacity:1;
+      text-shadow:0 1px 7px #6e1818, 0 0 0 #fff;
+      background:rgba(0,0,0,0.07);border-radius:8px;font-size:1.19em;z-index:2;
+    }
+    .karaoke-controls {
+      text-align:left;margin-top:4px;display:flex;flex-direction:row;gap:16px;padding-left:11px;
+    }
+    .karaoke-btn {
+      color:#4daaff; background:none; border:none; padding:0 7px; cursor:pointer;
       font-size:1em; text-transform:uppercase; font-weight:700; letter-spacing:.03em;
-      text-decoration:underline; transition:color .18s
+      text-decoration:underline; transition:color .18s;
     }
     .karaoke-btn:focus,.karaoke-btn:hover {color:#fff;}
-    #audio {width:100%;margin:6px auto 2px auto;display:block;max-width:398px;}
+    #audio {width:100%;margin:6px auto 2px auto;display:block;max-width:396px;}
     .feedback-support-row {
-      max-width:400px; margin:16px auto 0 auto;display:flex;justify-content:space-between;
-      gap:16px; font-size:1em;
+      max-width:400px; margin:17px auto 0 auto;display:flex;justify-content:space-between;
+      gap:16px; font-size:1em; width:100%;
     }
     .feedback-link, .support-link {
-      color:#4daaff; text-decoration:underline;
-      font-weight:700; text-transform:uppercase;
-      letter-spacing:.03em; cursor:pointer; transition:color.18s;
-      font-size:1em;
+      color:#4daaff;text-decoration:underline;font-weight:700;text-transform:uppercase;
+      letter-spacing:.03em;cursor:pointer;transition:color.18s;font-size:1em;
     }
     .feedback-link:hover,.support-link:hover {color:#fff;}
     .logo-bottom {
-      display:block; margin:26px auto 24px auto; max-width:110px;
-      width:23vw; min-width:64px; height:auto;
+      display:block; margin:28px auto 18px auto; max-width:108px; width:22vw; min-width:64px; height:auto;
       filter:drop-shadow(0 1px 14px #041C);
     }
     /* feedback modal */
     .modal-bg {
-      position: fixed; z-index:99; left:0;top:0;right:0;bottom:0;
+      position:fixed;z-index:99;left:0;top:0;right:0;bottom:0;
       background:rgba(0,0,0,0.62); display:none;align-items:center;justify-content:center;
     }
     .modal-bg.active {display:flex;}
@@ -69,23 +123,23 @@
     }
     .modal-feedback textarea::placeholder {color:#bbb;}
     .modal-feedback .close-modal {
-      position:absolute; right:8px;top:8px; color:#aaa; font-size:1.44em; background:none; border:none; cursor:pointer;
+      position:absolute;right:8px;top:8px;color:#aaa;font-size:1.44em;background:none;border:none;cursor:pointer;
     }
     .modal-feedback button {
-      background:#4daaff; color:#fff; border:none; border-radius:7px; font-size:1em; font-weight:700;
-      padding:7px 18px; cursor:pointer; margin-top:7px; transition:background .18s;
+      background:#4daaff;color:#fff;border:none;border-radius:7px;font-size:1em;font-weight:700;
+      padding:7px 18px;cursor:pointer;margin-top:7px;transition:background .18s;
     }
     .modal-feedback button:disabled {background:#2c4c68; color:#999;cursor:not-allowed;}
     .modal-feedback .desc {font-size:.96em;color:#aaa;margin-bottom:6px;}
     .modal-feedback .success-msg {color:#47ec92;font-size:.98em;margin:7px 0 2px 0;}
     .modal-feedback .err-msg {color:#fa4949;font-size:.96em;}
     @media (max-width:430px) {
-      #cover-wrap, .socials-under-cover, .track-list, #lyrics-window {max-width:94vw;}
+      #cover-wrap, .socials-under-cover, .track-list, #lyrics-window {max-width:96vw;}
       #cover {border-radius:8px;}
       .logo-bottom {max-width:75px;}
       .lyrics-window-line {font-size:1em;}
-      #audio {max-width:99vw;}
-      .feedback-support-row {max-width:96vw;}
+      #audio {max-width:97vw;}
+      .feedback-support-row {max-width:99vw;}
     }
   </style>
 </head>
@@ -96,7 +150,7 @@
     <button onclick="checkPromo()">Войти</button>
     <div id="promo-error" style="color:red;margin:10px;"></div>
   </div>
-  <div id="main-block" class="hidden" style="flex:1 1 auto;">
+  <div id="main-block" class="hidden">
     <header>
       <div id="cover-wrap">
         <button class="cover-gallery-arrow" id="cover-gallery-arrow-left" title="Назад">&#8592;</button>
@@ -127,18 +181,12 @@
     // ---------- Галерея ----------
     const coverGalleryArr = ['Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
     let coverGalleryIdx = 0, coverAutoplay = null;
-    // Telegram Feedback config!
-    const tgBotToken = '--- 8220068725:AAFudBsy-ZUwEcqpiW2O9yZ3VPX09j09X3w ---'; // <-- вставьте реально сюда!
-    const tgUserId = '--- 118759359 ---'; // <-- ваш Telegram user_id. (см. ниже в инструкции)
-    //const tgUsername = '@AI7eJIbCuH'; // не нужен для отправки, оставлено только для истории
 
     let config, currentTrack = 0, currentLyrics = [], promoPassed = false;
-
     fetch('config.json').then(r => r.json()).then(data => {
       config = data;
       setCoverImage(coverGalleryIdx); // Первая картинка
       buildSocials();
-      // Support-ссылка
       document.getElementById('support-link').href = config.donateLink;
       document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
       buildTrackList();
@@ -146,7 +194,7 @@
       startCoverAutoPlay();
     });
 
-    // ------ Галерея -----
+    // Галерея
     function setCoverImage(idx) {
       coverGalleryIdx = (idx + coverGalleryArr.length) % coverGalleryArr.length;
       document.getElementById('cover').src = coverGalleryArr[coverGalleryIdx];
@@ -200,7 +248,6 @@
       ).join(" ");
       document.getElementById('social-links').innerHTML = s;
     }
-
     function buildTrackList() {
       let html = "";
       for (let i = 0; i < config.tracks.length; i++) {
@@ -213,7 +260,6 @@
       document.getElementById('track-list').innerHTML = html;
       renderLyricsBlock();
     }
-
     function renderLyricsBlock() {
       const block = document.getElementById('lyricsplayerblock');
       if(!block) return;
@@ -243,14 +289,12 @@
         showTrack(next);
       };
     }
-
     function loadLyrics(file) {
       fetch(file).then(r=>r.json()).then(js => {
         currentLyrics = js;
         renderLyrics(0);
       });
     }
-
     function renderLyrics(time) {
       if (!currentLyrics || !currentLyrics.length) {
         document.getElementById('lyrics').innerHTML = "";
@@ -263,7 +307,6 @@
       let windowSize = 5;
       let start = active < 2 ? 0 : active - 2;
       let padTop = active < 2 ? 2-active : 0;
-      let padBot = 0;
       let rows = [];
       for(let p=0; p<padTop; ++p) rows.push('<div class="lyrics-window-line"></div>');
       for(let i=start; i<Math.min(currentLyrics.length, start+windowSize-padTop); i++) {
@@ -273,7 +316,6 @@
       while(rows.length<windowSize) rows.push('<div class="lyrics-window-line"></div>');
       document.getElementById("lyrics").innerHTML = rows.join("");
     }
-
     function showTrack(n) {
       currentTrack = n;
       buildTrackList();
@@ -291,7 +333,7 @@
     });
     window.showTrack = showTrack;
 
-    // ------------ Фидбек (Telegram) --------------
+    // ------------ Фидбек (Telegram) (Пример, токен не вставлять!) --------------
     function openFeedbackModal() {
       document.getElementById('modal-feedback').classList.add('active');
       document.getElementById('feedback-text').value = "";
@@ -304,7 +346,6 @@
     function closeFeedbackModal() {
       document.getElementById('modal-feedback').classList.remove('active');
     }
-    // placeholder-превращение
     document.addEventListener('DOMContentLoaded',function(){
       document.getElementById('feedback-link').onclick = openFeedbackModal;
       document.getElementById('modal-feedback').onclick = function(e){
@@ -321,7 +362,7 @@
           this.value = this.value.substr(0,200);
       });
     });
-    // Отправка сообщения боту
+    // Placeholder: Подключайте реальный прокси либо временно отключите отправку!
     function sendFeedbackMsg() {
       const textarea = document.getElementById('feedback-text');
       const errorDiv = document.getElementById('modal-feedback-error');
@@ -337,34 +378,10 @@
       textarea.disabled = true;
       document.getElementById('send-feedback-btn').disabled = true;
 
-      // Формируем метку репо и альбома
-      let repo = (window.location.pathname.split('/')[2]||'').replace('-', ' ');
-      let album = config.albumTitle ? config.albumTitle : '';
-
-      let text = `💬 [ОбратнаяСвязь]\nРепозиторий: ${repo}\nАльбом: ${album}\n\nСообщение:\n${msg}`;
-      // Send to Bot
-      fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          chat_id: tgUserId,
-          text: text
-        })
-      })
-      .then(r => r.json()).then(resp => {
-        if(resp.ok){
-          successDiv.innerText = "Спасибо! Ваше сообщение получено.";
-          setTimeout(closeFeedbackModal, 2000);
-        } else {
-          errorDiv.innerText = "Ошибка отправки, попробуйте позже.";
-        }
-        textarea.disabled = false;
-        document.getElementById('send-feedback-btn').disabled = false;
-      }).catch(()=>{
-        errorDiv.innerText = "Ошибка соединения!";
-        textarea.disabled = false;
-        document.getElementById('send-feedback-btn').disabled = false;
-      });
+      successDiv.innerText = "Спасибо! (Здесь будет интеграция Telegram)";
+      setTimeout(closeFeedbackModal, 2100);
+      textarea.disabled = false;
+      document.getElementById('send-feedback-btn').disabled = false;
     }
   </script>
 </body>
