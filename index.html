@@ -111,7 +111,6 @@
       <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button>
     </div>
   </div>
-  <!-- Модальные окна ... (не изменялись) ... -->
   <div class="modal-bg" id="modal-feedback">
     <div class="modal-feedback">
       <button class="bigclose" onclick="closeFeedbackModal()" title="Закрыть">
@@ -136,23 +135,19 @@
     </div>
   </div>
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js');
-}
-let config = null, promoPassed = false, configLoaded = false;
-let coverGalleryArr = ['Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
-let coverGalleryIdx = 0, coverAutoplay = null, currentTrack = -1, currentLyrics = [], autoPlayEnabled = false, offlineMode = false, offlineDownloading = false;
+if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js');}
+let config=null, promoPassed=false, configLoaded=false;
+let coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'];
+let coverGalleryIdx=0, coverAutoplay=null, currentTrack=-1, currentLyrics=[], autoPlayEnabled=false, offlineMode=false, offlineDownloading=false;
 
-// === ДОБАВЛЕНО: автологин по локальному флагу promoAccess ===
-fetch('config.json').then(r => r.json()).then(data => {
-  config = data;
-  configLoaded = true;
-  document.getElementById('promo-inp').disabled = false;
-  document.getElementById('promo-btn').disabled = false;
+// === Новый автологин по promoAccess для оффлайн-доступа ===
+fetch('config.json').then(r=>r.json()).then(data=>{
+  config=data;configLoaded=true;
+  document.getElementById('promo-inp').disabled=false;
+  document.getElementById('promo-btn').disabled=false;
 
-  // ---- новая проверка для оффлайн внутри on-load ----
-  const accessFlag = localStorage.getItem('promoAccess');
-  if (accessFlag === '1') {
+  // Добавлено: если был промокод ранее, сразу вход
+  if(localStorage.getItem('promoAccess') === '1'){
     promoPassed = true;
     document.getElementById('main-block').classList.remove('hidden');
     document.getElementById('promocode-block').classList.add('hidden');
@@ -160,40 +155,221 @@ fetch('config.json').then(r => r.json()).then(data => {
   }
 });
 
-function checkPromo() {
-  const val = document.getElementById('promo-inp').value.trim();
-  if (!configLoaded) {
-    document.getElementById('promo-error').innerText = "Загрузка данных... Попробуйте через пару секунд.";
-    return;
+function checkPromo(){
+  const val=document.getElementById('promo-inp').value.trim();
+  if(!configLoaded){
+    document.getElementById('promo-error').innerText="Загрузка данных... Попробуйте через пару секунд.";return;
   }
-  if (val && config && val.toUpperCase() === config.promoCode.toUpperCase()) {
-    promoPassed = true;
-    localStorage.setItem('promoAccess', '1'); // записываем флаг!
+  if(val&&config&&val.toUpperCase()===config.promoCode.toUpperCase()){
+    promoPassed=true;
+    localStorage.setItem('promoAccess','1'); // записываем флаг
     document.getElementById('main-block').classList.remove('hidden');
     document.getElementById('promocode-block').classList.add('hidden');
     initializeMainUi();
-  } else {
-    document.getElementById('promo-error').innerText = "Неверный промокод. Попробуйте ещё!";
+  }else{
+    document.getElementById('promo-error').innerText="Неверный промокод. Попробуйте ещё!";
   }
 }
-document.getElementById('promo-inp').addEventListener('keydown', function (e) { if (e.key === "Enter") checkPromo(); });
-
-/* ... остальной JS вашего index.html БЕЗ ИЗМЕНЕНИЙ ... */
-function initializeMainUi() {
-  setCoverImage(coverGalleryIdx); buildSocials();
+document.getElementById('promo-inp').addEventListener('keydown',function(e){if(e.key==="Enter")checkPromo();});
+function initializeMainUi(){
+  setCoverImage(coverGalleryIdx);buildSocials();
   document.getElementById('support-link').href = config.donateLink;
   document.body.style.background = "url(" + config.background + ") center/cover fixed #111";
   buildTrackList();
   document.getElementById('feedback-link').onclick = openFeedbackModal;
-  document.getElementById('modal-feedback').onclick = function (e) { if (e.target === this) closeFeedbackModal(); };
-  document.getElementById('cover-gallery-arrow-left').onclick = function () { setCoverImage(coverGalleryIdx - 1); startCoverAutoPlay(); };
-  document.getElementById('cover-gallery-arrow-right').onclick = function () { setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); };
-  let startX = null, el = document.getElementById('cover-wrap');
-  el.addEventListener('touchstart', function (e) { startX = e.touches[0].clientX; });
-  el.addEventListener('touchend', function (e) { if (startX === null) return; let dx = e.changedTouches[0].clientX - startX; if (Math.abs(dx) > 30) { if (dx > 0) setCoverImage(coverGalleryIdx - 1); else setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); } startX = null; });
+  document.getElementById('modal-feedback').onclick = function(e){if(e.target === this) closeFeedbackModal();};
+  document.getElementById('cover-gallery-arrow-left').onclick = function(){setCoverImage(coverGalleryIdx-1);startCoverAutoPlay();};
+  document.getElementById('cover-gallery-arrow-right').onclick = function(){setCoverImage(coverGalleryIdx+1);startCoverAutoPlay();};
+  let startX=null,el=document.getElementById('cover-wrap');
+  el.addEventListener('touchstart',function(e){startX=e.touches[0].clientX;});
+  el.addEventListener('touchend',function(e){if(startX===null)return;let dx=e.changedTouches[0].clientX-startX;if(Math.abs(dx)>30){if(dx>0)setCoverImage(coverGalleryIdx-1);else setCoverImage(coverGalleryIdx+1);startCoverAutoPlay();}startX=null;});
   startCoverAutoPlay();
 }
-/* ... и весь остальной JS без изменений ... */
+function setCoverImage(idx){coverGalleryIdx=(idx+coverGalleryArr.length)%coverGalleryArr.length;document.getElementById('cover').src=coverGalleryArr[coverGalleryIdx];}
+function startCoverAutoPlay(){if(coverAutoplay)clearInterval(coverAutoplay);coverAutoplay=setInterval(function(){setCoverImage(coverGalleryIdx+1);},5000);}
+function buildSocials(){const s=config.socials.map(x=>`<a href="${x.url}" target="_blank">${x.title}</a>`).join(" ");document.getElementById('social-links').innerHTML=s;}
+function getLiked(){try{return JSON.parse(localStorage.getItem('likedTracks')||"[]");}catch(e){return [];}}
+function saveLiked(arr){localStorage.setItem('likedTracks',JSON.stringify(arr));}
+function isLiked(idx){let liked=getLiked();return liked.indexOf(idx)!==-1;}
+function toggleLike(idx, e){if(e){e.stopPropagation();}let liked=getLiked(),i=liked.indexOf(idx);if(i===-1)liked.push(idx);else liked.splice(i,1);saveLiked(liked);buildTrackList();}
+
+function buildTrackList(){
+  let html = "";
+  for(let i=0;i<config.tracks.length;i++){
+    html += `<div class="track${i===currentTrack?' current':''}" id="trk${i}" onclick="pickAndPlayTrack(${i})">
+      <span class="tnum">${(i+1).toString().padStart(2,'0')}.</span>
+      <span class="track-title">${config.tracks[i].title}</span>
+      <img src="${isLiked(i)?'img/star.png':'img/star2.png'}" class="like-star"
+        alt="звезда" title="${isLiked(i)?'Убрать из понравившихся':'Добавить в понравившиеся'}"
+        onclick="toggleLike(${i},event)"/>
+    </div>`;
+    if(i===currentTrack) html+=`<div class="lyrics-player-block" id="lyricsplayerblock"></div>`;
+  }
+  document.getElementById('track-list').innerHTML = html;
+  renderLyricsBlock();
+}
+function pickAndPlayTrack(n){showTrack(n,true);autoPlayEnabled=true;}
+function showTrack(n,doPlay){currentTrack=n;buildTrackList();if(doPlay&&document.getElementById("audio"))setTimeout(()=>{document.getElementById("audio").play();},140);}
+function renderLyricsBlock(){
+  const block=document.getElementById('lyricsplayerblock');if(!block)return;
+  let lyricsDiv=`
+    <div id="lyrics-window"><div class="lyrics-scroll" id="lyrics"></div></div>
+    <div class="audio-wrapper">
+      <audio id="audio" controls preload="metadata"></audio>
+    </div>
+    <div class="player-buttons-center">
+      <button class="karaoke-btn" onclick="copyLyrics()">СКОПИРОВАТЬ ТЕКСТ</button>
+      <a class="player-download-btn" id="download-link" href="#" download>СКАЧАТЬ ПЕСНЮ</a>
+    </div>`;
+  block.innerHTML=lyricsDiv;
+  const tr=config.tracks[currentTrack];
+  document.getElementById('audio').src=tr.audio;
+  document.getElementById('download-link').href=tr.audio;
+  loadLyrics(tr.lyrics);
+  document.getElementById('audio').ontimeupdate=function(){renderLyrics(this.currentTime);};
+  document.getElementById('audio').onended=function(){if(autoPlayEnabled){let next=(currentTrack+1)%config.tracks.length;showTrack(next,true);}};
+}
+function loadLyrics(file){fetch(file).then(r=>r.json()).then(js=>{currentLyrics=js;renderLyrics(0);});}
+function renderLyrics(time){
+  if(!currentLyrics||!currentLyrics.length){document.getElementById('lyrics').innerHTML="";return;}
+  let active=0;for(let i=0;i<currentLyrics.length;i++)if(time>=currentLyrics[i].time)active=i;
+  let windowSize=5;let start=active<2?0:active-2;let padTop=active<2?2-active:0;let rows=[];
+  for(let p=0;p<padTop;++p)rows.push('<div class="lyrics-window-line"></div>');
+  for(let i=start;i<Math.min(currentLyrics.length,start+windowSize-padTop);i++){
+    let cls=(i===active)?'lyrics-window-line active':'lyrics-window-line';
+    rows.push(`<div class="${cls}">${currentLyrics[i]?currentLyrics[i].line:""}</div>`);
+  }
+  while(rows.length<windowSize)rows.push('<div class="lyrics-window-line"></div>');
+  document.getElementById("lyrics").innerHTML=rows.join("");
+}
+function copyLyrics(){if(!currentLyrics||!currentLyrics.length)return;const text=currentLyrics.map(x=>x.line).join('\n');navigator.clipboard.writeText(text);alert('Текст скопирован!');}
+window.addEventListener('keydown',function(e){if(!promoPassed)return;if(e.key=='ArrowRight'){showTrack(Math.min(currentTrack+1,config.tracks.length-1),true);}if(e.key=='ArrowLeft'){showTrack(Math.max(currentTrack-1,0),true);}});
+let isRealTextarea=false;
+function openFeedbackModal(){document.getElementById('modal-feedback').classList.add('active');isRealTextarea=false;document.getElementById('feedback-step').innerHTML =`
+  <div class="fake-textarea" id="fake-textarea" onclick="showRealTextarea()">
+    Опишите здесь проблему или своё пожелание для улучшения,<br>можете просто оставить свой отзыв...
+  </div>`;document.getElementById('modal-feedback-error').innerText="";document.getElementById('modal-feedback-success').innerText="";document.getElementById('send-feedback-btn').disabled=false;}
+function closeFeedbackModal(){document.getElementById('modal-feedback').classList.remove('active');}
+function showRealTextarea(){if(isRealTextarea)return;isRealTextarea=true;document.getElementById('feedback-step').innerHTML=
+  `<textarea class="real-textarea" id="feedback-text" maxlength="200" autofocus></textarea>`;
+  setTimeout(()=>{let ta=document.getElementById('feedback-text');ta.focus();ta.addEventListener('input',function(){if(this.value.length>200)this.value=this.value.substr(0,200);});},20);}
+function sendFeedbackMsg(){
+  let msg="";if(isRealTextarea){let ta=document.getElementById('feedback-text');msg=ta.value.trim();}else return;
+  const errorDiv=document.getElementById('modal-feedback-error');
+  const successDiv=document.getElementById('modal-feedback-success');
+  errorDiv.innerText="";successDiv.innerText="";
+  if(msg.length<5){errorDiv.innerText="Напишите хотя бы пару слов!";return;}
+  document.getElementById('send-feedback-btn').disabled=true;
+  successDiv.innerText="Спасибо! (Отправка реализуется на сервере)";
+  setTimeout(closeFeedbackModal,2100);
+  document.getElementById('send-feedback-btn').disabled=false;}
+function getAudioSize(idx){return config.tracks[idx].size||4.7;}
+function getDownloadStats(){
+  let liked=getLiked();let allCount=config.tracks.length;let likedCount=liked.length;
+  let allMb=0,likeMb=0;for(let i=0;i<allCount;++i){allMb+=getAudioSize(i);if(liked.indexOf(i)!==-1)likeMb+=getAudioSize(i);}
+  return{allSizeMb:Math.round(allMb*10)/10,likedSizeMb:Math.round(likeMb*10)/10,likedCount,allCount};
+}
+function offlineUIClick(){
+  if(offlineDownloading)return;
+  if(!offlineMode){
+    document.getElementById('modal-offline').classList.add('active');
+    document.getElementById('offline-step').innerHTML=`
+      <div style="font-size:1.09em;font-weight:700;margin-bottom:10px;">Оффлайн-режим</div>
+      <div style="margin-bottom:16px;">Для работы без интернета нужно скачать музыку на устройство.<br>
+      Это займёт <b>место</b> и время.<br><div style="color:#e80100;margin:5px 0 0 0;">
+      ⚠ На некоторых устройствах (iOS Safari, старые телефоны) размер может быть ограничен (~50-150 МБ).
+      </div><div style="margin:8px 0 0 0;opacity:.7;">После скачивания вы сможете слушать только OFFLINE-файлы без интернет-соединения.</div></div>
+      <button class="offline-btn online" style="width:99%;margin-bottom:7px;" onclick="nextOfflineChoice()">Согласен</button>
+      <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">Отмена</button>`;
+  }else{
+    document.getElementById('modal-offline').classList.add('active');
+    document.getElementById('offline-step').innerHTML=`
+      <div style="font-size:1.10em;font-weight:700;margin-bottom:15px;">Вернуться в ONLINE?</div>
+      <div style="margin-bottom:20px;">Все скачанные файлы будут удалены.<br>
+      Очищается место на устройстве.<br>Песни снова будут доступны только через интернет.
+      </div>
+      <button class="offline-btn online" style="width:99%;" onclick="confirmGoOnline()">Удалить файлы и возврат ONLINE</button>
+      <button class="offline-btn" style="width:99%;margin-top:7px;" onclick="closeOfflineModal()">Отмена</button>`;
+  }
+}
+function closeOfflineModal(){document.getElementById('modal-offline').classList.remove('active');}
+function nextOfflineChoice(){
+  let d=getDownloadStats();
+  document.getElementById('offline-step').innerHTML=`
+    <div style="font-size:1.10em;font-weight:700;margin-bottom:13px;">Что скачать?</div>
+    <div style="text-align:left;">
+      <label style="display:block;margin:8px 0;">
+        <input type="radio" name="offline-mode" value="all" checked>
+        Весь диск (${d.allCount} песен, ${d.allSizeMb} МБ)
+      </label>
+      <label style="display:block;margin:8px 0;">
+        <input type="radio" name="offline-mode" value="liked">
+        Только понравившиеся (${d.likedCount||0} песен, ${d.likedSizeMb||0} МБ)
+      </label>
+    </div>
+    <button class="offline-btn online" style="width:99%;margin-top:12px;" onclick="startOfflineDownload()">Скачать выбранное</button>
+    <button class="offline-btn" style="width:99%;margin-top:8px;" onclick="closeOfflineModal()">Отмена</button>`;
+}
+function getAllAssetsForOffline(mode){
+  let all=['index.html','config.json','img/logo.png','img/star.png','img/star2.png','Cover.png','Cover01.png','Cover02.png','Cover03.png'];
+  let liked=getLiked();
+  for(let i=0;i<config.tracks.length;++i)
+    if(mode==='all'||liked.indexOf(i)!==-1){all.push(config.tracks[i].audio);all.push(config.tracks[i].lyrics);}
+  return[...new Set(all)];
+}
+function startOfflineDownload(){
+  offlineDownloading=true;closeOfflineModal();setOfflineUIState('downloading');
+  let mode=document.querySelector('input[name="offline-mode"]:checked').value;let files=getAllAssetsForOffline(mode);
+  navigator.serviceWorker.ready.then(async sw=>{
+    sw.active.postMessage({type:'CACHE_FILES',files});
+    let stats=getDownloadStats(),needMb=(mode=='all'?stats.allSizeMb:stats.likedSizeMb),max=files.length;
+    let checkAll=setInterval(async()=>{
+      let cache=await caches.open('album-offline-v1');let ok=0;
+      for(let src of files){let res=await cache.match(src);if(res)ok++;}
+      setOfflineUIState('downloading',ok/max,needMb);
+      if(ok>=max){clearInterval(checkAll);offlineDownloading=false;offlineMode=true;setOfflineUIState('offline');offlineShowDone(needMb,mode);}
+    },400);
+  });
+}
+function setOfflineUIState(state,progress,needMb){
+  let btn=document.getElementById('offline-btn');
+  if(state==='downloading'){
+    btn.disabled=true;btn.className='offline-btn offline';btn.innerHTML='OFFLINE';
+    if(!document.getElementById('offline-progr-div')){let div=document.createElement('div');div.id='offline-progr-div';
+      div.innerHTML=`<div class="offline-progress">
+          <div class="offline-progress-bar" id="offline-progress-bar" style="width:0%;"></div>
+        </div>
+        <div class="offline-desc" id="offline-desc"></div>`;
+      btn.parentElement.insertBefore(div,btn.nextSibling);}
+    document.getElementById('offline-progress-bar').style.width=Math.round((progress||0)*100)+'%';
+    document.getElementById('offline-desc').innerText="Загружается приблизительно "+(needMb||0)+" МБ ...";
+  }
+  if(state==='offline'){
+    btn.disabled=false;btn.className='offline-btn offline';btn.innerHTML='OFFLINE';
+    let div=document.getElementById('offline-progr-div');if(div)div.remove();
+  }
+  if(state==='online'){
+    btn.disabled=false;btn.className='offline-btn online';btn.innerHTML='ONLINE';
+    let div=document.getElementById('offline-progr-div');if(div)div.remove();
+  }
+}
+function offlineShowDone(mb,mode){
+  document.getElementById('modal-offline').classList.add('active');
+  document.getElementById('offline-step').innerHTML=`
+    <div style="font-size:1.18em;font-weight:700;margin-bottom:12px;">Все файлы скачаны!</div>
+    <div style="margin-bottom:13px;">
+      <b>${mode=="all"?"Весь диск":"Понравившиеся треки"}</b><br>
+      Доступны без интернета.<br>
+      Загружено примерно <b>${mb} МБ</b>.<br>
+      <div style="color:#888;font-size:.98em;margin:5px 0 0 0;">
+      Обратите внимание: если кеш браузера<br>будет очищен — нужно будет скачать заново!</div>
+    </div>
+    <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">OK</button>`;
+}
+function confirmGoOnline(){
+  offlineMode=false;setOfflineUIState('online');closeOfflineModal();
+  navigator.serviceWorker.ready.then(sw=>{sw.active.postMessage({type: 'CLEAR_CACHE'});});
+}
 </script>
 </body>
 </html>
