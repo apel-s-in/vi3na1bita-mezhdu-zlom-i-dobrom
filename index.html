@@ -13,7 +13,6 @@
     .track-list {margin:0 auto 0 auto;max-width:400px;}
     .track {padding:12px 0;border-bottom:1px solid #444;cursor:pointer;}
     .current {background:#222;}
-    /* Караоке блок */
     .lyrics-player-block {
       width:100%;
       margin:10px 0 4px 0;
@@ -104,7 +103,6 @@
   </div>
 
   <script>
-    // --- Глобальное ---
     let config, currentTrack = 0, currentLyrics = [], promoPassed = false;
 
     fetch('config.json').then(r => r.json()).then(data => {
@@ -137,8 +135,6 @@
     }
 
     function buildTrackList() {
-      const list = document.createElement('div');
-      list.className = "track-list";
       let html = "";
       for (let i = 0; i < config.tracks.length; i++) {
         html += `<div class="track${i===currentTrack?' current':''}" id="trk${i}" onclick="showTrack(${i})">${i+1}. ${config.tracks[i].title}</div>`;
@@ -151,7 +147,6 @@
       renderLyricsBlock();
     }
 
-    // --- Основная функция: рендерит lyrics + плеер-блок ПОД активным треком
     function renderLyricsBlock() {
       const block = document.getElementById('lyricsplayerblock');
       if(!block) return;
@@ -172,9 +167,16 @@
       document.getElementById('audio').ontimeupdate = function () {
         renderLyrics(this.currentTime);
       };
+      // ==== Воспроизведение автоматически ====
+      setTimeout(()=>{
+        const audio = document.getElementById('audio');
+        audio.currentTime = 0;
+        let playPromise = audio.play();
+        if(playPromise) playPromise.catch(()=>{});
+      },250);
     }
 
-    // Загружаем lyrics ПО ВСЕМУ ТЕКСТУ
+    // Загружаем lyrics
     function loadLyrics(file) {
       fetch(file).then(r=>r.json()).then(js => {
         currentLyrics = js;
@@ -182,6 +184,7 @@
       });
     }
 
+    // ГЛАВНОЕ! Первая строка всегда по центру (3-я в окошке), над ней — две пустые строки, под — текст, потом при воспроизведении поднимается
     function renderLyrics(time) {
       if (!currentLyrics || !currentLyrics.length) {
         document.getElementById('lyrics').innerHTML = "";
@@ -191,19 +194,20 @@
       for (let i = 0; i < currentLyrics.length; i++) {
         if (time >= currentLyrics[i].time) active = i;
       }
-      // окно из 5 строк: берем 2 вверх от активной, активная, 2 вниз
       let windowSize = 5;
-      let start = Math.max(0, active - 2);
-      let end = Math.min(currentLyrics.length, start + windowSize);
-      if (end - start < windowSize) start = Math.max(0, end - windowSize);
-
-      let lines = '';
-      for(let i = start; i < end; i++) {
-        let cls = (i === active) ? "lyrics-window-line active" : "lyrics-window-line";
-        lines += `<div class="${cls}">${currentLyrics[i] ? currentLyrics[i].line : ""}</div>`;
+      // Специально до старта песни держим первую красную — по центру, сверху пустые
+      let start = active < 2 ? 0 : active - 2;
+      let padTop = active < 2 ? 2-active : 0;
+      let padBot = 0;
+      let rows = [];
+      for(let p=0; p<padTop; ++p) rows.push('<div class="lyrics-window-line"></div>');
+      for(let i=start; i<Math.min(currentLyrics.length, start+windowSize-padTop); i++) {
+        let cls = (i===active) ? 'lyrics-window-line active' : 'lyrics-window-line';
+        rows.push(`<div class="${cls}">${currentLyrics[i]?currentLyrics[i].line:""}</div>`);
       }
-      document.getElementById("lyrics").innerHTML = lines;
-      // Для адаптивности всегда используем word-break + max-width + text-align:center
+      // добираем пустыми до 5 строк вниз если в конце песни
+      while(rows.length<windowSize) rows.push('<div class="lyrics-window-line"></div>');
+      document.getElementById("lyrics").innerHTML = rows.join("");
     }
 
     function showTrack(n) {
@@ -220,7 +224,6 @@
       alert('Текст скопирован!');
     }
 
-    // Переключение треков стрелками (лево/право)
     window.addEventListener('keydown', function(e){
       if(!promoPassed) return;
       if(e.key == 'ArrowRight') {showTrack(Math.min(currentTrack+1, config.tracks.length-1));}
