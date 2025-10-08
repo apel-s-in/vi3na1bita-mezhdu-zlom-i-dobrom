@@ -1,45 +1,43 @@
-// Ключ для кэша (обновляйте, если меняется версия!)
 const CACHE_NAME = 'album-offline-v1';
+self.__offlineMode = false;
 
-// Какие режимы умеем (переменная контролируется страницей)
-let offlineAssets = []; // Изменяется из страницы
-
+// install
 self.addEventListener('install', event => {
-  // Не кэшируем ничего при установке!
   self.skipWaiting();
 });
-
 self.addEventListener('activate', event => {
   clients.claim();
 });
 
-// Получаем список файлов для оффлайна (от страницы)
 self.addEventListener('message', event => {
   if(event.data && event.data.type === 'CACHE_FILES') {
     addOfflineAssets(event.data.files);
+    self.__offlineMode = true;
   }
   if(event.data && event.data.type === 'CLEAR_CACHE') {
     clearOfflineCache();
+    self.__offlineMode = false;
   }
 });
 
-self.addEventListener('fetch', event => {
-  // Если оффлайн-режим — отдаём из кэша
+self.addEventListener('fetch', function(event) {
   if(self.__offlineMode && event.request.method === 'GET') {
     event.respondWith(
-      caches.match(event.request).then(resp => resp || fetch(event.request))
+      caches.open(CACHE_NAME).then(cache=>cache.match(event.request)).then(resp=>resp||fetch(event.request))
     );
   }
 });
 
-// Фичи для страницы:
 async function addOfflineAssets(files) {
   const cache = await caches.open(CACHE_NAME);
-  await cache.addAll(files);
-  self.__offlineMode = true;
+  for(let url of files) {
+    try {
+      await cache.add(url);
+    } catch(e){
+      // файл не удалось закешировать (например, offline?)
+    }
+  }
 }
 async function clearOfflineCache() {
   await caches.delete(CACHE_NAME);
-  self.__offlineMode = false;
 }
-
