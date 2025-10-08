@@ -1,14 +1,12 @@
 const CACHE_NAME = 'album-offline-v1';
 self.__offlineMode = false;
 
-// install
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
 self.addEventListener('activate', event => {
   clients.claim();
 });
-
 self.addEventListener('message', event => {
   if(event.data && event.data.type === 'CACHE_FILES') {
     addOfflineAssets(event.data.files);
@@ -19,7 +17,6 @@ self.addEventListener('message', event => {
     self.__offlineMode = false;
   }
 });
-
 self.addEventListener('fetch', function(event) {
   if(self.__offlineMode && event.request.method === 'GET') {
     event.respondWith(
@@ -27,15 +24,10 @@ self.addEventListener('fetch', function(event) {
     );
   }
 });
-
 async function addOfflineAssets(files) {
   const cache = await caches.open(CACHE_NAME);
   for(let url of files) {
-    try {
-      await cache.add(url);
-    } catch(e){
-      // файл не удалось закешировать (например, offline?)
-    }
+    try { await cache.add(url); } catch(e){}
   }
 }
 async function clearOfflineCache() {
