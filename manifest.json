@@ -1,8 +1,10 @@
 {
   "name": "Витрина Разбита - Между Злом и Добром",
   "short_name": "Витрина",
-  "description": "Официальная витрина альбома. Работает офлайн, удобно как приложение.",
+  "description": "Официальный альбом 2025. Работает офлайн как приложение.",
+  "version": "6.2.0",
   "start_url": "./index.html?utm_source=pwa",
+  "id": "/?homescreen=1",
   "display": "standalone",
   "background_color": "#181818",
   "theme_color": "#181818",
@@ -11,7 +13,9 @@
   "lang": "ru",
   "dir": "ltr",
   "categories": ["music", "entertainment"],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
   "prefer_related_applications": false,
+  "related_applications": [],
   "shortcuts": [
     {
       "name": "Избранные треки",
@@ -19,6 +23,21 @@
       "description": "Открыть избранные треки",
       "url": "./index.html?view=favorites",
       "icons": [{ "src": "img/star.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Случайный трек",
+      "short_name": "Shuffle",
+      "description": "Воспроизвести в случайном порядке",
+      "url": "./index.html?shuffle=1",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "Cover.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "label": "Главный экран приложения"
     }
   ],
   "icons": [
@@ -40,5 +59,15 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "./index.html",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
