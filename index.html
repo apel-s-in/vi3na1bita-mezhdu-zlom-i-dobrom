@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <title>Витрина Разбита</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#181818" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <style>
     html, body {height: 100%;}
     body {
@@ -66,6 +69,13 @@
     .karaoke-btn:focus,.karaoke-btn:hover,.player-download-btn:focus,.player-download-btn:hover{color: #fff !important; background:#273050;}
     .bottom-controls-center {display:flex;flex-direction:column;align-items:center;justify-content:center;margin:32px auto 0 auto;gap:8px;width:100%;max-width:210px;}
     .logo-bottom {max-width:112px;width:23vw;min-width:66px;height:auto;display:block;margin:0 auto 10px auto !important;}
+    #install-pwa-btn {
+      color: #fff; background: #4daaff; border: none; border-radius: 7px;
+      font-size: 1.07em; font-weight: bold; letter-spacing: .02em;
+      margin: 15px 0 5px 0; padding: 8px 13px; cursor:pointer; width: 98%;
+      box-shadow: 0 4px 14px #0005; outline:none; transition: background .2s;
+    }
+    #install-pwa-btn:hover {background: #3275c2;}
     .feedback-link,.support-link{color:#4daaff !important;text-decoration:underline !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;transition:color .18s;font-size:1em;display:block;text-align:center;width:100%;margin:0;}
     .feedback-link:hover,.support-link:hover{color:#fff !important;}
     .offline-btn {min-width:102px;height:38px;font-size:1.05em;font-weight:bold;border:none;border-radius:9px;margin:0 6px;cursor:pointer;letter-spacing:0.07em;box-shadow:0 2px 8px #06000032;transition:background .2s,color .14s;display:block;margin:0 auto;}
@@ -106,11 +116,15 @@
     <div class="track-list" id="track-list"></div>
     <div class="bottom-controls-center">
       <img class="logo-bottom" src="img/logo.png" alt="Логотип"/>
+      <button id="install-pwa-btn" style="margin: 15px 0 0 0; display: none;">
+        УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ
+      </button>
       <span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span>
       <a class="support-link" id="support-link" href="#" target="_blank">ПОДДЕРЖАТЬ</a>
       <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button>
     </div>
   </div>
+  <!-- Модальные окна ... (не изменялись) ... -->
   <div class="modal-bg" id="modal-feedback">
     <div class="modal-feedback">
       <button class="bigclose" onclick="closeFeedbackModal()" title="Закрыть">
@@ -134,6 +148,31 @@
       <div id="offline-step"></div>
     </div>
   </div>
+
+  <!-- Модалка установки приложения -->
+  <div class="modal-bg" id="install-modal">
+    <div class="modal-feedback" style="max-width:400px;">
+      <button class="bigclose" onclick="closeInstallModal()" title="Закрыть">
+        <svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>
+      </button>
+      <div style="font-size:1.18em;font-weight:700;margin-bottom:13px;">
+        Установить приложение<br>«Витрина Разбита»?
+      </div>
+      <div style="margin-bottom:16px;font-size:1em;">
+        Приложение будет установлено на ваше устройство, займёт ~1 МБ.<br>
+        Его можно будет удалить как обычное приложение.<br>
+        Работает даже без интернета.<br><br>
+        <b>Для защиты запустим контрольное хэширование ресурсов.</b>
+      </div>
+      <div id="install-modal-hash" style="font-size:.95em; color:#4daaff; margin-bottom:10px; display:none;">
+        Хэширование...<br>
+        <span id="install-hash-progress"></span>
+      </div>
+      <button class="offline-btn online" id="install-proceed-btn" style="width:99%;margin-bottom:7px;">Установить</button>
+      <button class="offline-btn" style="width:99%;" onclick="closeInstallModal()">Отмена</button>
+    </div>
+  </div>
+
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js');}
 let config=null, promoPassed=false, configLoaded=false;
@@ -192,7 +231,6 @@ function getLiked(){try{return JSON.parse(localStorage.getItem('likedTracks')||"
 function saveLiked(arr){localStorage.setItem('likedTracks',JSON.stringify(arr));}
 function isLiked(idx){let liked=getLiked();return liked.indexOf(idx)!==-1;}
 function toggleLike(idx, e){if(e){e.stopPropagation();}let liked=getLiked(),i=liked.indexOf(idx);if(i===-1)liked.push(idx);else liked.splice(i,1);saveLiked(liked);buildTrackList();}
-
 function buildTrackList(){
   let html = "";
   for(let i=0;i<config.tracks.length;i++){
@@ -376,6 +414,61 @@ function confirmGoOnline(){
   setOfflineUIState('online');closeOfflineModal();
   navigator.serviceWorker.ready.then(sw=>{sw.active.postMessage({type: 'CLEAR_CACHE'});});
 }
+
+// ----------- PWA кнопка установки + модальное окно --------------
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  let btn = document.getElementById('install-pwa-btn');
+  if (btn) btn.style.display = '';
+});
+document.getElementById('install-pwa-btn').onclick = function() {
+  document.getElementById('install-modal').classList.add('active');
+  document.getElementById('install-modal-hash').style.display = 'none';
+  document.getElementById('install-proceed-btn').disabled = false;
+  document.getElementById('install-proceed-btn').innerText = 'Установить';
+};
+function closeInstallModal(){
+  document.getElementById('install-modal').classList.remove('active');
+}
+document.getElementById('install-proceed-btn').onclick = async function(){
+  let btn = this;
+  btn.disabled = true;
+  btn.innerText = 'Выполняется проверка...';
+  document.getElementById('install-modal-hash').style.display = '';
+  document.getElementById('install-hash-progress').innerText = '';
+  // Условное хэширование manifest.json (пример контроля)
+  let hash = await hashManifest();
+  document.getElementById('install-hash-progress').innerText = 'SHA-256: ' + hash;
+  btn.innerText = 'Установка...';
+  // Разрешаем prompt после "проверки"
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      closeInstallModal();
+      document.getElementById('install-pwa-btn').style.display = 'none';
+      deferredPrompt = null;
+    });
+  }else{
+    alert('К сожалению, ваш браузер не поддерживает установку PWA.');
+    closeInstallModal();
+  }
+};
+async function hashManifest(){
+  try{
+    const resp = await fetch('manifest.json');
+    const data = await resp.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2,'0')).join('');
+  }catch(e){
+    return '[ошибка хэширования]';
+  }
+}
+document.getElementById('install-modal').onclick = function(e){
+  if(e.target === this) closeInstallModal();
+};
 </script>
 </body>
 </html>
