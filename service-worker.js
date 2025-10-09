@@ -18,3 +18,4 @@ async function addOfflineAssets(files) {
   for(let url of files) { try { await cache.add(url); } catch(e){} }
 }
 async function clearOfflineCache() { await caches.delete(CACHE_NAME);}
+
