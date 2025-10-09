@@ -1,8 +1,7 @@
 {
-  "albumTitle": "Между Злом и Добром",
+  "albumName": "Между Злом и Добром",
   "artist": "Витрина Разбита",
-  "year": "2025",
-  "logo": "img/logo.png",
+  "albumYear": 2025,
   "background": "img/bg.jpg",
   "promoCode": "VITRINA2025",
   "donateLink": "https://yoomoney.ru/to/ВАШ_СЧЁТ_ЯНДЕКС",
@@ -17,7 +16,6 @@
       "title": "Рулетка",
       "audio": "audio/01.mp3",
       "lyrics": "lyrics/01.json",
-      "cover": "img/tr1.jpg",
       "size": 12.10,
       "fulltext": "lyrics/01.txt"
     },
@@ -25,7 +23,6 @@
       "title": "Дыхание 24/7",
       "audio": "audio/02.mp3",
       "lyrics": "lyrics/02.json",
-      "cover": "img/tr2.jpg",
       "size": 13.58,
       "fulltext": "lyrics/02.txt"
     },
@@ -33,7 +30,6 @@
       "title": "Витрина разбита",
       "audio": "audio/03.mp3",
       "lyrics": "lyrics/03.json",
-      "cover": "img/tr3.jpg",
       "size": 12.64,
       "fulltext": "lyrics/03.txt"
     },
@@ -41,7 +37,6 @@
       "title": "Кошки-мышки",
       "audio": "audio/04.mp3",
       "lyrics": "lyrics/04.json",
-      "cover": "img/tr4.jpg",
       "size": 12.49,
       "fulltext": "lyrics/04.txt"
     },
@@ -49,7 +44,6 @@
       "title": "Всё включено",
       "audio": "audio/05.mp3",
       "lyrics": "lyrics/05.json",
-      "cover": "img/tr5.jpg",
       "size": 12.03,
       "fulltext": "lyrics/05.txt"
     },
@@ -57,7 +51,6 @@
       "title": "Вырвать сердце",
       "audio": "audio/06.mp3",
       "lyrics": "lyrics/06.json",
-      "cover": "img/tr6.jpg",
       "size": 12.45,
       "fulltext": "lyrics/06.txt"
     },
@@ -65,7 +58,6 @@
       "title": "Все там будем",
       "audio": "audio/07.mp3",
       "lyrics": "lyrics/07.json",
-      "cover": "img/tr7.jpg",
       "size": 13.14,
       "fulltext": "lyrics/07.txt"
     },
@@ -73,7 +65,6 @@
       "title": "Зачем цветы с корнями вырываем",
       "audio": "audio/08.mp3",
       "lyrics": "lyrics/08.json",
-      "cover": "img/tr8.jpg",
       "size": 12.83,
       "fulltext": "lyrics/08.txt"
     },
@@ -81,7 +72,6 @@
       "title": "Память",
       "audio": "audio/09.mp3",
       "lyrics": "lyrics/09.json",
-      "cover": "img/tr9.jpg",
       "size": 12.44,
       "fulltext": "lyrics/09.txt"
     },
@@ -89,7 +79,6 @@
       "title": "Маша",
       "audio": "audio/10.mp3",
       "lyrics": "lyrics/10.json",
-      "cover": "img/tr10.jpg",
       "size": 15.37,
       "fulltext": "lyrics/10.txt"
     },
@@ -97,7 +86,6 @@
       "title": "Остановись, Планета",
       "audio": "audio/11.mp3",
       "lyrics": "lyrics/11.json",
-      "cover": "img/tr11.jpg",
       "size": 12.35,
       "fulltext": "lyrics/11.txt"
     },
@@ -105,7 +93,6 @@
       "title": "Прости, я не фейк",
       "audio": "audio/12.mp3",
       "lyrics": "lyrics/12.json",
-      "cover": "img/tr12.jpg",
       "size": 10.64,
       "fulltext": "lyrics/12.txt"
     },
@@ -113,7 +100,6 @@
       "title": "Оля у моря",
       "audio": "audio/13.mp3",
       "lyrics": "lyrics/13.json",
-      "cover": "img/tr13.jpg",
       "size": 12.32,
       "fulltext": "lyrics/13.txt"
     },
@@ -121,7 +107,6 @@
       "title": "Лови свой миг",
       "audio": "audio/14.mp3",
       "lyrics": "lyrics/14.json",
-      "cover": "img/tr14.jpg",
       "size": 12.57,
       "fulltext": "lyrics/14.txt"
     },
@@ -129,7 +114,6 @@
       "title": "Призрак",
       "audio": "audio/15.mp3",
       "lyrics": "lyrics/15.json",
-      "cover": "img/tr15.jpg",
       "size": 12.83,
       "fulltext": "lyrics/15.txt"
     },
@@ -137,7 +121,6 @@
       "title": "Между злом и добром",
       "audio": "audio/16.mp3",
       "lyrics": "lyrics/16.json",
-      "cover": "img/tr16.jpg",
       "size": 11.75,
       "fulltext": "lyrics/16.txt"
     }
