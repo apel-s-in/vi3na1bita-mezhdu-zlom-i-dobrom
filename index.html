@@ -7,6 +7,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#181818" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     html, body {height: 100%;}
     body {
@@ -69,13 +70,15 @@
     .karaoke-btn:focus,.karaoke-btn:hover,.player-download-btn:focus,.player-download-btn:hover{color: #fff !important; background:#273050;}
     .bottom-controls-center {display:flex;flex-direction:column;align-items:center;justify-content:center;margin:32px auto 0 auto;gap:8px;width:100%;max-width:210px;}
     .logo-bottom {max-width:112px;width:23vw;min-width:66px;height:auto;display:block;margin:0 auto 10px auto !important;}
-    #install-pwa-btn {
+    #install-pwa-btn, #download-album-main {
       color: #fff; background: #4daaff; border: none; border-radius: 7px;
       font-size: 1.07em; font-weight: bold; letter-spacing: .02em;
       margin: 15px 0 5px 0; padding: 8px 13px; cursor:pointer; width: 98%;
       box-shadow: 0 4px 14px #0005; outline:none; transition: background .2s;
     }
-    #install-pwa-btn:hover {background: #3275c2;}
+    #download-album-main { background: #E80100; font-size: 1.09em; margin-bottom: 8px; }
+    #install-pwa-btn:hover, #download-album-main:hover {background: #3275c2;}
+    #download-album-main:hover { background: #c60000; }
     .feedback-link,.support-link{color:#4daaff !important;text-decoration:underline !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;transition:color .18s;font-size:1em;display:block;text-align:center;width:100%;margin:0;}
     .feedback-link:hover,.support-link:hover{color:#fff !important;}
     .offline-btn {min-width:102px;height:38px;font-size:1.05em;font-weight:bold;border:none;border-radius:9px;margin:0 6px;cursor:pointer;letter-spacing:0.07em;box-shadow:0 2px 8px #06000032;transition:background .2s,color .14s;display:block;margin:0 auto;}
@@ -86,6 +89,123 @@
     .offline-progress{margin-top:11px;width:100%;height:8px;background:#222;border-radius:6px;overflow:hidden;box-shadow:0 1px 6px #222b;}
     .offline-progress-bar{height:100%;background:#2fed54;transition:width .33s;}
     .offline-desc{text-align:center;font-size:.97em;margin-top:5px;opacity:.85;}
+    
+    /* Стили для новой функции */
+    .download-modal-title {
+      font-size: 1.12em;
+      font-weight: 700;
+      margin-bottom: 13px;
+      text-align: center;
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 12px 0;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-left: 32px;
+    }
+    .checkbox-container input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
+    }
+    .checkmark {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 20px;
+      width: 20px;
+      background-color: #2a2a2a;
+      border: 2px solid #444;
+      border-radius: 4px;
+    }
+    .checkbox-container:hover input ~ .checkmark {
+      background-color: #333;
+    }
+    .checkbox-container input:checked ~ .checkmark {
+      background-color: #E80100;
+      border-color: #E80100;
+    }
+    .checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+      left: 6px;
+      top: 2px;
+      width: 5px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .checkbox-container input:checked ~ .checkmark:after {
+      display: block;
+    }
+    .checkbox-container input:disabled ~ .checkmark {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background-color: #2a2a2a;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #E80100, #ff4444);
+      transition: width 0.3s ease;
+    }
+    .size-info {
+      padding: 20px;
+      background-color: #1f1f1f;
+      border-radius: 8px;
+      margin: 15px 0;
+      text-align: center;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn-secondary, .btn-primary {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 7px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-secondary {
+      background: #444;
+      color: #fff;
+    }
+    .btn-primary {
+      background: #E80100;
+      color: #fff;
+    }
+    .btn-secondary:hover, .btn-primary:hover {
+      opacity: 0.8;
+    }
+    #errorsList {
+      max-height: 100px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    #errorsListContent {
+      list-style: none;
+      padding-left: 0;
+      margin: 5px 0;
+    }
+    
     @media (max-width:600px){.like-star{width:16px;height:16px;}.logo-bottom{max-width:66vw;}}
     @media (max-width:420px){.modal-feedback{padding:13px 3vw;}}
   </style>
@@ -119,6 +239,7 @@
       <button id="install-pwa-btn" style="margin: 15px 0 0 0; display: none;">
         УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ
       </button>
+      <button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button>
       <span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span>
       <a class="support-link" id="support-link" href="#" target="_blank">ПОДДЕРЖАТЬ</a>
       <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button>
@@ -171,24 +292,117 @@
   </div>
   <div class="modal-bg" id="download-modal">
     <div class="modal-feedback" style="max-width:400px;">
-      <div id="download-modal-title" style="font-size:1.12em;font-weight:700;margin-bottom:13px;"></div>
+      <div class="download-modal-title">Что сделать с этим файлом?</div>
       <div style="margin-bottom:19px;font-size:.98em;" id="download-modal-filename"></div>
       <button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="downloadCurrentTrack()">Сохранить на устройство</button>
       <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="shareCurrentTrack()">Поделиться с друзьями</button>
       <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="openInAppCurrentTrack()">Открыть в приложении</button>
       <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="copyLinkCurrentTrack()">Скопировать ссылку</button>
+      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="openAlbumDownloadModal()">Скачать весь альбом</button>
       <button class="offline-btn" style="width:98%;" onclick="closeDownloadModal()">Отмена</button>
     </div>
   </div>
+  
+  <!-- Новые модальные окна для скачивания альбома -->
+  <div class="modal-bg" id="albumDownloadModal">
+    <div class="modal-feedback" style="max-width: 400px;">
+      <h2 style="text-align: center; margin-bottom: 25px;">Между Злом и Добром</h2>
+      
+      <div class="download-options">
+        <label class="checkbox-container">
+          <input type="checkbox" id="includeCovers" checked>
+          <span class="checkmark"></span>
+          Обложки (галерея)
+        </label>
+        
+        <label class="checkbox-container">
+          <input type="checkbox" id="includeLyrics" checked>
+          <span class="checkmark"></span>
+          Тексты песен
+        </label>
+        
+        <hr style="margin: 15px 0; border-color: #333;">
+        
+        <label class="checkbox-container">
+          <input type="checkbox" id="onlyFavorites">
+          <span class="checkmark"></span>
+          Только избранные песни
+        </label>
+        
+        <label class="checkbox-container">
+          <input type="checkbox" id="fullAlbum" checked>
+          <span class="checkmark"></span>
+          Полностью альбом
+        </label>
+      </div>
+      
+      <div class="modal-buttons">
+        <button onclick="closeAlbumDownloadModal()" class="btn-secondary">ОТМЕНА</button>
+        <button onclick="prepareDownload()" class="btn-primary">СКАЧАТЬ</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="modal-bg" id="sizeConfirmModal">
+    <div class="modal-feedback" style="max-width: 350px;">
+      <h3 style="text-align: center;">Подтверждение загрузки</h3>
+      
+      <div class="size-info">
+        <div style="font-size: 48px; color: #E80100; margin-bottom: 15px;">📦</div>
+        <p style="font-size: 18px; margin: 10px 0;">
+          Размер архива: <strong id="archiveSize">0 МБ</strong>
+        </p>
+        <p style="color: #888; font-size: 14px;">
+          Файлов в архиве: <span id="fileCount">0</span>
+        </p>
+      </div>
+      
+      <div class="modal-buttons">
+        <button onclick="closeSizeConfirmModal()" class="btn-secondary">ОТМЕНА</button>
+        <button onclick="startDownload()" class="btn-primary">СКАЧАТЬ</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="modal-bg" id="downloadProgressModal">
+    <div class="modal-feedback" style="max-width: 400px;">
+      <h3 style="text-align: center; margin-bottom: 20px;">Подготовка архива</h3>
+      
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+      </div>
+      
+      <p id="progressText" style="text-align: center; margin-top: 10px;">
+        Загрузка файлов: 0/0
+      </p>
+      
+      <div id="errorsList" style="display: none; color: #ff6b6b; font-size: 14px; margin-top: 15px;">
+        <p><strong>Не удалось загрузить:</strong></p>
+        <ul id="errorsListContent"></ul>
+      </div>
+    </div>
+  </div>
+  
   <div id="copy-notify" style="display:none;position:fixed;left:50%;bottom:38px;transform:translateX(-50%);padding:14px 26px;background:#262b39;color:#fff;border-radius:12px;font-size:1.07em;box-shadow:0 3px 32px #0007;z-index:1999;transition:opacity .3s; opacity:0;">
     Текст скопирован!
   </div>
+  
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js');}
 let config=null, promoPassed=false, configLoaded=false;
 let coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'];
 let coverGalleryIdx=0, coverAutoplay=null, currentTrack=-1, currentLyrics=[], autoPlayEnabled=false;
 let offlineMode = localStorage.getItem('offlineMode') === '1', offlineDownloading = false;
+
+// Новые переменные для функции скачивания альбома
+let downloadOptions = {
+  includeCovers: true,
+  includeLyrics: true,
+  onlyFavorites: false,
+  fullAlbum: true
+};
+let filesToDownload = [];
+let totalSize = 0;
 
 fetch('config.json').then(r=>r.json()).then(data=>{
   config=data;configLoaded=true;
@@ -202,6 +416,7 @@ fetch('config.json').then(r=>r.json()).then(data=>{
     setOfflineUIState(offlineMode ? 'offline' : 'online');
   }
 });
+
 function checkPromo() {
   const val = document.getElementById('promo-inp').value.trim();
   if (!configLoaded) {
@@ -219,7 +434,9 @@ function checkPromo() {
     document.getElementById('promo-error').innerText = "Неверный промокод. Попробуйте ещё!";
   }
 }
+
 document.getElementById('promo-inp').addEventListener('keydown',function(e){if(e.key==="Enter")checkPromo();});
+
 function initializeMainUi(){
   setCoverImage(coverGalleryIdx);buildSocials();
   document.getElementById('support-link').href = config.donateLink;
@@ -233,7 +450,11 @@ function initializeMainUi(){
   el.addEventListener('touchstart',function(e){startX=e.touches[0].clientX;});
   el.addEventListener('touchend',function(e){if(startX===null)return;let dx=e.changedTouches[0].clientX-startX;if(Math.abs(dx)>30){if(dx>0)setCoverImage(coverGalleryIdx-1);else setCoverImage(coverGalleryIdx+1);startCoverAutoPlay();}startX=null;});
   startCoverAutoPlay();
+  
+  // Инициализация чекбоксов для скачивания альбома
+  initializeAlbumDownloadCheckboxes();
 }
+
 function setCoverImage(idx){coverGalleryIdx=(idx+coverGalleryArr.length)%coverGalleryArr.length;document.getElementById('cover').src=coverGalleryArr[coverGalleryIdx];}
 function startCoverAutoPlay(){if(coverAutoplay)clearInterval(coverAutoplay);coverAutoplay=setInterval(function(){setCoverImage(coverGalleryIdx+1);},5000);}
 function buildSocials(){const s=config.socials.map(x=>`<a href="${x.url}" target="_blank">${x.title}</a>`).join(" ");document.getElementById('social-links').innerHTML=s;}
@@ -241,6 +462,7 @@ function getLiked(){try{return JSON.parse(localStorage.getItem('likedTracks')||"
 function saveLiked(arr){localStorage.setItem('likedTracks',JSON.stringify(arr));}
 function isLiked(idx){let liked=getLiked();return liked.indexOf(idx)!==-1;}
 function toggleLike(idx, e){if(e){e.stopPropagation();}let liked=getLiked(),i=liked.indexOf(idx);if(i===-1)liked.push(idx);else liked.splice(i,1);saveLiked(liked);buildTrackList();}
+
 function buildTrackList(){
   let html = "";
   for(let i=0;i<config.tracks.length;i++){
@@ -256,8 +478,10 @@ function buildTrackList(){
   document.getElementById('track-list').innerHTML = html;
   renderLyricsBlock();
 }
+
 function pickAndPlayTrack(n){showTrack(n,true);autoPlayEnabled=true;}
 function showTrack(n,doPlay){currentTrack=n;buildTrackList();if(doPlay&&document.getElementById("audio"))setTimeout(()=>{document.getElementById("audio").play();},140);}
+
 function renderLyricsBlock(){
   const block = document.getElementById('lyricsplayerblock'); if (!block) return;
   let lyricsDiv = `
@@ -276,7 +500,9 @@ function renderLyricsBlock(){
   document.getElementById('audio').ontimeupdate = function() { renderLyrics(this.currentTime); };
   document.getElementById('audio').onended = function() { if (autoPlayEnabled) { let next = (currentTrack + 1) % config.tracks.length; showTrack(next, true); } };
 }
+
 function loadLyrics(file){fetch(file).then(r=>r.json()).then(js=>{currentLyrics=js;renderLyrics(0);});}
+
 function renderLyrics(time){
   if(!currentLyrics||!currentLyrics.length){document.getElementById('lyrics').innerHTML="";return;}
   let active=0;for(let i=0;i<currentLyrics.length;i++)if(time>=currentLyrics[i].time)active=i;
@@ -289,19 +515,22 @@ function renderLyrics(time){
   while(rows.length<windowSize)rows.push('<div class="lyrics-window-line"></div>');
   document.getElementById("lyrics").innerHTML=rows.join("");
 }
+
 function getTrackFileName(track, idx, artist) {
   return `${(idx + 1).toString().padStart(2, '0')} - ${track.title} - ${artist}.mp3`.replace(/[\\/:"*?<>|]+/g, '_');
 }
+
 function openDownloadModal(e) {
   if(e){ e.preventDefault(); }
   let tr = config.tracks[currentTrack];
   let fileName = getTrackFileName(tr, currentTrack, config.artist);
-  document.getElementById('download-modal-title').innerText = 'Что сделать с этим файлом?';
   document.getElementById('download-modal-filename').innerHTML = `<b>${fileName}</b>`;
   document.getElementById('download-modal').classList.add('active');
 }
+
 function closeDownloadModal(){ document.getElementById('download-modal').classList.remove('active'); }
 document.getElementById('download-modal').onclick = function(e){ if(e.target === this) closeDownloadModal(); };
+
 function downloadCurrentTrack() {
   let tr = config.tracks[currentTrack];
   let fileName = getTrackFileName(tr, currentTrack, config.artist);
@@ -315,6 +544,7 @@ function downloadCurrentTrack() {
   closeDownloadModal();
   showCopyNotification('Файл будет загружен!');
 }
+
 async function shareCurrentTrack() {
   let tr = config.tracks[currentTrack];
   let fileName = getTrackFileName(tr, currentTrack, config.artist);
@@ -334,9 +564,11 @@ async function shareCurrentTrack() {
   }
   showCopyNotification('Функция недоступна в вашем браузере');
 }
+
 async function openInAppCurrentTrack(){
   await shareCurrentTrack();
 }
+
 function copyLinkCurrentTrack(){
   let tr = config.tracks[currentTrack];
   let url = 'https://apel-s-in.github.io/vi3na1bita-mezhdu-zlom-i-dobrom/' + tr.audio.replace(/^\.?\//,'');
@@ -356,6 +588,7 @@ function copyLinkCurrentTrack(){
   }
   closeDownloadModal();
 }
+
 function copyLyrics(){
   if (!config || currentTrack < 0 || !config.tracks[currentTrack].fulltext) {
     showCopyNotification("Файл с текстом для копирования не найден!");
@@ -378,6 +611,7 @@ function copyLyrics(){
     showCopyNotification("Не удалось найти/загрузить текст!");
   });
 }
+
 function doCopyLyrics(txt, notify){
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(txt).then(
@@ -395,11 +629,13 @@ function doCopyLyrics(txt, notify){
     showCopyNotification(notify + " (старый способ)");
   }
 }
+
 async function hashString(str) {
   const buf = new TextEncoder().encode(str);
   const hashBuffer = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hashBuffer)).map(x=>x.toString(16).padStart(2,"0")).join("");
 }
+
 function showCopyNotification(text){
   let n = document.getElementById('copy-notify');
   n.innerText = text;
@@ -408,16 +644,313 @@ function showCopyNotification(text){
   setTimeout(() => { n.style.opacity = '0'; }, 1800);
   setTimeout(() => { n.style.display = 'none'; }, 2300);
 }
+
+// НОВЫЙ КОД ДЛЯ ФУНКЦИИ СКАЧИВАНИЯ АЛЬБОМА
+
+function initializeAlbumDownloadCheckboxes() {
+  // Взаимоисключающие чекбоксы
+  document.getElementById('onlyFavorites').addEventListener('change', function() {
+    if (this.checked) {
+      document.getElementById('fullAlbum').checked = false;
+    }
+  });
+  
+  document.getElementById('fullAlbum').addEventListener('change', function() {
+    if (this.checked) {
+      document.getElementById('onlyFavorites').checked = false;
+    }
+  });
+  
+  // Проверка наличия избранных
+  checkFavoritesAvailable();
+}
+
+function checkFavoritesAvailable() {
+  const favCheckbox = document.getElementById('onlyFavorites');
+  const likedTracks = getLiked();
+  if (likedTracks.length === 0) {
+    favCheckbox.disabled = true;
+    favCheckbox.parentElement.style.opacity = '0.5';
+    favCheckbox.parentElement.title = 'Нет избранных треков';
+  } else {
+    favCheckbox.disabled = false;
+    favCheckbox.parentElement.style.opacity = '1';
+    favCheckbox.parentElement.title = '';
+  }
+}
+
+function openAlbumDownloadModal() {
+  closeDownloadModal(); // Закрываем предыдущее окно если открыто
+  checkFavoritesAvailable(); // Проверяем доступность избранных
+  document.getElementById('albumDownloadModal').classList.add('active');
+}
+
+function closeAlbumDownloadModal() {
+  document.getElementById('albumDownloadModal').classList.remove('active');
+}
+
+document.getElementById('albumDownloadModal').onclick = function(e) {
+  if(e.target === this) closeAlbumDownloadModal();
+};
+
+function generateSocialText() {
+  const socials = config.socials || [];
+  let socialLinks = '';
+  
+  socials.forEach(social => {
+    socialLinks += `${social.title}: ${social.url}\n`;
+  });
+  
+  return `═══════════════════════════════════════
+       ВИТРИНА РАЗБИТА - Между Злом и Добром
+═══════════════════════════════════════
+
+Спасибо за интерес к нашему творчеству!
+Ваша поддержка очень важна для нас.
+
+Подписывайтесь на наши социальные сети:
+
+${socialLinks}
+Делитесь музыкой с друзьями!
+С любовью, группа "Витрина Разбита"
+
+═══════════════════════════════════════`;
+}
+
+async function prepareDownload() {
+  // Собираем опции
+  downloadOptions.includeCovers = document.getElementById('includeCovers').checked;
+  downloadOptions.includeLyrics = document.getElementById('includeLyrics').checked;
+  downloadOptions.onlyFavorites = document.getElementById('onlyFavorites').checked;
+  downloadOptions.fullAlbum = document.getElementById('fullAlbum').checked;
+  
+  // Подготавливаем список файлов
+  await prepareFilesList();
+  
+  // Подсчитываем размер
+  const sizeMB = await calculateArchiveSize();
+  
+  // Показываем окно подтверждения
+  document.getElementById('archiveSize').textContent = sizeMB + ' МБ';
+  document.getElementById('fileCount').textContent = filesToDownload.length;
+  
+  closeAlbumDownloadModal();
+  document.getElementById('sizeConfirmModal').classList.add('active');
+}
+
+async function prepareFilesList() {
+  filesToDownload = [];
+  
+  // Определяем список треков
+  let trackIndices = [];
+  const likedTracks = getLiked();
+  
+  if (downloadOptions.onlyFavorites) {
+    trackIndices = likedTracks;
+  } else if (downloadOptions.fullAlbum) {
+    trackIndices = config.tracks.map((_, i) => i);
+  }
+  
+  // Добавляем MP3 и тексты
+  for (let idx of trackIndices) {
+    const track = config.tracks[idx];
+    const num = String(idx + 1).padStart(2, '0');
+    const fileName = `${num} - ${track.title} - ${config.artist}.mp3`;
+    
+    filesToDownload.push({
+      url: track.audio,
+      name: fileName,
+      type: 'audio'
+    });
+    
+    // Добавляем тексты если нужно
+    if (downloadOptions.includeLyrics && track.fulltext) {
+      const lyricsName = `${num} - ${track.title} - ${config.artist}.txt`;
+      
+      // Загружаем текст для включения в архив
+      try {
+        const response = await fetch(track.fulltext);
+        const text = await response.text();
+        filesToDownload.push({
+          content: text,
+          name: lyricsName,
+          type: 'text'
+        });
+      } catch(e) {
+        console.error('Не удалось загрузить текст для', track.title);
+      }
+    }
+  }
+  
+  // Добавляем обложки
+  if (downloadOptions.includeCovers) {
+    coverGalleryArr.forEach(cover => {
+      filesToDownload.push({
+        url: cover,
+        name: cover.split('/').pop(),
+        type: 'image'
+      });
+    });
+  }
+  
+  // Всегда добавляем
+  filesToDownload.push({
+    url: 'img/logo.png',
+    name: 'logo.png',
+    type: 'image'
+  });
+  
+  filesToDownload.push({
+    content: generateSocialText(),
+    name: 'social.txt',
+    type: 'text'
+  });
+}
+
+async function calculateArchiveSize() {
+  totalSize = 0;
+  const promises = [];
+  
+  for (let file of filesToDownload) {
+    if (file.url) {
+      promises.push(
+        fetch(file.url, { method: 'HEAD' })
+          .then(response => {
+            const size = response.headers.get('content-length');
+            if (size) totalSize += parseInt(size);
+          })
+          .catch(() => {
+            // Приблизительные размеры если не удалось получить
+            if (file.type === 'audio') totalSize += 5 * 1024 * 1024; // ~5MB
+            if (file.type === 'image') totalSize += 500 * 1024; // ~500KB
+          })
+      );
+    } else if (file.content) {
+      totalSize += new Blob([file.content]).size;
+    }
+  }
+  
+  await Promise.all(promises);
+  
+  // Добавляем ~10% на ZIP overhead
+  totalSize = Math.ceil(totalSize * 1.1);
+  
+  return (totalSize / 1024 / 1024).toFixed(1); // В мегабайтах
+}
+
+function closeSizeConfirmModal() {
+  document.getElementById('sizeConfirmModal').classList.remove('active');
+}
+
+document.getElementById('sizeConfirmModal').onclick = function(e) {
+  if(e.target === this) closeSizeConfirmModal();
+};
+
+function startDownload() {
+  closeSizeConfirmModal();
+  createAndDownloadZip();
+}
+
+function showProgressModal() {
+  document.getElementById('downloadProgressModal').classList.add('active');
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressText').textContent = 'Загрузка файлов: 0/' + filesToDownload.length;
+  document.getElementById('errorsList').style.display = 'none';
+}
+
+function updateProgress(completed, total) {
+  const percent = Math.round((completed / total) * 100);
+  document.getElementById('progressFill').style.width = percent + '%';
+  document.getElementById('progressText').textContent = `Загрузка файлов: ${completed}/${total}`;
+}
+
+function showErrors(errors) {
+  if (errors.length > 0) {
+    document.getElementById('errorsList').style.display = 'block';
+    document.getElementById('errorsListContent').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+  }
+}
+
+async function createAndDownloadZip() {
+  const zip = new JSZip();
+  const errors = [];
+  let completed = 0;
+  
+  // Показываем прогресс
+  showProgressModal();
+  
+  for (let file of filesToDownload) {
+    try {
+      if (file.url) {
+        const response = await fetch(file.url);
+        const blob = await response.blob();
+        zip.file(file.name, blob);
+      } else if (file.content) {
+        zip.file(file.name, file.content);
+      }
+      
+      completed++;
+      updateProgress(completed, filesToDownload.length);
+      
+    } catch (error) {
+      errors.push(file.name);
+      console.error(`Ошибка загрузки ${file.name}:`, error);
+    }
+  }
+  
+  // Показываем ошибки если есть
+  if (errors.length > 0) {
+    showErrors(errors);
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Даём время увидеть ошибки
+  }
+  
+  // Обновляем текст на создание архива
+  document.getElementById('progressText').textContent = 'Создание архива...';
+  
+  // Генерируем архив
+  const content = await zip.generateAsync({
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 }
+  }, function updateCallback(metadata) {
+    const progress = metadata.percent.toFixed(0);
+    document.getElementById('progressText').textContent = `Создание архива: ${progress}%`;
+    document.getElementById('progressFill').style.width = progress + '%';
+  });
+  
+  // Скачиваем
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(content);
+  link.download = 'vitrina-razbita-mezhdu-zlom-i-dobrom.zip';
+  link.click();
+  
+  // Закрываем окна через небольшую задержку
+  setTimeout(() => {
+    document.getElementById('downloadProgressModal').classList.remove('active');
+    showCopyNotification('Архив успешно скачан!');
+  }, 1500);
+}
+
+document.getElementById('downloadProgressModal').onclick = function(e) {
+  // Не закрываем окно прогресса по клику вне его
+};
+
+// КОНЕЦ НОВОГО КОДА
+
 window.addEventListener('keydown',function(e){if(!promoPassed)return;if(e.key=='ArrowRight'){showTrack(Math.min(currentTrack+1,config.tracks.length-1),true);}if(e.key=='ArrowLeft'){showTrack(Math.max(currentTrack-1,0),true);}});
 let isRealTextarea=false;
+
 function openFeedbackModal(){document.getElementById('modal-feedback').classList.add('active');isRealTextarea=false;document.getElementById('feedback-step').innerHTML =`
   <div class="fake-textarea" id="fake-textarea" onclick="showRealTextarea()">
     Опишите здесь проблему или своё пожелание для улучшения,<br>можете просто оставить свой отзыв...
   </div>`;document.getElementById('modal-feedback-error').innerText="";document.getElementById('modal-feedback-success').innerText="";document.getElementById('send-feedback-btn').disabled=false;}
+
 function closeFeedbackModal(){document.getElementById('modal-feedback').classList.remove('active');}
+
 function showRealTextarea(){if(isRealTextarea)return;isRealTextarea=true;document.getElementById('feedback-step').innerHTML=
   `<textarea class="real-textarea" id="feedback-text" maxlength="200" autofocus></textarea>`;
   setTimeout(()=>{let ta=document.getElementById('feedback-text');ta.focus();ta.addEventListener('input',function(){if(this.value.length>200)this.value=this.value.substr(0,200);});},20);}
+
 function sendFeedbackMsg(){
   let msg="";if(isRealTextarea){let ta=document.getElementById('feedback-text');msg=ta.value.trim();}else return;
   const errorDiv=document.getElementById('modal-feedback-error');
@@ -428,12 +961,15 @@ function sendFeedbackMsg(){
   successDiv.innerText="Спасибо! (Отправка реализуется на сервере)";
   setTimeout(closeFeedbackModal,2100);
   document.getElementById('send-feedback-btn').disabled=false;}
+
 function getAudioSize(idx){return config.tracks[idx].size||4.7;}
+
 function getDownloadStats(){
   let liked=getLiked();let allCount=config.tracks.length;let likedCount=liked.length;
   let allMb=0,likeMb=0;for(let i=0;i<allCount;++i){allMb+=getAudioSize(i);if(liked.indexOf(i)!==-1)likeMb+=getAudioSize(i);}
   return{allSizeMb:Math.round(allMb*10)/10,likedSizeMb:Math.round(likeMb*10)/10,likedCount,allCount};
 }
+
 function offlineUIClick(){
   if(offlineDownloading)return;
   if(!offlineMode){
@@ -457,7 +993,9 @@ function offlineUIClick(){
       <button class="offline-btn" style="width:99%;margin-top:7px;" onclick="closeOfflineModal()">Отмена</button>`;
   }
 }
+
 function closeOfflineModal(){document.getElementById('modal-offline').classList.remove('active');}
+
 function nextOfflineChoice(){
   let d=getDownloadStats();
   document.getElementById('offline-step').innerHTML=`
@@ -475,6 +1013,7 @@ function nextOfflineChoice(){
     <button class="offline-btn online" style="width:99%;margin-top:12px;" onclick="startOfflineDownload()">Скачать выбранное</button>
     <button class="offline-btn" style="width:99%;margin-top:8px;" onclick="closeOfflineModal()">Отмена</button>`;
 }
+
 function getAllAssetsForOffline(mode){
   let all=['index.html','config.json','img/logo.png','img/star.png','img/star2.png','Cover.png','Cover01.png','Cover02.png','Cover03.png'];
   let liked=getLiked();
@@ -486,6 +1025,7 @@ function getAllAssetsForOffline(mode){
     }
   return[...new Set(all)];
 }
+
 function startOfflineDownload(){
   offlineDownloading=true;closeOfflineModal();setOfflineUIState('downloading');
   let mode=document.querySelector('input[name="offline-mode"]:checked').value;let files=getAllAssetsForOffline(mode);
@@ -504,6 +1044,7 @@ function startOfflineDownload(){
     },400);
   });
 }
+
 function setOfflineUIState(state,progress,needMb){
   let btn=document.getElementById('offline-btn');
   if(state==='downloading'){
@@ -526,6 +1067,7 @@ function setOfflineUIState(state,progress,needMb){
     let div=document.getElementById('offline-progr-div');if(div)div.remove();
   }
 }
+
 function offlineShowDone(mb,mode){
   document.getElementById('modal-offline').classList.add('active');
   document.getElementById('offline-step').innerHTML=`
@@ -537,14 +1079,16 @@ function offlineShowDone(mb,mode){
       <div style="color:#888;font-size:.98em;margin:5px 0 0 0;">
       Обратите внимание: если кеш браузера<br>будет очищен — нужно будет скачать заново!</div>
     </div>
-    <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">OK</button>`;
+        <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">OK</button>`;
 }
+
 function confirmGoOnline(){
   offlineMode=false;
   localStorage.removeItem('offlineMode');
   setOfflineUIState('online');closeOfflineModal();
   navigator.serviceWorker.ready.then(sw=>{sw.active.postMessage({type: 'CLEAR_CACHE'});});
 }
+
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -552,15 +1096,18 @@ window.addEventListener('beforeinstallprompt', (e) => {
   let btn = document.getElementById('install-pwa-btn');
   if (btn) btn.style.display = '';
 });
+
 document.getElementById('install-pwa-btn').onclick = function() {
   document.getElementById('install-modal').classList.add('active');
   document.getElementById('install-modal-hash').style.display = 'none';
   document.getElementById('install-proceed-btn').disabled = false;
   document.getElementById('install-proceed-btn').innerText = 'Установить';
 };
+
 function closeInstallModal(){
   document.getElementById('install-modal').classList.remove('active');
 }
+
 document.getElementById('install-proceed-btn').onclick = async function(){
   let btn = this;
   btn.disabled = true;
@@ -582,6 +1129,7 @@ document.getElementById('install-proceed-btn').onclick = async function(){
     closeInstallModal();
   }
 };
+
 async function hashManifest(){
   try{
     const resp = await fetch('manifest.json');
@@ -593,9 +1141,11 @@ async function hashManifest(){
     return '[ошибка хэширования]';
   }
 }
+
 document.getElementById('install-modal').onclick = function(e){
   if(e.target === this) closeInstallModal();
 };
 </script>
 </body>
 </html>
+
