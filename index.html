@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Между Злом и Добром</title>
+  <title>Витрина Разбита</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#181818" />
@@ -171,15 +171,12 @@
   </div>
   <div class="modal-bg" id="download-modal">
     <div class="modal-feedback" style="max-width:400px;">
-      <button class="bigclose" onclick="closeDownloadModal()" title="Закрыть">
-        <svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>
-      </button>
       <div id="download-modal-title" style="font-size:1.12em;font-weight:700;margin-bottom:13px;"></div>
       <div style="margin-bottom:19px;font-size:.98em;" id="download-modal-filename"></div>
       <button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="downloadCurrentTrack()">Сохранить на устройство</button>
       <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="shareCurrentTrack()">Поделиться с друзьями</button>
       <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="openInAppCurrentTrack()">Открыть в приложении</button>
-      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="copyLinkCurrentTrack()">Скопировать ссылку на mp3</button>
+      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="copyLinkCurrentTrack()">Скопировать ссылку</button>
       <button class="offline-btn" style="width:98%;" onclick="closeDownloadModal()">Отмена</button>
     </div>
   </div>
@@ -305,44 +302,44 @@ function openDownloadModal(e) {
 }
 function closeDownloadModal(){ document.getElementById('download-modal').classList.remove('active'); }
 document.getElementById('download-modal').onclick = function(e){ if(e.target === this) closeDownloadModal(); };
-function downloadCurrentTrack(){
+function downloadCurrentTrack() {
   let tr = config.tracks[currentTrack];
-  let url = tr.audio; let filename = getTrackFileName(tr, currentTrack, config.artist);
-  fetch(url).then(r => r.blob()).then(blob => {
-    let a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.setTimeout(()=>{document.body.removeChild(a);},250);
-  });
+  let fileName = getTrackFileName(tr, currentTrack, config.artist);
+  let url = 'https://apel-s-in.github.io/vi3na1bita-mezhdu-zlom-i-dobrom/' + tr.audio.replace(/^\.?\//,'');
+  let a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  window.setTimeout(() => { document.body.removeChild(a); }, 250);
   closeDownloadModal();
   showCopyNotification('Файл будет загружен!');
 }
-async function shareCurrentTrack(){
+async function shareCurrentTrack() {
   let tr = config.tracks[currentTrack];
-  let url = tr.audio; let filename = getTrackFileName(tr, currentTrack, config.artist);
+  let fileName = getTrackFileName(tr, currentTrack, config.artist);
+  let url = 'https://apel-s-in.github.io/vi3na1bita-mezhdu-zlom-i-dobrom/' + tr.audio.replace(/^\.?\//,'');
   if (navigator.canShare && window.isSecureContext) {
-    try{
+    try {
       let resp = await fetch(url);
       let blob = await resp.blob();
-      let file = new File([blob], filename, {type:'audio/mpeg'});
+      let file = new File([blob], fileName, {type:'audio/mpeg'});
       if(navigator.canShare({files:[file]})) {
-        await navigator.share({ files: [file], title:filename, text:filename });
+        await navigator.share({ files: [file], title:fileName, text:fileName });
         showCopyNotification('Файл отправлен!');
         closeDownloadModal();
         return;
       }
-    }catch(e){}
+    } catch(e){}
   }
-  showCopyNotification('Ваш браузер не поддерживает отправку файла напрямую. Попробуйте скачать файл и поделиться вручную.');
+  showCopyNotification('Функция недоступна в вашем браузере');
 }
 async function openInAppCurrentTrack(){
   await shareCurrentTrack();
 }
 function copyLinkCurrentTrack(){
   let tr = config.tracks[currentTrack];
-  let url = window.location.origin+ (tr.audio.charAt(0)==='/'?'': '/') + tr.audio;
+  let url = 'https://apel-s-in.github.io/vi3na1bita-mezhdu-zlom-i-dobrom/' + tr.audio.replace(/^\.?\//,'');
   if(navigator.clipboard && window.isSecureContext){
     navigator.clipboard.writeText(url).then(
       () => showCopyNotification('Ссылка скопирована!'),
