@@ -473,12 +473,8 @@
     }
 /* Кнопка управления лирикой */
 .lyrics-toggle-btn {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
   width: 44px;
-  min-height: 44px; /* Минимальная высота для тач */
+  height: 44px;
   background: none;
   border: none;
   cursor: pointer;
@@ -489,14 +485,15 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: bold;
   transition: all 0.2s ease;
-  z-index: 10;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  order: -1; /* Ставим первой в ряду */
+  flex-shrink: 0; /* Не сжимается */
 }
 
 /* Визуальная часть кнопки */
 .lyrics-toggle-btn-visual {
-  font-size: 28px;
+  font-size: 32px;
   line-height: 1;
   transition: all 0.2s ease;
   pointer-events: none;
@@ -505,19 +502,28 @@
 /* Состояние normal - синяя, большая */
 .lyrics-toggle-btn.lyrics-normal .lyrics-toggle-btn-visual {
   color: var(--secondary-color);
-  font-size: 28px;
+  font-size: 32px;
 }
 
 /* Состояние hidden - красная, большая */
 .lyrics-toggle-btn.lyrics-hidden .lyrics-toggle-btn-visual {
   color: var(--primary-color);
-  font-size: 28px;
+  font-size: 32px;
 }
 
 /* Состояние expanded - синяя, маленькая */
 .lyrics-toggle-btn.lyrics-expanded .lyrics-toggle-btn-visual {
   color: var(--secondary-color);
-  font-size: 14px;
+  font-size: 18px;
+}
+
+/* Контейнер для кнопок текста */
+.player-text-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
 }
 
 /* Hover эффекты */
@@ -533,11 +539,10 @@
 .player-buttons-wrapper {
   position: relative;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 9px;
+  gap: 12px;
   margin-top: 10px;
-  padding-left: 54px; /* Отступ для кнопки T */
   min-height: 60px;
 }
 
@@ -582,7 +587,6 @@
   }
   
   .player-buttons-wrapper {
-    padding-left: 50px;
   }
 }
 
@@ -1999,9 +2003,11 @@ function renderLyricsBlock() {
               title="${getLyricsButtonLabel()}">
         <span class="lyrics-toggle-btn-visual">Т</span>
       </button>
-      <button class="karaoke-btn" onclick="copyLyrics()">СКОПИРОВАТЬ ТЕКСТ</button>
-      <a class="player-download-btn" href="#" onclick="openDownloadModal(event)">СКАЧАТЬ ПЕСНЮ</a>
-    </div>`;
+      <div class="player-text-buttons">
+        <button class="karaoke-btn" onclick="copyLyrics()">СКОПИРОВАТЬ ТЕКСТ</button>
+        <a class="player-download-btn" href="#" onclick="openDownloadModal(event)">СКАЧАТЬ ПЕСНЮ</a>
+      </div>
+    </div>
   
   block.innerHTML = lyricsDiv;
   
