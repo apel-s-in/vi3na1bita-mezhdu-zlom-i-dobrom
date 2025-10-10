@@ -46,7 +46,6 @@
       min-width: 100vw;
       padding-top: env(safe-area-inset-top);
     }
-    
     #promocode-block {
       position: fixed;
       left: 0;
@@ -231,6 +230,24 @@
       box-shadow: 0 4px 24px rgba(0,0,0,0.3);
     }
     
+    /* Пульсирующий логотип */
+    .logo-bottom {
+      max-width: 112px;
+      width: 23vw;
+      min-width: 66px;
+      height: auto;
+      display: block;
+      margin: 0 auto 15px auto !important;
+      cursor: pointer;
+      transition: transform 0.1s ease-out;
+      will-change: transform;
+      transform: translateZ(0);
+    }
+    
+    .logo-pulsing {
+      animation: none !important;
+    }
+    
     .socials-under-cover {
       margin: 14px auto 0 auto;
       width: 100%;
@@ -343,6 +360,35 @@
       will-change: height, opacity;
     }
     
+    /* Анимированный фон лирики */
+    .lyrics-animated-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0;
+      background: linear-gradient(45deg, 
+        rgba(232,1,0,0.05), 
+        rgba(77,170,255,0.05), 
+        rgba(232,1,0,0.05));
+      background-size: 400% 400%;
+      animation: none;
+      z-index: 0;
+      pointer-events: none;
+    }
+    
+    .lyrics-animated-bg.active {
+      opacity: 0.15;
+      animation: lyricsGradient 15s ease infinite;
+    }
+    
+    @keyframes lyricsGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
     #lyrics-window.lyrics-hidden {
       height: 0 !important;
       opacity: 0;
@@ -359,6 +405,11 @@
       height: 15.3em;
     }
     
+    .lyrics-scroll {
+      position: relative;
+      z-index: 1;
+    }
+    
     .lyrics-window-line {
       opacity: 0.57;
       font-size: 1.13em;
@@ -372,6 +423,8 @@
       white-space: pre-line;
       user-select: none;
       word-break: break-word;
+      position: relative;
+      z-index: 1;
     }
     
     .lyrics-window-line.active {
@@ -399,16 +452,22 @@
       pointer-events: none;
     }
     
-    /* Контролы плеера */
+    /* Контролы плеера - ОБНОВЛЕНО ДЛЯ 2 РЯДОВ */
     .player-controls {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 15px;
+      flex-direction: column;
+      gap: 8px;
       margin: 10px 0;
       padding: 10px;
       background: rgba(0,0,0,0.3);
       border-radius: 12px;
+    }
+    
+    .player-controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
     }
     
     .player-control-btn {
@@ -424,6 +483,9 @@
       justify-content: center;
       width: 44px;
       height: 44px;
+      font-weight: bold;
+      font-size: 20px;
+      position: relative;
     }
     
     .player-control-btn:hover {
@@ -447,6 +509,20 @@
     
     .player-control-btn.favorites-active {
       background: rgba(255, 215, 0, 0.3);
+    }
+    
+    /* Кнопки Animation и Bit */
+    .player-control-btn.animation-btn,
+    .player-control-btn.bit-btn {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    
+    .player-control-btn.animation-active,
+    .player-control-btn.bit-active {
+      color: var(--primary-color);
+      background: rgba(232, 1, 0, 0.2);
     }
     
     .player-control-btn svg {
@@ -483,86 +559,7 @@
     .player-control-btn.favorites-active img {
       animation: pulse 2s infinite;
     }
-    
-    .player-buttons-center {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 9px;
-      margin-bottom: 7px;
-      margin-top: 3px;
-    }
-
-    /* Кнопка управления лирикой */
-    .lyrics-toggle-btn {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-weight: bold;
-      transition: all 0.2s ease;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      z-index: 5;
-    }
-
-    /* Визуальная часть кнопки */
-    .lyrics-toggle-btn-visual {
-      font-size: 36px;
-      line-height: 1;
-      transition: all 0.2s ease;
-      pointer-events: none;
-    }
-
-    /* Состояние normal - синяя, большая */
-    .lyrics-toggle-btn.lyrics-normal .lyrics-toggle-btn-visual {
-      color: var(--secondary-color);
-      font-size: 36px;
-    }
-
-    /* Состояние hidden - красная, большая */
-    .lyrics-toggle-btn.lyrics-hidden .lyrics-toggle-btn-visual {
-      color: var(--primary-color);
-      font-size: 36px;
-    }
-
-    /* Состояние expanded - синяя, маленькая */
-    .lyrics-toggle-btn.lyrics-expanded .lyrics-toggle-btn-visual {
-      color: var(--secondary-color);
-      font-size: 20px;
-    }
-
-    /* Hover эффекты */
-    .lyrics-toggle-btn:hover .lyrics-toggle-btn-visual {
-      transform: scale(1.1);
-    }
-
-    .lyrics-toggle-btn:active .lyrics-toggle-btn-visual {
-      transform: scale(0.95);
-    }
-
-    /* Контейнер для кнопок с позиционированием */
-    .player-buttons-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 9px;
-      margin-top: 10px;
-      width: 100%;
-      position: relative;
-    }
-
-    /* Прогресс бар для трека */
+    /* ИСПРАВЛЕННЫЙ Прогресс бар для трека */
     .player-progress-wrapper {
       width: 100%;
       margin: 10px 0;
@@ -571,12 +568,12 @@
 
     .player-progress-bar {
       width: 100%;
-      height: 40px;
+      height: 6px; /* ИСПРАВЛЕНО: было 40px, теперь 6px как у громкости */
       background: rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
+      border-radius: 3px; /* ИСПРАВЛЕНО: было 20px */
       position: relative;
       cursor: pointer;
-      overflow: hidden;
+      overflow: visible; /* Изменено для видимости ручки */
     }
 
     .player-progress-fill {
@@ -584,7 +581,7 @@
       background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
       width: 0%;
       transition: width 0.1s linear;
-      border-radius: 20px;
+      border-radius: 3px;
       position: relative;
     }
 
@@ -598,6 +595,7 @@
       border-radius: 50%;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       right: -10px;
+      z-index: 2;
     }
 
     /* Таймер времени */
@@ -871,73 +869,73 @@
       opacity: 0.8;
     }
 
-    /* iOS предупреждение о громкости */
-    .ios-volume-notice {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.9);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 20px;
-      font-size: 14px;
-      z-index: 1000;
-      display: none;
-      max-width: 90%;
-      text-align: center;
-    }
-
-    .ios-volume-notice.show {
-      display: block;
-      animation: slideUp 0.3s;
-    }
-
-    /* Анимация переходов */
-    @keyframes fadeOut {
-      from { opacity: 1; transform: translateY(0); }
-      to { opacity: 0; transform: translateY(-5px); }
-    }
-
-    /* Улучшение доступности */
-    .lyrics-toggle-btn:focus {
-      outline: 2px solid var(--secondary-color);
-      outline-offset: 2px;
-      border-radius: 4px;
-    }
-
-    .lyrics-toggle-btn:focus:not(:focus-visible) {
-      outline: none;
-    }
-
-    /* Подсказка при наведении */
-    .lyrics-toggle-btn::after {
-      content: attr(title);
+    /* Кнопка управления лирикой */
+    .lyrics-toggle-btn {
       position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      white-space: nowrap;
-      opacity: 0;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-weight: bold;
+      transition: all 0.2s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 5;
+    }
+
+    /* Визуальная часть кнопки */
+    .lyrics-toggle-btn-visual {
+      font-size: 36px;
+      line-height: 1;
+      transition: all 0.2s ease;
       pointer-events: none;
-      transition: opacity 0.2s;
-      margin-bottom: 5px;
     }
 
-    .lyrics-toggle-btn:hover::after {
-      opacity: 1;
+    /* Состояние normal - синяя, большая */
+    .lyrics-toggle-btn.lyrics-normal .lyrics-toggle-btn-visual {
+      color: var(--secondary-color);
+      font-size: 36px;
     }
 
-    /* Убираем подсказку на мобильных */
-    @media (hover: none) {
-      .lyrics-toggle-btn::after {
-        display: none;
-      }
+    /* Состояние hidden - красная, большая */
+    .lyrics-toggle-btn.lyrics-hidden .lyrics-toggle-btn-visual {
+      color: var(--primary-color);
+      font-size: 36px;
+    }
+
+    /* Состояние expanded - синяя, маленькая */
+    .lyrics-toggle-btn.lyrics-expanded .lyrics-toggle-btn-visual {
+      color: var(--secondary-color);
+      font-size: 20px;
+    }
+
+    /* Hover эффекты */
+    .lyrics-toggle-btn:hover .lyrics-toggle-btn-visual {
+      transform: scale(1.1);
+    }
+
+    .lyrics-toggle-btn:active .lyrics-toggle-btn-visual {
+      transform: scale(0.95);
+    }
+
+    /* Контейнер для кнопок с позиционированием */
+    .player-buttons-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      margin-top: 10px;
+      width: 100%;
+      position: relative;
     }
     
     .karaoke-btn, .player-download-btn {
@@ -976,7 +974,7 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
     
-    /* Кнопка фильтра избранных НАД логотипом */
+    /* ИСПРАВЛЕННАЯ Кнопка фильтра избранных */
     .filter-favorites-btn {
       display: block;
       margin: 0 auto 15px auto;
@@ -985,13 +983,13 @@
       color: var(--secondary-color);
       border: 2px solid var(--border-color);
       border-radius: 12px;
-      font-size: 1.05em;
+      font-size: 0.95em; /* ИСПРАВЛЕНО: уменьшен размер шрифта */
       font-weight: bold;
       cursor: pointer;
       transition: all 0.3s;
       text-align: center;
-      min-width: 250px;
-      max-width: 90%;
+      min-width: 100%; /* ИСПРАВЛЕНО: растягиваем на всю ширину контейнера */
+      white-space: nowrap; /* ИСПРАВЛЕНО: запрещаем перенос */
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     
@@ -1050,16 +1048,85 @@
       margin-bottom: 10px;
       opacity: 0.5;
     }
-    
-    .logo-bottom {
-      max-width: 112px;
-      width: 23vw;
-      min-width: 66px;
-      height: auto;
+
+    /* Кнопка ГОРЯЧИЕ КЛАВИШИ */
+    .hotkeys-btn {
+      color: var(--secondary-color) !important;
+      text-decoration: underline !important;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: color 0.18s;
+      font-size: 1em;
       display: block;
-      margin: 0 auto 15px auto !important;
+      text-align: center;
+      width: 100%;
+      margin: 0;
+      background: none;
+      border: none;
+      padding: 8px;
     }
     
+    .hotkeys-btn:hover {
+      color: #fff !important;
+    }
+
+    /* Модальное окно горячих клавиш */
+    .hotkeys-modal {
+      background: var(--modal-bg);
+      border-radius: 14px;
+      padding: 24px 20px;
+      max-width: 450px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 32px #0009;
+      position: relative;
+      animation: slideUp 0.3s;
+    }
+
+    .hotkeys-modal h2 {
+      font-size: 1.3em;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+      text-align: center;
+    }
+
+    .hotkeys-section {
+      margin-bottom: 20px;
+    }
+
+    .hotkeys-section h3 {
+      color: var(--secondary-color);
+      font-size: 1.1em;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 5px;
+    }
+
+    .hotkey-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 0.95em;
+    }
+
+    .hotkey-combo {
+      color: #fff;
+      background: rgba(255,255,255,0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-weight: bold;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .hotkey-desc {
+      flex: 1;
+      margin-left: 15px;
+      color: rgba(255,255,255,0.8);
+    }
     #install-pwa-btn, #download-album-main {
       color: #fff;
       background: var(--secondary-color);
@@ -1148,7 +1215,7 @@
       opacity: 0.85;
     }
     
-    /* Стили для модалок архива */
+    /* Остальные стили для модалок и адаптивности */
     .download-modal-title {
       font-size: 1.12em;
       font-weight: 700;
@@ -1370,40 +1437,29 @@
       cursor: pointer;
     }
     
-    /* Адаптивность */
-    @media (max-width: 600px) {
-      .like-star { width: 16px; height: 16px; }
-      .logo-bottom { max-width: 66vw; }
-      .player-time-display { font-size: 12px; }
-      .volume-control-wrapper { padding: 0 5px; }
-      .sleep-menu {
-        bottom: auto;
-        top: 100%;
-        margin-bottom: 0;
-        margin-top: 10px;
-      }
-      .lyrics-toggle-btn {
-        width: 48px;
-        min-height: 48px;
-      }
+    /* iOS предупреждение о громкости */
+    .ios-volume-notice {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      z-index: 1000;
+      display: none;
+      max-width: 90%;
+      text-align: center;
     }
     
-    @media (max-width: 420px) {
-      .modal-feedback { padding: 13px 3vw; }
+    .ios-volume-notice.show {
+      display: block;
+      animation: slideUp 0.3s;
     }
     
-    /* PWA режим */
-    @media (display-mode: standalone) {
-      body {
-        padding-top: env(safe-area-inset-top);
-      }
-      
-      .bottom-controls-center {
-        padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
-      }
-    }
-    
-    /* Улучшения для textarea */
+    /* Улучшение textarea */
     .real-textarea {
       width: 100%;
       min-height: 120px;
@@ -1432,6 +1488,72 @@
     
     .err-msg { color: #ff6b6b; margin-top: 10px; }
     .success-msg { color: #27b34c; margin-top: 10px; }
+
+    /* Tooltip для кнопок */
+    .tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      margin-bottom: 5px;
+      z-index: 1000;
+    }
+
+    .player-control-btn:hover .tooltip {
+      opacity: 1;
+    }
+
+    /* Адаптивность */
+    @media (max-width: 600px) {
+      .like-star { width: 16px; height: 16px; }
+      .logo-bottom { max-width: 66vw; }
+      .player-time-display { font-size: 12px; }
+      .volume-control-wrapper { padding: 0 5px; }
+      .sleep-menu {
+        bottom: auto;
+        top: 100%;
+        margin-bottom: 0;
+        margin-top: 10px;
+      }
+      .lyrics-toggle-btn {
+        width: 48px;
+        min-height: 48px;
+      }
+      .hotkeys-btn {
+        display: none !important;
+      }
+    }
+    
+    @media (max-width: 420px) {
+      .modal-feedback { padding: 13px 3vw; }
+    }
+    
+    /* PWA режим */
+    @media (display-mode: standalone) {
+      body {
+        padding-top: env(safe-area-inset-top);
+      }
+      
+      .bottom-controls-center {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+      }
+    }
+
+    /* Убираем подсказки на мобильных */
+    @media (hover: none) {
+      .tooltip {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1474,17 +1596,22 @@
       </button>
       
       <!-- ЛОГОТИП ПОД КНОПКОЙ -->
-      <img class="logo-bottom" src="img/logo.png" alt="Логотип"/>
+      <img class="logo-bottom" id="logo-bottom" src="img/logo.png" alt="Логотип" onclick="handleLogoClick()"/>
       
       <!-- ОСТАЛЬНЫЕ КНОПКИ -->
       <button id="install-pwa-btn" style="display: none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button>
       <button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button>
+      
+      <!-- Кнопка ГОРЯЧИЕ КЛАВИШИ - появляется динамически между кнопками -->
+      <button class="hotkeys-btn" id="hotkeys-btn" style="display: none;" onclick="showHotkeysModal()">
+        ГОРЯЧИЕ КЛАВИШИ
+      </button>
+      
       <span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span>
       <a class="support-link" id="support-link" href="#" target="_blank">ПОДДЕРЖАТЬ</a>
       <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button>
     </div>
   </div>
-  
   <!-- Модальные окна -->
   <div class="modal-bg" id="modal-feedback">
     <div class="modal-feedback">
@@ -1636,10 +1763,136 @@
     </div>
   </div>
 
+  <!-- Модальное окно горячих клавиш -->
+  <div class="modal-bg" id="hotkeys-modal">
+    <div class="hotkeys-modal">
+      <button class="bigclose" onclick="closeHotkeysModal()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      
+      <h2>📌 ГОРЯЧИЕ КЛАВИШИ</h2>
+      
+      <div class="hotkeys-section">
+        <h3>▶️ Воспроизведение</h3>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">K / Пробел</span>
+          <span class="hotkey-desc">Воспроизведение/Пауза</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">X</span>
+          <span class="hotkey-desc">Стоп</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">N</span>
+          <span class="hotkey-desc">Следующий трек</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">P</span>
+          <span class="hotkey-desc">Предыдущий трек</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">J / L</span>
+          <span class="hotkey-desc">Перемотка ←10сек / 10сек→</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">+ / -</span>
+          <span class="hotkey-desc">Громкость ±10%</span>
+        </div>
+      </div>
+      
+      <div class="hotkeys-section">
+        <h3>🎵 Режимы</h3>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">R</span>
+          <span class="hotkey-desc">Повтор</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">U</span>
+          <span class="hotkey-desc">Случайный порядок</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">F</span>
+          <span class="hotkey-desc">Избранные</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">M</span>
+          <span class="hotkey-desc">Без звука</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">T</span>
+          <span class="hotkey-desc">Таймер сна</span>
+        </div>
+      </div>
+      
+      <div class="hotkeys-section">
+        <h3>✨ Эффекты</h3>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">A</span>
+          <span class="hotkey-desc">Анимация лирики</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">B</span>
+          <span class="hotkey-desc">Пульсация логотипа</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">1 / 2 / 3</span>
+          <span class="hotkey-desc">Интенсивность (100%/50%/15%)</span>
+        </div>
+      </div>
+      
+      <div class="hotkeys-section">
+        <h3>📱 Интерфейс</h3>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">Y</span>
+          <span class="hotkey-desc">Показать лирику</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">W</span>
+          <span class="hotkey-desc">Показать плейлист</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">D</span>
+          <span class="hotkey-desc">В избранное</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">/</span>
+          <span class="hotkey-desc">Поиск</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">?</span>
+          <span class="hotkey-desc">Эта справка</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">Esc</span>
+          <span class="hotkey-desc">Закрыть окно</span>
+        </div>
+      </div>
+      
+      <div class="hotkeys-section">
+        <h3>💡 Комбинации</h3>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">Shift + F</span>
+          <span class="hotkey-desc">Фильтр избранных</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">Shift + V</span>
+          <span class="hotkey-desc">Громкость 50%</span>
+        </div>
+        <div class="hotkey-item">
+          <span class="hotkey-combo">0</span>
+          <span class="hotkey-desc">Выключить/включить звук</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
-const VERSION = '6.2.1';
-const BUILD_DATE = '2025-01-16';
+const VERSION = '6.3.1';
+const BUILD_DATE = '2025-01-17';
 const BUILD_INFO = {
   version: VERSION,
   date: BUILD_DATE,
@@ -1650,7 +1903,6 @@ const BUILD_INFO = {
 // Логирование версии при загрузке
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`, 'color: #E80100; font-size: 16px; font-weight: bold;');
 console.log(`%cBuild: ${BUILD_DATE}`, 'color: #4daaff; font-size: 12px;');
-
 // Кэшированные DOM элементы
 const DOM = {};
 
@@ -1663,7 +1915,7 @@ let coverGalleryIdx = 0;
 let coverAutoplay = null;
 let currentTrack = -1;
 let currentLyrics = [];
-let autoPlayEnabled = false;
+let autoPlayEnabled = true; // ИСПРАВЛЕНО: по умолчанию true
 let offlineMode = false;
 let offlineDownloading = false;
 let deferredPrompt = null;
@@ -1676,6 +1928,17 @@ let repeatMode = false;
 let favoritesOnlyMode = false;
 let availableTracks = [];
 let favoritesFilterActive = false;
+
+// НОВЫЕ переменные для анимаций
+let animationEnabled = false;
+let bitEnabled = false;
+let bitIntensity = 100; // 100, 50 или 15
+let audioContext = null;
+let analyser = null;
+let audioSource = null;
+let animationFrame = null;
+let hasShownAnimationWarning = false;
+let hasShownBitWarning = false;
 
 let downloadOptions = {
   includeCovers: true,
@@ -1711,22 +1974,9 @@ if ('serviceWorker' in navigator) {
     if (event.data.type === 'REQUEST_OFFLINE_STATE') {
       syncOfflineState();
     }
-    if (event.data.type === 'CLEANUP_POSITIONS') {
-      // Очищаем устаревшие позиции
-      const keys = Object.keys(localStorage);
-      const now = Date.now();
-      keys.forEach(key => {
-        if (key.startsWith('position_')) {
-          try {
-            const data = JSON.parse(localStorage.getItem(key));
-            if (data && (now - data.timestamp) > 3600000) {
-              localStorage.removeItem(key);
-            }
-          } catch (e) {
-            localStorage.removeItem(key);
-          }
-        }
-      });
+    if (event.data.type === 'CLEAR_ALL_POSITIONS') {
+      // НОВОЕ: Очищаем все позиции при обновлении
+      PositionManager.clearAll();
     }
   });
 }
@@ -1864,6 +2114,57 @@ window.addEventListener('beforeunload', () => {
   PlayerState.save();
 });
 
+// ==================== НОВЫЙ КЛАСС УПРАВЛЕНИЯ ПОЗИЦИЯМИ ====================
+class PositionManager {
+  static save(trackId, position) {
+    // Сохраняем позицию ТОЛЬКО текущего трека
+    localStorage.setItem('current_track_position', JSON.stringify({
+      trackId,
+      position,
+      timestamp: Date.now()
+    }));
+  }
+  
+  static get(trackId) {
+    const saved = localStorage.getItem('current_track_position');
+    if (!saved) return null;
+    
+    try {
+      const data = JSON.parse(saved);
+      
+      // Проверяем, что это тот же трек
+      if (data.trackId !== trackId) {
+        return null;
+      }
+      
+      // Проверяем TTL (1 час = 3600000 мс)
+      const age = Date.now() - data.timestamp;
+      if (age > 3600000) {
+        localStorage.removeItem('current_track_position');
+        return null;
+      }
+      
+      return data.position;
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  static clear() {
+    localStorage.removeItem('current_track_position');
+  }
+  
+  static clearAll() {
+    // Очищаем все старые позиции (для обратной совместимости)
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('position_') || key === 'current_track_position') {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+}
+
 // ==================== ЗАГРУЗКА КОНФИГУРАЦИИ ====================
 fetch('./config.json')
   .then(r => r.json())
@@ -1906,6 +2207,7 @@ function checkPromo() {
     document.getElementById('promocode-block').classList.add('hidden');
     initializeMainUi();
     setOfflineUIState(offlineMode ? 'offline' : 'online');
+    autoPlayEnabled = true; // ИСПРАВЛЕНО: включаем автовоспроизведение после промокода
   } else {
     document.getElementById('promo-error').innerText = "Неверный промокод. Попробуйте ещё!";
   }
@@ -1915,7 +2217,7 @@ document.getElementById('promo-inp').addEventListener('keydown', function(e) {
   if (e.key === "Enter") checkPromo();
 });
 
-// ==================== ИНИЦИАЛИЗАЦИЯ UI (ИСПРАВЛЕННАЯ) ====================  
+// ==================== ИНИЦИАЛИЗАЦИЯ UI ====================  
 function initializeMainUi() {
   DOM.cover = document.getElementById('cover');
   DOM.trackList = document.getElementById('track-list');
@@ -1931,6 +2233,14 @@ function initializeMainUi() {
   
   buildTrackList();
   updateAvailableTracks();
+  
+  // НОВОЕ: Проверяем наличие клавиатуры и показываем кнопку горячих клавиш
+  if (hasKeyboard()) {
+    insertHotkeysButton();
+  }
+  
+  // Восстанавливаем состояние анимаций
+  restoreAnimationStates();
   
   document.getElementById('feedback-link').onclick = openFeedbackModal;
   document.getElementById('modal-feedback').onclick = function(e) {
@@ -1995,6 +2305,240 @@ function initializeMainUi() {
   });
   
   window.addEventListener('focus', checkSleepTimer);
+}
+
+// ==================== НОВЫЕ ФУНКЦИИ ДЛЯ АНИМАЦИЙ ====================
+
+// Определение наличия клавиатуры
+function hasKeyboard() {
+  const isDesktop = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const hasPointer = window.matchMedia('(pointer: fine)').matches;
+  const canHover = window.matchMedia('(hover: hover)').matches;
+  const noTouch = navigator.maxTouchPoints === 0;
+  
+  return (isDesktop && hasPointer) || (canHover && noTouch);
+}
+
+// Вставка кнопки горячих клавиш
+function insertHotkeysButton() {
+  const feedbackLink = document.getElementById('feedback-link');
+  const downloadBtn = document.getElementById('download-album-main');
+  
+  if (feedbackLink && downloadBtn) {
+    const hotkeysBtn = document.getElementById('hotkeys-btn');
+    if (hotkeysBtn) {
+      hotkeysBtn.style.display = 'block';
+      // Вставляем между кнопкой скачивания и ссылкой обратной связи
+      downloadBtn.parentNode.insertBefore(hotkeysBtn, feedbackLink);
+    }
+  }
+}
+
+// Показать модальное окно горячих клавиш
+function showHotkeysModal() {
+  document.getElementById('hotkeys-modal').classList.add('active');
+}
+
+function closeHotkeysModal() {
+  document.getElementById('hotkeys-modal').classList.remove('active');
+}
+
+// Обработчик клика по логотипу
+function handleLogoClick() {
+  if (!bitEnabled) return;
+  
+  // Циклически меняем интенсивность
+  if (bitIntensity === 100) {
+    bitIntensity = 50;
+  } else if (bitIntensity === 50) {
+    bitIntensity = 15;
+  } else {
+    bitIntensity = 100;
+  }
+  
+  localStorage.setItem('bitIntensity', bitIntensity.toString());
+  NotificationSystem.info(`💿 Интенсивность пульсации: ${bitIntensity}%`);
+}
+
+// Восстановление состояния анимаций
+function restoreAnimationStates() {
+  // Восстанавливаем состояние анимации лирики
+  const savedAnimation = localStorage.getItem('animationEnabled');
+  if (savedAnimation === '1') {
+    animationEnabled = true;
+  }
+  
+  // Восстанавливаем состояние пульсации
+  const savedBit = localStorage.getItem('bitEnabled');
+  if (savedBit === '1') {
+    bitEnabled = true;
+  }
+  
+  // Восстанавливаем интенсивность
+  const savedIntensity = localStorage.getItem('bitIntensity');
+  if (savedIntensity) {
+    bitIntensity = parseInt(savedIntensity);
+  }
+}
+// ==================== ФУНКЦИИ АНИМАЦИИ ====================
+
+// Переключение анимации лирики
+function toggleAnimation() {
+  animationEnabled = !animationEnabled;
+  
+  const btn = document.getElementById('animation-btn');
+  const animBg = document.querySelector('.lyrics-animated-bg');
+  
+  if (animationEnabled) {
+    // Показываем предупреждение при первом включении
+    if (!hasShownAnimationWarning) {
+      hasShownAnimationWarning = true;
+      localStorage.setItem('hasShownAnimationWarning', '1');
+      
+      if (confirm('Режим анимации фона лирики увеличивает расход батареи. Продолжить?')) {
+        // Продолжаем включение
+      } else {
+        animationEnabled = false;
+        return;
+      }
+    }
+    
+    if (btn) btn.classList.add('animation-active');
+    if (animBg) animBg.classList.add('active');
+    NotificationSystem.success('✨ Анимация лирики включена');
+  } else {
+    if (btn) btn.classList.remove('animation-active');
+    if (animBg) animBg.classList.remove('active');
+    NotificationSystem.info('Анимация лирики выключена');
+  }
+  
+  localStorage.setItem('animationEnabled', animationEnabled ? '1' : '0');
+}
+
+// Переключение пульсации логотипа
+function toggleBit() {
+  bitEnabled = !bitEnabled;
+  
+  const btn = document.getElementById('bit-btn');
+  const logo = document.getElementById('logo-bottom');
+  
+  if (bitEnabled) {
+    // Показываем предупреждение при первом включении
+    if (!hasShownBitWarning) {
+      hasShownBitWarning = true;
+      localStorage.setItem('hasShownBitWarning', '1');
+      
+      if (confirm('Режим пульсации увеличивает расход батареи. Продолжить?')) {
+        // Продолжаем включение
+      } else {
+        bitEnabled = false;
+        return;
+      }
+    }
+    
+    if (btn) btn.classList.add('bit-active');
+    initAudioContext();
+    startLogoPulsation();
+    NotificationSystem.success('🎵 Пульсация логотипа включена');
+  } else {
+    if (btn) btn.classList.remove('bit-active');
+    stopLogoPulsation();
+    NotificationSystem.info('Пульсация логотипа выключена');
+  }
+  
+  localStorage.setItem('bitEnabled', bitEnabled ? '1' : '0');
+}
+
+// Инициализация Web Audio API
+function initAudioContext() {
+  if (audioContext) return;
+  
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioContext();
+    
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    
+    const audio = document.getElementById('audio');
+    if (audio) {
+      if (!audioSource) {
+        audioSource = audioContext.createMediaElementSource(audio);
+        audioSource.connect(analyser);
+        analyser.connect(audioContext.destination);
+      }
+    }
+  } catch (e) {
+    console.error('Web Audio API не поддерживается:', e);
+    NotificationSystem.error('Визуализация недоступна в вашем браузере');
+    bitEnabled = false;
+  }
+}
+
+// Запуск пульсации логотипа
+function startLogoPulsation() {
+  if (!bitEnabled || !analyser) return;
+  
+  const logo = document.getElementById('logo-bottom');
+  if (!logo) return;
+  
+  logo.classList.add('logo-pulsing');
+  
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  
+  function animate() {
+    if (!bitEnabled) {
+      logo.style.transform = 'scale(1)';
+      return;
+    }
+    
+    animationFrame = requestAnimationFrame(animate);
+    
+    analyser.getByteFrequencyData(dataArray);
+    
+    // Анализируем низкие частоты (басы)
+    let bass = 0;
+    for (let i = 0; i < 8; i++) {
+      bass += dataArray[i];
+    }
+    bass = bass / 8;
+    
+    // Анализируем средние частоты
+    let mid = 0;
+    for (let i = 8; i < 32; i++) {
+      mid += dataArray[i];
+    }
+    mid = mid / 24;
+    
+    // Комбинируем для общей пульсации
+    const amplitude = (bass * 0.7 + mid * 0.3) / 255;
+    
+    // Применяем интенсивность
+    const scaledAmplitude = amplitude * (bitIntensity / 100);
+    
+    // Масштабируем логотип (от 1 до 1.3 при 100% интенсивности)
+    const scale = 1 + (scaledAmplitude * 0.3);
+    
+    logo.style.transform = `scale(${scale})`;
+  }
+  
+  animate();
+}
+
+// Остановка пульсации логотипа
+function stopLogoPulsation() {
+  const logo = document.getElementById('logo-bottom');
+  if (logo) {
+    logo.classList.remove('logo-pulsing');
+    logo.style.transform = 'scale(1)';
+  }
+  
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  }
 }
 
 // ==================== ГАЛЕРЕЯ ОБЛОЖЕК ====================
@@ -2114,7 +2658,7 @@ function toggleLike(idx, e) {
   }
 }
 
-// ==================== ФИЛЬТР ИЗБРАННЫХ В СПИСКЕ ====================
+// ==================== ФИЛЬТР ИЗБРАННЫХ В СПИСКЕ (ИСПРАВЛЕНО) ====================
 function toggleFavoritesFilter() {
   const btn = document.getElementById('filter-favorites-btn');
   const trackList = document.getElementById('track-list');
@@ -2152,6 +2696,17 @@ function toggleFavoritesFilter() {
     
     localStorage.setItem('favoritesFilter', '1');
     
+    // ИСПРАВЛЕНО: Автоматически включаем режим воспроизведения избранных
+    if (!favoritesOnlyMode) {
+      favoritesOnlyMode = true;
+      updateAvailableTracks();
+      const btn = document.getElementById('favorites-btn');
+      const icon = document.getElementById('favorites-btn-icon');
+      if (btn) btn.classList.add('favorites-active');
+      if (icon) icon.src = 'img/star.png';
+      localStorage.setItem('favoritesOnlyMode', '1');
+    }
+    
   } else {
     btn.textContent = 'Скрыть не отмеченные ⭐ песни';
     btn.classList.remove('filtered');
@@ -2163,6 +2718,17 @@ function toggleFavoritesFilter() {
     NotificationSystem.info('Показаны все треки');
     
     localStorage.removeItem('favoritesFilter');
+    
+    // ИСПРАВЛЕНО: Автоматически отключаем режим воспроизведения избранных
+    if (favoritesOnlyMode) {
+      favoritesOnlyMode = false;
+      updateAvailableTracks();
+      const btn = document.getElementById('favorites-btn');
+      const icon = document.getElementById('favorites-btn-icon');
+      if (btn) btn.classList.remove('favorites-active');
+      if (icon) icon.src = 'img/star2.png';
+      localStorage.setItem('favoritesOnlyMode', '0');
+    }
     
     if (currentTrack >= 0) {
       setTimeout(() => {
@@ -2272,38 +2838,72 @@ function buildTrackList() {
 
 // ==================== ПРОИГРЫВАТЕЛЬ ====================
 function pickAndPlayTrack(n) {
+  // ИСПРАВЛЕНО: Очищаем позицию при ручном выборе трека
+  PositionManager.clear();
   showTrack(n, true);
   autoPlayEnabled = true;
 }
 
 function showTrack(n, doPlay) {
-  // Сохраняем позицию предыдущего трека
-  if (currentTrack >= 0) {
-    saveCurrentPosition();
+  // ИСПРАВЛЕНО: Сохраняем позицию только текущего трека
+  if (currentTrack >= 0 && currentTrack !== n) {
+    const audio = document.getElementById('audio');
+    if (audio) {
+      PositionManager.save(`track_${currentTrack}`, audio.currentTime);
+    }
   }
   
   currentTrack = n;
   buildTrackList();
   
-  // Проверяем сохранённую позицию для нового трека
-  setTimeout(() => {
-    checkAndRestorePosition();
-  }, 100);
+  // ИСПРАВЛЕНО: Проверяем позицию только если это тот же трек
+  if (!doPlay) {
+    setTimeout(() => {
+      checkAndRestorePosition();
+    }, 100);
+  }
   
   if (doPlay && document.getElementById("audio")) {
     setTimeout(() => {
-      document.getElementById("audio").play();
+      const audio = document.getElementById("audio");
+      audio.currentTime = 0; // ИСПРАВЛЕНО: Всегда начинаем с начала при ручном выборе
+      audio.play();
     }, 140);
   }
 }
 
-// ==================== НОВЫЙ ПЛЕЕР С КОНТРОЛАМИ ====================
+// ИСПРАВЛЕННАЯ функция проверки и восстановления позиции
+function checkAndRestorePosition() {
+  if (currentTrack < 0) return;
+  
+  const trackId = `track_${currentTrack}`;
+  const savedPosition = PositionManager.get(trackId);
+  
+  if (savedPosition && savedPosition > 0) {
+    const audio = document.getElementById('audio');
+    if (audio) {
+      audio.currentTime = savedPosition;
+      NotificationSystem.info(`Продолжено с ${formatTime(savedPosition)}`);
+    }
+  }
+}
+
+// ИСПРАВЛЕННАЯ функция сохранения позиции
+function saveCurrentPosition() {
+  const audio = document.getElementById('audio');
+  if (!audio || currentTrack < 0) return;
+  
+  const trackId = `track_${currentTrack}`;
+  PositionManager.save(trackId, audio.currentTime);
+}
+// ==================== НОВЫЙ ПЛЕЕР С КОНТРОЛАМИ (ИСПРАВЛЕНО) ====================
 function renderLyricsBlock() {
   const block = document.getElementById('lyricsplayerblock');
   if (!block) return;
   
   let lyricsDiv = `
     <div id="lyrics-window" class="lyrics-${lyricsViewMode}">
+      <div class="lyrics-animated-bg${animationEnabled ? ' active' : ''}"></div>
       <div class="lyrics-scroll" id="lyrics"></div>
     </div>
     
@@ -2324,76 +2924,116 @@ function renderLyricsBlock() {
       <audio id="audio" preload="metadata" aria-hidden="true" tabindex="-1"></audio>
     </div>
     
+    <!-- ИСПРАВЛЕНО: Двухуровневая панель управления -->
     <div class="player-controls" role="group" aria-label="Управление воспроизведением">
-      <button class="player-control-btn" id="shuffle-btn" onclick="toggleShuffle()" 
-              title="Случайный порядок" aria-label="Случайный порядок">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 17h2.735a4 4 0 003.43-1.942l3.67-6.116A4 4 0 0116.265 7H21m0 0l-3-3m3 3l-3 3"/>
-          <path d="M3 7h2.735a4 4 0 013.43 1.942l3.67 6.116A4 4 0 0016.265 17H21m0 0l-3 3m3-3l-3-3"/>
-        </svg>
-      </button>
-      
-      <button class="player-control-btn" onclick="previousTrack()" 
-              title="Предыдущий трек" aria-label="Предыдущий трек">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11 5L4 12l7 7V5zm9 0v14l-7-7 7-7z"/>
-        </svg>
-      </button>
-      
-      <button class="player-control-btn main" onclick="togglePlayPause()" 
-              title="Воспроизведение/Пауза" aria-label="Воспроизведение/Пауза">
-        <svg id="play-pause-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-      </button>
-      
-      <button class="player-control-btn" onclick="nextTrack()" 
-              title="Следующий трек" aria-label="Следующий трек">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M13 5l7 7-7 7V5zM4 5v14l7-7-7-7z"/>
-        </svg>
-      </button>
-      
-      <button class="player-control-btn" onclick="stopPlayback()" 
-              title="Стоп" aria-label="Стоп">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6" y="6" width="12" height="12"/>
-        </svg>
-      </button>
-      
-      <button class="player-control-btn" id="repeat-btn" onclick="toggleRepeat()" 
-              title="Повтор трека" aria-label="Повтор трека">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17 2l4 4-4 4"/>
-          <path d="M3 11V9a4 4 0 014-4h14"/>
-          <path d="M7 22l-4-4 4-4"/>
-          <path d="M21 13v2a4 4 0 01-4 4H3"/>
-          <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
-        </svg>
-      </button>
-      
-      <button class="player-control-btn" id="favorites-btn" onclick="toggleFavoritesOnly()" 
-              title="Только избранные" aria-label="Только избранные">
-        <img src="img/star2.png" alt="★" id="favorites-btn-icon"/>
-      </button>
-      
-      <!-- Sleep таймер -->
-      <button class="sleep-timer-btn" id="sleep-timer-btn" onclick="toggleSleepMenu()"
-              title="Таймер сна" aria-label="Таймер сна: выключен">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/>
-        </svg>
-        <span class="sleep-timer-badge" id="sleep-timer-badge" style="display:none;">0</span>
+      <!-- Первый ряд -->
+      <div class="player-controls-row">
+        <button class="player-control-btn" onclick="previousTrack()" 
+                title="Предыдущий трек (P)" aria-label="Предыдущий трек">
+          <span class="tooltip">P</span>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11 5L4 12l7 7V5zm9 0v14l-7-7 7-7z"/>
+          </svg>
+        </button>
         
-        <!-- Sleep меню -->
-        <div class="sleep-menu" id="sleep-menu">
-          <div class="sleep-menu-item" onclick="setSleepTimer('off')">Выключить</div>
-          <div class="sleep-menu-item" onclick="setSleepTimer(15)">15 минут</div>
-          <div class="sleep-menu-item" onclick="setSleepTimer(30)">30 минут</div>
-          <div class="sleep-menu-item" onclick="setSleepTimer(60)">60 минут</div>
-          <div class="sleep-menu-item" onclick="showTimePickerForSleep()">К времени...</div>
-        </div>
-      </button>
+        <button class="player-control-btn main" onclick="togglePlayPause()" 
+                title="Воспроизведение/Пауза (K/Пробел)" aria-label="Воспроизведение/Пауза">
+          <span class="tooltip">K</span>
+          <svg id="play-pause-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </button>
+        
+        <button class="player-control-btn" onclick="stopPlayback()" 
+                title="Стоп (X)" aria-label="Стоп">
+          <span class="tooltip">X</span>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="6" width="12" height="12"/>
+          </svg>
+        </button>
+        
+        <button class="player-control-btn" onclick="nextTrack()" 
+                title="Следующий трек (N)" aria-label="Следующий трек">
+          <span class="tooltip">N</span>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13 5l7 7-7 7V5zM4 5v14l7-7-7-7z"/>
+          </svg>
+        </button>
+        
+        <button class="player-control-btn${favoritesOnlyMode ? ' favorites-active' : ''}" 
+                id="favorites-btn" onclick="toggleFavoritesOnly()" 
+                title="Только избранные (F)" aria-label="Только избранные">
+          <span class="tooltip">F</span>
+          <img src="img/${favoritesOnlyMode ? 'star.png' : 'star2.png'}" alt="★" id="favorites-btn-icon"/>
+        </button>
+      </div>
+      
+      <!-- Второй ряд -->
+      <div class="player-controls-row">
+        <button class="player-control-btn" id="mute-btn" onclick="toggleMute()" 
+                title="Выключить звук (M)" aria-label="Выключить звук">
+          <span class="tooltip">M</span>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+          </svg>
+        </button>
+        
+        <button class="player-control-btn${shuffleMode ? ' active' : ''}" 
+                id="shuffle-btn" onclick="toggleShuffle()" 
+                title="Случайный порядок (U)" aria-label="Случайный порядок">
+          <span class="tooltip">U</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 17h2.735a4 4 0 003.43-1.942l3.67-6.116A4 4 0 0116.265 7H21m0 0l-3-3m3 3l-3 3"/>
+            <path d="M3 7h2.735a4 4 0 013.43 1.942l3.67 6.116A4 4 0 0016.265 17H21m0 0l-3 3m3-3l-3-3"/>
+          </svg>
+        </button>
+        
+        <button class="player-control-btn${repeatMode ? ' repeat-active' : ''}" 
+                id="repeat-btn" onclick="toggleRepeat()" 
+                title="Повтор трека (R)" aria-label="Повтор трека">
+          <span class="tooltip">R</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 2l4 4-4 4"/>
+            <path d="M3 11V9a4 4 0 014-4h14"/>
+            <path d="M7 22l-4-4 4-4"/>
+            <path d="M21 13v2a4 4 0 01-4 4H3"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        
+        <button class="player-control-btn animation-btn${animationEnabled ? ' animation-active' : ''}" 
+                id="animation-btn" onclick="toggleAnimation()" 
+                title="Анимация лирики (A)" aria-label="Анимация лирики">
+          <span class="tooltip">A</span>
+          A
+        </button>
+        
+        <button class="player-control-btn bit-btn${bitEnabled ? ' bit-active' : ''}" 
+                id="bit-btn" onclick="toggleBit()" 
+                title="Пульсация логотипа (B)" aria-label="Пульсация логотипа">
+          <span class="tooltip">B</span>
+          B
+        </button>
+        
+        <!-- Sleep таймер -->
+        <button class="sleep-timer-btn" id="sleep-timer-btn" onclick="toggleSleepMenu()"
+                title="Таймер сна (T)" aria-label="Таймер сна: выключен">
+          <span class="tooltip">T</span>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/>
+          </svg>
+          <span class="sleep-timer-badge" id="sleep-timer-badge" style="display:none;">0</span>
+          
+          <!-- Sleep меню -->
+          <div class="sleep-menu" id="sleep-menu">
+            <div class="sleep-menu-item" onclick="setSleepTimer('off')">Выключить</div>
+            <div class="sleep-menu-item" onclick="setSleepTimer(15)">15 минут</div>
+            <div class="sleep-menu-item" onclick="setSleepTimer(30)">30 минут</div>
+            <div class="sleep-menu-item" onclick="setSleepTimer(60)">60 минут</div>
+            <div class="sleep-menu-item" onclick="showTimePickerForSleep()">К времени...</div>
+          </div>
+        </button>
+      </div>
     </div>
     
     <!-- Контроль громкости -->
@@ -2420,7 +3060,7 @@ function renderLyricsBlock() {
       <button class="lyrics-toggle-btn lyrics-${lyricsViewMode}" 
               onclick="toggleLyricsView()" 
               aria-label="${getLyricsButtonLabel()}"
-              title="${getLyricsButtonLabel()}">
+              title="${getLyricsButtonLabel()} (Y)">
         <span class="lyrics-toggle-btn-visual">Т</span>
       </button>
       <button class="karaoke-btn" onclick="copyLyrics()">СКОПИРОВАТЬ ТЕКСТ</button>
@@ -2441,6 +3081,12 @@ function renderLyricsBlock() {
   // Инициализируем режим лирики
   initializeLyricsMode();
   applyLyricsViewMode();
+  
+  // Инициализируем Web Audio API если включена пульсация
+  if (bitEnabled) {
+    initAudioContext();
+    startLogoPulsation();
+  }
   
   // События аудио
   audioEl.addEventListener('loadedmetadata', onAudioMetadataLoaded);
@@ -2495,6 +3141,12 @@ function initializePlayerControls() {
   
   // Восстанавливаем sleep таймер если был
   restoreSleepTimer();
+  
+  // Восстанавливаем состояние анимаций
+  if (animationEnabled) {
+    const animBg = document.querySelector('.lyrics-animated-bg');
+    if (animBg) animBg.classList.add('active');
+  }
 }
 
 // Форматирование времени
@@ -2561,15 +3213,20 @@ function onAudioSeeked() {
   // Убираем индикатор загрузки
 }
 
+// ИСПРАВЛЕНО: Автопереход на следующий трек
 function onAudioEnded() {
   const remainingEl = document.getElementById('time-remaining');
   if (remainingEl) remainingEl.textContent = '00:00';
+  
+  // Очищаем позицию завершившегося трека
+  PositionManager.clear();
   
   if (repeatMode) {
     const audio = document.getElementById('audio');
     audio.currentTime = 0;
     audio.play();
-  } else if (autoPlayEnabled) {
+  } else {
+    // ИСПРАВЛЕНО: Всегда переходим на следующий трек
     nextTrack();
   }
 }
@@ -2622,7 +3279,6 @@ function startSeekDrag(e) {
   
   e.preventDefault();
 }
-
 // Громкость
 function onVolumeSliderChange(e) {
   const value = e.target.value / 100;
@@ -2670,13 +3326,18 @@ function updateVolumeUI(volume) {
   
   // Обновляем иконку
   const icon = document.getElementById('volume-icon');
+  const muteBtn = document.getElementById('mute-btn');
+  
   if (icon) {
     if (volume === 0 || isMuted) {
       icon.innerHTML = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>';
+      if (muteBtn) muteBtn.classList.add('active');
     } else if (volume < 0.5) {
       icon.innerHTML = '<path d="M7 9v6h4l5 5V4l-5 5H7z"/>';
+      if (muteBtn) muteBtn.classList.remove('active');
     } else {
       icon.innerHTML = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
+      if (muteBtn) muteBtn.classList.remove('active');
     }
   }
   
@@ -2699,6 +3360,8 @@ function toggleMute() {
     audio.volume = 0;
     isMuted = true;
   }
+  
+  updateVolumeUI(audio.volume);
 }
 
 function showIOSVolumeNotice() {
@@ -2981,84 +3644,6 @@ function checkSleepTimer() {
   }
 }
 
-// ==================== TTL ПОЗИЦИИ (1 ЧАС) ====================
-class PositionManager {
-  static save(trackId, position) {
-    const data = {
-      trackId,
-      position,
-      timestamp: Date.now(),
-      version: VERSION
-    };
-    localStorage.setItem(`position_${trackId}`, JSON.stringify(data));
-  }
-  
-  static get(trackId) {
-    const saved = localStorage.getItem(`position_${trackId}`);
-    if (!saved) return null;
-    
-    try {
-      const data = JSON.parse(saved);
-      
-      // Проверяем TTL (1 час = 3600000 мс)
-      const age = Date.now() - data.timestamp;
-      if (age > 3600000) {
-        // Позиция устарела
-        localStorage.removeItem(`position_${trackId}`);
-        return null;
-      }
-      
-      // Проверяем версию
-      if (data.version !== VERSION) {
-        localStorage.removeItem(`position_${trackId}`);
-        return null;
-      }
-      
-      return data.position;
-    } catch (e) {
-      return null;
-    }
-  }
-  
-  static clear(trackId) {
-    localStorage.removeItem(`position_${trackId}`);
-  }
-  
-  static clearAll() {
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith('position_')) {
-        localStorage.removeItem(key);
-      }
-    });
-  }
-}
-
-// Добавляем проверку позиции при воспроизведении
-function checkAndRestorePosition() {
-  if (currentTrack < 0) return;
-  
-  const trackId = `track_${currentTrack}`;
-  const savedPosition = PositionManager.get(trackId);
-  
-  if (savedPosition && savedPosition > 0) {
-    const audio = document.getElementById('audio');
-    if (audio) {
-      audio.currentTime = savedPosition;
-      NotificationSystem.info(`Продолжено с ${formatTime(savedPosition)}`);
-    }
-  }
-}
-
-// Сохраняем позицию при паузе и периодически
-function saveCurrentPosition() {
-  const audio = document.getElementById('audio');
-  if (!audio || currentTrack < 0) return;
-  
-  const trackId = `track_${currentTrack}`;
-  PositionManager.save(trackId, audio.currentTime);
-}
-
 // Добавляем обработчики событий для сохранения позиции
 window.addEventListener('beforeunload', saveCurrentPosition);
 document.addEventListener('visibilitychange', () => {
@@ -3149,7 +3734,7 @@ function applyLyricsViewMode() {
   };
   
   toggleBtn.setAttribute('aria-label', labels[lyricsViewMode]);
-  toggleBtn.setAttribute('title', labels[lyricsViewMode]);
+  toggleBtn.setAttribute('title', labels[lyricsViewMode] + ' (Y)');
   
   // Управление рендерингом лирики
   if (lyricsViewMode === 'hidden') {
@@ -3161,7 +3746,6 @@ function applyLyricsViewMode() {
     updateLyricsWindowSize();
   }
 }
-
 // Приостановка рендеринга лирики
 function pauseLyricsRendering() {
   const lyricsDiv = document.getElementById('lyrics');
@@ -3280,6 +3864,9 @@ function stopPlayback() {
   audio.pause();
   audio.currentTime = 0;
   updatePlayPauseIcon();
+  
+  // Очищаем позицию при остановке
+  PositionManager.clear();
 }
 
 function toggleRepeat() {
@@ -3319,11 +3906,18 @@ function toggleShuffle() {
   localStorage.setItem('shuffleMode', shuffleMode ? '1' : '0');
 }
 
+// ИСПРАВЛЕНО: Синхронизация с фильтром
 function toggleFavoritesOnly() {
   const likedTracks = getLiked();
   
   if (likedTracks.length === 0) {
     NotificationSystem.warning('Нет избранных треков! Отметьте треки звёздочкой.');
+    return;
+  }
+  
+  // Проверяем блокировку от фильтра
+  if (favoritesFilterActive && favoritesOnlyMode) {
+    NotificationSystem.warning('Сначала нажмите ПОКАЗАТЬ ВСЕ ПЕСНИ');
     return;
   }
   
@@ -3394,6 +3988,9 @@ function previousTrack() {
     return;
   }
   
+  // Очищаем позицию при переключении
+  PositionManager.clear();
+  
   if (shuffleMode) {
     shuffleIndex = Math.max(0, shuffleIndex - 1);
     if (shuffleIndex < shuffledPlaylist.length) {
@@ -3425,6 +4022,9 @@ function nextTrack() {
     NotificationSystem.warning('Нет доступных треков для воспроизведения');
     return;
   }
+  
+  // Очищаем позицию при переключении
+  PositionManager.clear();
   
   if (shuffleMode) {
     shuffleIndex++;
@@ -3479,6 +4079,14 @@ function restorePlayerButtonsState() {
     const icon = document.getElementById('favorites-btn-icon');
     if (btn) btn.classList.add('favorites-active');
     if (icon) icon.src = 'img/star.png';
+  }
+  
+  if (animationEnabled) {
+    document.getElementById('animation-btn')?.classList.add('animation-active');
+  }
+  
+  if (bitEnabled) {
+    document.getElementById('bit-btn')?.classList.add('bit-active');
   }
 }
 
@@ -3623,6 +4231,236 @@ function copyLyrics() {
       NotificationSystem.error("Не удалось загрузить текст!");
     });
 }
+// ==================== КЛАВИАТУРНАЯ НАВИГАЦИЯ (ОБНОВЛЕНО) ====================
+window.addEventListener('keydown', function(e) {
+  // Проверяем, что фокус не в поле ввода
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    return;
+  }
+  
+  // Проверяем наличие модальных окон
+  const hasActiveModal = document.querySelector('.modal-bg.active');
+  
+  // Esc закрывает модальные окна
+  if (e.key === 'Escape' && hasActiveModal) {
+    e.preventDefault();
+    document.querySelectorAll('.modal-bg.active').forEach(modal => {
+      modal.classList.remove('active');
+    });
+    return;
+  }
+  
+  // Остальные клавиши не работают при открытых модальных окнах
+  if (hasActiveModal) return;
+  
+  const audio = document.getElementById('audio');
+  
+  switch(e.key.toUpperCase()) {
+    // Воспроизведение
+    case ' ': // Пробел
+    case 'K':
+      e.preventDefault();
+      togglePlayPause();
+      break;
+      
+    case 'X':
+      e.preventDefault();
+      stopPlayback();
+      break;
+      
+    case 'N':
+      e.preventDefault();
+      nextTrack();
+      break;
+      
+    case 'P':
+      e.preventDefault();
+      previousTrack();
+      break;
+      
+    case 'J':
+      e.preventDefault();
+      if (audio) audio.currentTime = Math.max(0, audio.currentTime - 10);
+      break;
+      
+    case 'L':
+      e.preventDefault();
+      if (audio) audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+      break;
+      
+    // Громкость
+    case '+':
+    case '=':
+      e.preventDefault();
+      const slider = document.getElementById('volume-slider');
+      if (slider) {
+        slider.value = Math.min(100, parseInt(slider.value) + 10);
+        slider.dispatchEvent(new Event('input'));
+      }
+      break;
+      
+    case '-':
+      e.preventDefault();
+      const sliderMinus = document.getElementById('volume-slider');
+      if (sliderMinus) {
+        sliderMinus.value = Math.max(0, parseInt(sliderMinus.value) - 10);
+        sliderMinus.dispatchEvent(new Event('input'));
+      }
+      break;
+      
+    case 'M':
+      e.preventDefault();
+      toggleMute();
+      break;
+      
+    case '0':
+      e.preventDefault();
+      toggleMute();
+      break;
+      
+    // Режимы
+    case 'R':
+      e.preventDefault();
+      toggleRepeat();
+      break;
+      
+    case 'U':
+      e.preventDefault();
+      toggleShuffle();
+      break;
+      
+    case 'F':
+      if (e.shiftKey) {
+        e.preventDefault();
+        toggleFavoritesFilter();
+      } else {
+        e.preventDefault();
+        toggleFavoritesOnly();
+      }
+      break;
+      
+    case 'T':
+      e.preventDefault();
+      toggleSleepMenu();
+      break;
+      
+    // Анимации
+    case 'A':
+      e.preventDefault();
+      toggleAnimation();
+      break;
+      
+    case 'B':
+      e.preventDefault();
+      toggleBit();
+      break;
+      
+    case '1':
+      e.preventDefault();
+      if (bitEnabled) {
+        bitIntensity = 100;
+        localStorage.setItem('bitIntensity', '100');
+        NotificationSystem.info('💿 Интенсивность пульсации: 100%');
+      }
+      break;
+      
+    case '2':
+      e.preventDefault();
+      if (bitEnabled) {
+        bitIntensity = 50;
+        localStorage.setItem('bitIntensity', '50');
+        NotificationSystem.info('💿 Интенсивность пульсации: 50%');
+      }
+      break;
+      
+    case '3':
+      e.preventDefault();
+      if (bitEnabled) {
+        bitIntensity = 15;
+        localStorage.setItem('bitIntensity', '15');
+        NotificationSystem.info('💿 Интенсивность пульсации: 15%');
+      }
+      break;
+      
+    // Интерфейс
+    case 'Y':
+      e.preventDefault();
+      if (currentTrack >= 0) {
+        toggleLyricsView();
+      }
+      break;
+      
+    case 'W':
+      e.preventDefault();
+      // Прокручиваем к плейлисту
+      document.getElementById('track-list')?.scrollIntoView({ behavior: 'smooth' });
+      break;
+      
+    case 'D':
+      e.preventDefault();
+      if (currentTrack >= 0) {
+        toggleLike(currentTrack);
+      }
+      break;
+      
+    case '/':
+      e.preventDefault();
+      // Фокус на поиск (если будет добавлен в будущем)
+      NotificationSystem.info('Поиск будет добавлен в следующей версии');
+      break;
+      
+    case '?':
+      e.preventDefault();
+      showHotkeysModal();
+      break;
+      
+    case 'V':
+      if (e.shiftKey) {
+        e.preventDefault();
+        const volumeSlider = document.getElementById('volume-slider');
+        if (volumeSlider) {
+          volumeSlider.value = 50;
+          volumeSlider.dispatchEvent(new Event('input'));
+          NotificationSystem.info('Громкость установлена на 50%');
+        }
+      }
+      break;
+      
+    // Навигация по спискам
+    case ',':
+      e.preventDefault();
+      window.scrollBy(0, -100);
+      break;
+      
+    case '.':
+      e.preventDefault();
+      window.scrollBy(0, 100);
+      break;
+      
+    case '[':
+      e.preventDefault();
+      if (config && config.tracks.length > 0) {
+        showTrack(0, true);
+      }
+      break;
+      
+    case ']':
+      e.preventDefault();
+      if (config && config.tracks.length > 0) {
+        showTrack(config.tracks.length - 1, true);
+      }
+      break;
+  }
+  
+  // Цифровые клавиши для быстрого перехода
+  if (e.key >= '1' && e.key <= '9' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+    const trackIndex = parseInt(e.key) - 1;
+    if (trackIndex < config.tracks.length) {
+      e.preventDefault();
+      showTrack(trackIndex, true);
+    }
+  }
+});
 
 // ==================== DEEP LINKS ====================
 function parseDeepLink() {
@@ -3942,7 +4780,6 @@ ${socialLinks}
 
 ═══════════════════════════════════════`;
 }
-
 async function prepareDownload() {
   downloadOptions.includeCovers = document.getElementById('includeCovers').checked;
   downloadOptions.includeLyrics = document.getElementById('includeLyrics').checked;
@@ -4339,7 +5176,7 @@ function confirmGoOnline() {
   });
 }
 
-// ==================== iOS ПОДДЕРЖКА ====================
+// ==================== iOS ПОДДЕРЖКА И PWA ====================
 function detectIOSAndShowInstallGuide() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isInStandaloneMode = window.navigator.standalone === true;
@@ -4383,7 +5220,7 @@ function dismissIOSPrompt() {
   }
 }
 
-// ==================== PWA УСТАНОВКА ====================
+// PWA установка
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
@@ -4499,112 +5336,6 @@ function sendFeedbackMsg() {
   setTimeout(closeFeedbackModal, 2100);
 }
 
-// ==================== КЛАВИАТУРНАЯ НАВИГАЦИЯ ====================
-window.addEventListener('keydown', function(e) {
-  if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    e.preventDefault();
-    const audio = document.getElementById('audio');
-    if (audio) {
-      if (audio.paused) {
-        audio.play();
-      } else {
-        audio.pause();
-      }
-    }
-  }
-  
-  if (e.code === 'ArrowLeft' && currentTrack > 0) {
-    previousTrack();
-  }
-  if (e.code === 'ArrowRight' && currentTrack < config.tracks.length - 1) {
-    nextTrack();
-  }
-  
-  if (e.code === 'KeyL' && currentTrack >= 0) {
-    toggleLike(currentTrack);
-  }
-  
-  if ((e.key === 'T' || e.key === 't' || e.key === 'Е' || e.key === 'е') && 
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    e.preventDefault();
-    if (currentTrack >= 0) {
-      toggleLyricsView();
-    }
-  }
-  
-  // Громкость с клавиатуры
-  if (e.code === 'ArrowUp' && e.target.tagName !== 'INPUT') {
-    e.preventDefault();
-    const slider = document.getElementById('volume-slider');
-    if (slider) {
-      slider.value = Math.min(100, parseInt(slider.value) + 5);
-      slider.dispatchEvent(new Event('input'));
-    }
-  }
-  
-  if (e.code === 'ArrowDown' && e.target.tagName !== 'INPUT') {
-    e.preventDefault();
-    const slider = document.getElementById('volume-slider');
-    if (slider) {
-      slider.value = Math.max(0, parseInt(slider.value) - 5);
-      slider.dispatchEvent(new Event('input'));
-    }
-  }
-  
-  if (e.code === 'KeyM') {
-    toggleMute();
-  }
-});
-
-// ==================== МОНИТОРИНГ СЕТИ ====================
-window.addEventListener('online', () => {
-  NotificationSystem.success('Соединение восстановлено');
-});
-
-window.addEventListener('offline', () => {
-  NotificationSystem.offline('Нет соединения с интернетом');
-});
-
-// ==================== ОТЛАДКА ====================
-window.debugInfo = function() {
-  const info = {
-    version: VERSION,
-    buildDate: BUILD_DATE,
-    userAgent: navigator.userAgent,
-    online: navigator.onLine,
-    serviceWorker: 'serviceWorker' in navigator,
-    localStorage: {
-      promoPassed: localStorage.getItem('promoPassed'),
-      likedTracks: getLiked(),
-      shuffleMode: localStorage.getItem('shuffleMode'),
-      repeatMode: localStorage.getItem('repeatMode'),
-      favoritesOnlyMode: localStorage.getItem('favoritesOnlyMode'),
-      favoritesFilter: localStorage.getItem('favoritesFilter'),
-      offlineMode: localStorage.getItem('offlineMode')
-    },
-    config: {
-      loaded: configLoaded,
-      tracks: config?.tracks?.length || 0,
-      artist: config?.artist,
-      albumYear: config?.albumYear
-    },
-    player: {
-      currentTrack: currentTrack,
-      shuffleMode: shuffleMode,
-      repeatMode: repeatMode,
-      favoritesOnlyMode: favoritesOnlyMode,
-      lyricsViewMode: lyricsViewMode,
-      autoPlay: autoPlayEnabled
-    },
-    cache: {
-      caches: 'caches' in window
-    }
-  };
-  
-  console.table(info);
-  return info;
-};
-
 // ==================== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ====================
 document.addEventListener('DOMContentLoaded', function() {
   // Проверяем поддержку PWA
@@ -4619,6 +5350,16 @@ document.addEventListener('DOMContentLoaded', function() {
   repeatMode = localStorage.getItem('repeatMode') === '1';
   favoritesOnlyMode = localStorage.getItem('favoritesOnlyMode') === '1';
   offlineMode = localStorage.getItem('offlineMode') === '1';
+  animationEnabled = localStorage.getItem('animationEnabled') === '1';
+  bitEnabled = localStorage.getItem('bitEnabled') === '1';
+  
+  const savedIntensity = localStorage.getItem('bitIntensity');
+  if (savedIntensity) {
+    bitIntensity = parseInt(savedIntensity);
+  }
+  
+  hasShownAnimationWarning = localStorage.getItem('hasShownAnimationWarning') === '1';
+  hasShownBitWarning = localStorage.getItem('hasShownBitWarning') === '1';
   
   // Инициализация доступных треков
   if (config) {
@@ -4648,6 +5389,15 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 1000);
 });
 
+// ==================== МОНИТОРИНГ СЕТИ ====================
+window.addEventListener('online', () => {
+  NotificationSystem.success('Соединение восстановлено');
+});
+
+window.addEventListener('offline', () => {
+  NotificationSystem.offline('Нет соединения с интернетом');
+});
+
 // ==================== PERFORMANCE MONITORING ====================
 if (window.performance && performance.mark) {
   performance.mark('app-start');
@@ -4672,6 +5422,54 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event);
 });
+
+// ==================== ОТЛАДКА ====================
+window.debugInfo = function() {
+  const info = {
+    version: VERSION,
+    buildDate: BUILD_DATE,
+    userAgent: navigator.userAgent,
+    online: navigator.onLine,
+    serviceWorker: 'serviceWorker' in navigator,
+    localStorage: {
+      promoPassed: localStorage.getItem('promoPassed'),
+      likedTracks: getLiked(),
+      shuffleMode: localStorage.getItem('shuffleMode'),
+      repeatMode: localStorage.getItem('repeatMode'),
+      favoritesOnlyMode: localStorage.getItem('favoritesOnlyMode'),
+      favoritesFilter: localStorage.getItem('favoritesFilter'),
+      offlineMode: localStorage.getItem('offlineMode'),
+      animationEnabled: localStorage.getItem('animationEnabled'),
+      bitEnabled: localStorage.getItem('bitEnabled'),
+      bitIntensity: localStorage.getItem('bitIntensity')
+    },
+    config: {
+      loaded: configLoaded,
+      tracks: config?.tracks?.length || 0,
+      artist: config?.artist,
+      albumYear: config?.albumYear
+    },
+    player: {
+      currentTrack: currentTrack,
+      shuffleMode: shuffleMode,
+      repeatMode: repeatMode,
+      favoritesOnlyMode: favoritesOnlyMode,
+      lyricsViewMode: lyricsViewMode,
+      autoPlay: autoPlayEnabled,
+      animationEnabled: animationEnabled,
+      bitEnabled: bitEnabled,
+      bitIntensity: bitIntensity
+    },
+    cache: {
+      caches: 'caches' in window
+    }
+  };
+  
+  console.table(info);
+  return info;
+};
+
+console.log('Application initialized. Version:', VERSION);
 </script>
 
 <!-- Ленивая загрузка JSZip только при необходимости -->
@@ -4681,6 +5479,3 @@ window.addEventListener('unhandledrejection', (event) => {
 
 </body>
 </html>
-
-
-
