@@ -1991,7 +1991,7 @@ function initializeMainUi() {
   // Восстанавливаем режим отображения лирики
   restoreLyricsViewMode();
   
-  // Восстанавливаем фильтр избранных если был активен
+    // Восстанавливаем фильтр избранных если был активен
   if (localStorage.getItem('favoritesFilter') === '1') {
     const liked = getLiked();
     if (liked.length > 0) {
@@ -1999,7 +1999,10 @@ function initializeMainUi() {
       setTimeout(() => {
         toggleFavoritesFilter();
       }, 500);
-        // Добавляем слушатель событий для проверки sleep таймера при изменении видимости
+    }
+  }
+  
+  // Добавляем слушатель событий для проверки sleep таймера при изменении видимости
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       checkSleepTimer();
@@ -2007,7 +2010,7 @@ function initializeMainUi() {
   });
   
   window.addEventListener('focus', checkSleepTimer);
-    }
+}
   }
 }
 
@@ -4521,13 +4524,16 @@ window.addEventListener('keydown', function(e) {
   if (e.code === 'KeyL' && currentTrack >= 0) {
     toggleLike(currentTrack);
   }
+  
   if ((e.key === 'T' || e.key === 't' || e.key === 'Е' || e.key === 'е') && 
       e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     e.preventDefault();
     if (currentTrack >= 0) {
       toggleLyricsView();
     }
-      // Громкость с клавиатуры
+  }
+  
+  // Громкость с клавиатуры
   if (e.code === 'ArrowUp' && e.target.tagName !== 'INPUT') {
     e.preventDefault();
     const slider = document.getElementById('volume-slider');
@@ -4542,7 +4548,9 @@ window.addEventListener('keydown', function(e) {
     const slider = document.getElementById('volume-slider');
     if (slider) {
       slider.value = Math.max(0, parseInt(slider.value) - 5);
-      slider.dispatchEvent(new Event('input
+      slider.dispatchEvent(new Event('input'));
+    }
+  }
   
   if (e.code === 'KeyM') {
     toggleMute();
