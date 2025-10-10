@@ -436,6 +436,94 @@
       border-radius: 8px;
       font-size: 1.19em;
     }
+        /* ==================== АНИМАЦИЯ ЛИРИКИ ==================== */
+    /* Анимированный фон лирики */
+    .lyrics-animated-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0;
+      background: linear-gradient(45deg, 
+        rgba(232,1,0,0.15), 
+        rgba(77,170,255,0.15), 
+        rgba(232,1,0,0.15));
+      background-size: 400% 400%;
+      animation: none;
+      z-index: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+
+    .lyrics-animated-bg.active {
+      opacity: 1;
+      animation: lyricsGradient 10s ease infinite;
+    }
+
+    @keyframes lyricsGradient {
+      0% { 
+        background-position: 0% 50%;
+        filter: hue-rotate(0deg);
+      }
+      50% { 
+        background-position: 100% 50%;
+        filter: hue-rotate(30deg);
+      }
+      100% { 
+        background-position: 0% 50%;
+        filter: hue-rotate(0deg);
+      }
+    }
+
+    /* Анимация текста лирики при активной анимации */
+    #lyrics-window.animation-active .lyrics-window-line {
+      animation: lyricsPulse 3s ease-in-out infinite;
+    }
+
+    #lyrics-window.animation-active .lyrics-window-line.active {
+      animation: lyricsActivePulse 1s ease-in-out infinite;
+      text-shadow: 0 0 20px var(--primary-color);
+    }
+
+    @keyframes lyricsPulse {
+      0%, 100% { opacity: 0.57; }
+      50% { opacity: 0.8; }
+    }
+
+    @keyframes lyricsActivePulse {
+      0%, 100% { 
+        transform: scale(1);
+        text-shadow: 0 1px 7px #73161644;
+      }
+      50% { 
+        transform: scale(1.05);
+        text-shadow: 0 0 25px var(--primary-color);
+      }
+    }
+
+    /* Визуальный эффект волны */
+    .lyrics-wave-effect {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 100px;
+      background: linear-gradient(transparent, rgba(232,1,0,0.1));
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .lyrics-wave-effect.active {
+      opacity: 1;
+      animation: waveMove 4s linear infinite;
+    }
+
+    @keyframes waveMove {
+      0% { transform: translateY(100%); }
+      100% { transform: translateY(-100%); }
+    }
+    /* ==================== КОНЕЦ АНИМАЦИИ ЛИРИКИ ==================== */
     
     .audio-wrapper {
       width: 100%;
@@ -2388,6 +2476,7 @@ function toggleAnimation() {
   
   const btn = document.getElementById('animation-btn');
   const animBg = document.querySelector('.lyrics-animated-bg');
+  const lyricsWindow = document.getElementById('lyrics-window');
   
   if (animationEnabled) {
     // Показываем предупреждение при первом включении
@@ -2405,10 +2494,12 @@ function toggleAnimation() {
     
     if (btn) btn.classList.add('animation-active');
     if (animBg) animBg.classList.add('active');
+    if (lyricsWindow) lyricsWindow.classList.add('animation-active');
     NotificationSystem.success('✨ Анимация лирики включена');
   } else {
     if (btn) btn.classList.remove('animation-active');
     if (animBg) animBg.classList.remove('active');
+    if (lyricsWindow) lyricsWindow.classList.remove('animation-active');
     NotificationSystem.info('Анимация лирики выключена');
   }
   
@@ -3145,9 +3236,10 @@ function initializePlayerControls() {
   // Восстанавливаем состояние анимаций
   if (animationEnabled) {
     const animBg = document.querySelector('.lyrics-animated-bg');
+    const lyricsWindow = document.getElementById('lyrics-window');
     if (animBg) animBg.classList.add('active');
+    if (lyricsWindow) lyricsWindow.classList.add('animation-active');
   }
-}
 
 // Форматирование времени
 function formatTime(seconds) {
