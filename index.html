@@ -230,7 +230,7 @@
       box-shadow: 0 4px 24px rgba(0,0,0,0.3);
     }
     
-    /* Пульсирующий логотип */
+        /* Пульсирующий логотип */
     .logo-bottom {
       max-width: 112px;
       width: 23vw;
@@ -242,6 +242,14 @@
       transition: transform 0.1s ease-out;
       will-change: transform;
       transform: translateZ(0);
+      transform-origin: center center;
+      isolation: isolate;
+      z-index: 10;
+      position: relative;
+    }
+    
+    .logo-pulsing {
+      animation: none !important;
     }
     
     .logo-pulsing {
@@ -436,7 +444,8 @@
       border-radius: 8px;
       font-size: 1.19em;
     }
-        /* ==================== АНИМАЦИЯ ЛИРИКИ ==================== */
+         
+    /* ==================== АНИМАЦИЯ ЛИРИКИ ИСПРАВЛЕННАЯ ==================== */
     /* Анимированный фон лирики */
     .lyrics-animated-bg {
       position: absolute;
@@ -476,52 +485,25 @@
       }
     }
 
-    /* Анимация текста лирики при активной анимации */
+    /* Убрана анимация transform для текста лирики */
     #lyrics-window.animation-active .lyrics-window-line {
-      animation: lyricsPulse 3s ease-in-out infinite;
+      transition: opacity 0.3s ease;
     }
 
     #lyrics-window.animation-active .lyrics-window-line.active {
-      animation: lyricsActivePulse 1s ease-in-out infinite;
-      text-shadow: 0 0 20px var(--primary-color);
+      /* Только эффект свечения, без изменения размера */
+      animation: lyricsGlow 1s ease-in-out infinite;
     }
 
-    @keyframes lyricsPulse {
-      0%, 100% { opacity: 0.57; }
-      50% { opacity: 0.8; }
-    }
-
-    @keyframes lyricsActivePulse {
+    @keyframes lyricsGlow {
       0%, 100% { 
-        transform: scale(1);
         text-shadow: 0 1px 7px #73161644;
+        opacity: 1;
       }
       50% { 
-        transform: scale(1.05);
         text-shadow: 0 0 25px var(--primary-color);
+        opacity: 1;
       }
-    }
-
-    /* Визуальный эффект волны */
-    .lyrics-wave-effect {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 100px;
-      background: linear-gradient(transparent, rgba(232,1,0,0.1));
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .lyrics-wave-effect.active {
-      opacity: 1;
-      animation: waveMove 4s linear infinite;
-    }
-
-    @keyframes waveMove {
-      0% { transform: translateY(100%); }
-      100% { transform: translateY(-100%); }
     }
     /* ==================== КОНЕЦ АНИМАЦИИ ЛИРИКИ ==================== */
     
@@ -2574,6 +2556,7 @@ function startLogoPulsation() {
   const logo = document.getElementById('logo-bottom');
   if (!logo) return;
   
+  // Добавляем класс для изоляции
   logo.classList.add('logo-pulsing');
   
   const bufferLength = analyser.frequencyBinCount;
@@ -2612,7 +2595,8 @@ function startLogoPulsation() {
     // Масштабируем логотип (от 1 до 1.3 при 100% интенсивности)
     const scale = 1 + (scaledAmplitude * 0.3);
     
-    logo.style.transform = `scale(${scale})`;
+    // ВАЖНО: используем scale3d для аппаратного ускорения и изоляции
+    logo.style.transform = `scale3d(${scale}, ${scale}, 1)`;
   }
   
   animate();
