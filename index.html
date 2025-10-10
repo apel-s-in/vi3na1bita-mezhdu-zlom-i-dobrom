@@ -540,6 +540,367 @@
   position: relative; /* Для позиционирования кнопки T */
 }
 
+/* НОВЫЕ СТИЛИ ДЛЯ КАСТОМНОГО ПЛЕЕРА */
+
+/* Скрываем нативный плеер */
+#audio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  tabindex: -1;
+}
+
+/* Прогресс бар для трека */
+.player-progress-wrapper {
+  width: 100%;
+  margin: 10px 0;
+  position: relative;
+}
+
+.player-progress-bar {
+  width: 100%;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.player-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  width: 0%;
+  transition: width 0.1s linear;
+  border-radius: 20px;
+  position: relative;
+}
+
+.player-progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  right: -10px;
+}
+
+/* Таймер времени */
+.player-time-display {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 10px;
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  user-select: none;
+}
+
+.player-time-elapsed {
+  color: var(--secondary-color);
+}
+
+.player-time-remaining {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Контроллер громкости */
+.volume-control-wrapper {
+  width: 100%;
+  margin: 15px 0;
+  padding: 0 10px;
+}
+
+.volume-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.volume-icon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.volume-icon:hover {
+  opacity: 1;
+}
+
+.volume-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--secondary-color);
+}
+
+.volume-percentage {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 35px;
+  text-align: right;
+}
+
+.volume-slider-container {
+  width: 100%;
+  height: 32px;
+  position: relative;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 32px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+
+.volume-track {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.volume-fill {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  background: var(--secondary-color);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: width 0.1s;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Sleep таймер */
+.sleep-timer-btn {
+  background: none;
+  border: none;
+  color: var(--secondary-color);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  position: relative;
+}
+
+.sleep-timer-btn:hover {
+  background: rgba(77, 170, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.sleep-timer-btn.active {
+  color: var(--primary-color);
+  background: rgba(232, 1, 0, 0.2);
+}
+
+.sleep-timer-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Sleep меню */
+.sleep-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--modal-bg);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 100;
+  min-width: 150px;
+  display: none;
+}
+
+.sleep-menu.active {
+  display: block;
+  animation: slideUp 0.2s;
+}
+
+.sleep-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s;
+  white-space: nowrap;
+  color: var(--text-color);
+}
+
+.sleep-menu-item:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.sleep-menu-item.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* Sleep оверлей */
+.sleep-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.sleep-overlay.active {
+  display: flex;
+  animation: fadeIn 0.5s;
+}
+
+.sleep-content {
+  text-align: center;
+  padding: 40px;
+  max-width: 400px;
+}
+
+.sleep-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.sleep-title {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: var(--text-color);
+}
+
+.sleep-message {
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 30px;
+}
+
+.sleep-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.sleep-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: opacity 0.2s;
+}
+
+.sleep-btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.sleep-btn-secondary {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-color);
+}
+
+.sleep-btn:hover {
+  opacity: 0.8;
+}
+
+/* iOS предупреждение о громкости */
+.ios-volume-notice {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.9);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  z-index: 1000;
+  display: none;
+  max-width: 90%;
+  text-align: center;
+}
+
+.ios-volume-notice.show {
+  display: block;
+  animation: slideUp 0.3s;
+}
+
+/* Адаптивность */
+@media (max-width: 600px) {
+  .player-time-display {
+    font-size: 12px;
+  }
+  
+  .volume-control-wrapper {
+    padding: 0 5px;
+  }
+  
+  .sleep-menu {
+    bottom: auto;
+    top: 100%;
+    margin-bottom: 0;
+    margin-top: 10px;
+  }
+}
+
 /* Модификация стилей окна лирики */
 #lyrics-window {
   transition: height 0.2s ease, opacity 0.2s ease, margin 0.2s ease;
@@ -1464,6 +1825,7 @@ class PlayerState {
       trackIndex: currentTrack,
       position: audio ? audio.currentTime : 0,
       volume: audio ? audio.volume : 1,
+            savedVolume: localStorage.getItem('playerVolume'),
       liked: getLiked(),
       timestamp: Date.now()
     };
@@ -1488,8 +1850,8 @@ class PlayerState {
   static apply(state) {
     if (!state || !config) return;
     
-    if (state.liked) {
-      saveLiked(state.liked);
+       if (state.savedVolume) {
+      localStorage.setItem('playerVolume', state.savedVolume);
     }
     
     if (state.trackIndex >= 0 && state.trackIndex < config.tracks.length) {
@@ -1637,6 +1999,14 @@ function initializeMainUi() {
       setTimeout(() => {
         toggleFavoritesFilter();
       }, 500);
+        // Добавляем слушатель событий для проверки sleep таймера при изменении видимости
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      checkSleepTimer();
+    }
+  });
+  
+  window.addEventListener('focus', checkSleepTimer);
     }
   }
 }
@@ -1921,8 +2291,18 @@ function pickAndPlayTrack(n) {
 }
 
 function showTrack(n, doPlay) {
+  // Сохраняем позицию предыдущего трека
+  if (currentTrack >= 0) {
+    saveCurrentPosition();
+  }
+  
   currentTrack = n;
   buildTrackList();
+  
+  // Проверяем сохранённую позицию для нового трека
+  setTimeout(() => {
+    checkAndRestorePosition();
+  }, 100);
   
   if (doPlay && document.getElementById("audio")) {
     setTimeout(() => {
@@ -1940,42 +2320,63 @@ function renderLyricsBlock() {
     <div id="lyrics-window" class="lyrics-${lyricsViewMode}">
       <div class="lyrics-scroll" id="lyrics"></div>
     </div>
-    <div class="audio-wrapper">
-      <audio id="audio" controls preload="metadata"></audio>
+    
+    <!-- Прогресс бар трека -->
+    <div class="player-progress-wrapper">
+      <div class="player-progress-bar" id="player-progress-bar">
+        <div class="player-progress-fill" id="player-progress-fill">
+          <div class="player-progress-handle"></div>
+        </div>
+      </div>
+      <div class="player-time-display">
+        <span class="player-time-elapsed" id="time-elapsed">00:00</span>
+        <span class="player-time-remaining" id="time-remaining">--:--</span>
+      </div>
     </div>
-    <div class="player-controls">
-      <button class="player-control-btn" id="shuffle-btn" onclick="toggleShuffle()" title="Случайный порядок">
+    
+    <div class="audio-wrapper">
+      <audio id="audio" preload="metadata" aria-hidden="true" tabindex="-1"></audio>
+    </div>
+    
+    <div class="player-controls" role="group" aria-label="Управление воспроизведением">
+      <button class="player-control-btn" id="shuffle-btn" onclick="toggleShuffle()" 
+              title="Случайный порядок" aria-label="Случайный порядок">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 17h2.735a4 4 0 003.43-1.942l3.67-6.116A4 4 0 0116.265 7H21m0 0l-3-3m3 3l-3 3"/>
           <path d="M3 7h2.735a4 4 0 013.43 1.942l3.67 6.116A4 4 0 0016.265 17H21m0 0l-3 3m3-3l-3-3"/>
         </svg>
       </button>
       
-      <button class="player-control-btn" onclick="previousTrack()" title="Предыдущий трек">
+      <button class="player-control-btn" onclick="previousTrack()" 
+              title="Предыдущий трек" aria-label="Предыдущий трек">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M11 5L4 12l7 7V5zm9 0v14l-7-7 7-7z"/>
         </svg>
       </button>
       
-      <button class="player-control-btn main" onclick="togglePlayPause()" title="Воспроизведение/Пауза">
+      <button class="player-control-btn main" onclick="togglePlayPause()" 
+              title="Воспроизведение/Пауза" aria-label="Воспроизведение/Пауза">
         <svg id="play-pause-icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z"/>
         </svg>
       </button>
       
-      <button class="player-control-btn" onclick="nextTrack()" title="Следующий трек">
+      <button class="player-control-btn" onclick="nextTrack()" 
+              title="Следующий трек" aria-label="Следующий трек">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M13 5l7 7-7 7V5zM4 5v14l7-7-7-7z"/>
         </svg>
       </button>
       
-      <button class="player-control-btn" onclick="stopPlayback()" title="Стоп">
+      <button class="player-control-btn" onclick="stopPlayback()" 
+              title="Стоп" aria-label="Стоп">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <rect x="6" y="6" width="12" height="12"/>
         </svg>
       </button>
       
-      <button class="player-control-btn" id="repeat-btn" onclick="toggleRepeat()" title="Повтор трека">
+      <button class="player-control-btn" id="repeat-btn" onclick="toggleRepeat()" 
+              title="Повтор трека" aria-label="Повтор трека">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M17 2l4 4-4 4"/>
           <path d="M3 11V9a4 4 0 014-4h14"/>
@@ -1985,9 +2386,48 @@ function renderLyricsBlock() {
         </svg>
       </button>
       
-      <button class="player-control-btn" id="favorites-btn" onclick="toggleFavoritesOnly()" title="Только избранные">
+      <button class="player-control-btn" id="favorites-btn" onclick="toggleFavoritesOnly()" 
+              title="Только избранные" aria-label="Только избранные">
         <img src="img/star2.png" alt="★" id="favorites-btn-icon"/>
       </button>
+      
+      <!-- Sleep таймер -->
+      <button class="sleep-timer-btn" id="sleep-timer-btn" onclick="toggleSleepMenu()"
+              title="Таймер сна" aria-label="Таймер сна: выключен">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/>
+        </svg>
+        <span class="sleep-timer-badge" id="sleep-timer-badge" style="display:none;">0</span>
+        
+        <!-- Sleep меню -->
+        <div class="sleep-menu" id="sleep-menu">
+          <div class="sleep-menu-item" onclick="setSleepTimer('off')">Выключить</div>
+          <div class="sleep-menu-item" onclick="setSleepTimer(15)">15 минут</div>
+          <div class="sleep-menu-item" onclick="setSleepTimer(30)">30 минут</div>
+          <div class="sleep-menu-item" onclick="setSleepTimer(60)">60 минут</div>
+          <div class="sleep-menu-item" onclick="showTimePickerForSleep()">К времени...</div>
+        </div>
+      </button>
+    </div>
+    
+    <!-- Контроль громкости -->
+    <div class="volume-control-wrapper">
+      <div class="volume-header">
+        <div class="volume-icon" onclick="toggleMute()">
+          <svg id="volume-icon" viewBox="0 0 24 24">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+        </div>
+        <span class="volume-percentage" id="volume-percentage">100%</span>
+      </div>
+      <div class="volume-slider-container">
+        <div class="volume-track"></div>
+        <div class="volume-fill" id="volume-fill"></div>
+        <input type="range" class="volume-slider" id="volume-slider" 
+               min="0" max="100" value="100" 
+               aria-label="Громкость"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+      </div>
     </div>
     
     <div class="player-buttons-wrapper">
@@ -2010,28 +2450,620 @@ function renderLyricsBlock() {
   loadLyrics(tr.lyrics);
   setupMediaSession();
   restorePlayerButtonsState();
+  initializePlayerControls(); // НОВАЯ функция
   
   // Инициализируем режим лирики
   initializeLyricsMode();
   applyLyricsViewMode();
   
-  audioEl.ontimeupdate = function() {
-    renderLyricsEnhanced(this.currentTime);
-    updatePlayPauseIcon();
-  };
-  
-  audioEl.onended = function() {
-    if (repeatMode) {
-      audioEl.currentTime = 0;
-      audioEl.play();
-    } else if (autoPlayEnabled) {
-      nextTrack();
-    }
-  };
-  
-  audioEl.onplay = updatePlayPauseIcon;
-  audioEl.onpause = updatePlayPauseIcon;
+  // События аудио
+  audioEl.addEventListener('loadedmetadata', onAudioMetadataLoaded);
+  audioEl.addEventListener('timeupdate', onAudioTimeUpdate);
+  audioEl.addEventListener('seeking', onAudioSeeking);
+  audioEl.addEventListener('seeked', onAudioSeeked);
+  audioEl.addEventListener('ended', onAudioEnded);
+  audioEl.addEventListener('volumechange', onVolumeChange);
+  audioEl.addEventListener('play', updatePlayPauseIcon);
+  audioEl.addEventListener('pause', updatePlayPauseIcon);
 }
+
+// ==================== КАСТОМНЫЙ ПЛЕЕР ====================
+let lastTimeUpdate = 0;
+let isSeekingProgress = false;
+let isMuted = false;
+let sleepTimerInterval = null;
+let sleepTimerTarget = null;
+let sleepTimerMode = null;
+let hasShownIOSVolumeNotice = false;
+
+// Инициализация контролов плеера
+function initializePlayerControls() {
+  // Прогресс бар
+  const progressBar = document.getElementById('player-progress-bar');
+  if (progressBar) {
+    progressBar.addEventListener('click', seekToPosition);
+    progressBar.addEventListener('mousedown', startSeekDrag);
+    progressBar.addEventListener('touchstart', startSeekDrag);
+  }
+  
+  // Громкость
+  const volumeSlider = document.getElementById('volume-slider');
+  if (volumeSlider) {
+    volumeSlider.addEventListener('input', onVolumeSliderChange);
+    volumeSlider.addEventListener('change', onVolumeSliderChange);
+    
+    // Восстанавливаем сохранённую громкость
+    const savedVolume = localStorage.getItem('playerVolume');
+    if (savedVolume !== null) {
+      const volume = parseFloat(savedVolume);
+      volumeSlider.value = volume * 100;
+      updateVolumeUI(volume);
+      const audio = document.getElementById('audio');
+      if (audio) audio.volume = volume;
+    }
+  }
+  
+  // Восстанавливаем sleep таймер если был
+  restoreSleepTimer();
+}
+
+// Форматирование времени
+function formatTime(seconds) {
+  if (isNaN(seconds) || seconds < 0) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// События аудио
+function onAudioMetadataLoaded() {
+  const audio = document.getElementById('audio');
+  const duration = audio.duration;
+  
+  document.getElementById('time-elapsed').textContent = '00:00';
+  document.getElementById('time-remaining').textContent = formatTime(duration);
+  
+  // Доступность
+  audio.setAttribute('aria-label', `Трек ${currentTrack + 1}, длительность ${formatTime(duration)}`);
+}
+
+function onAudioTimeUpdate() {
+  const audio = document.getElementById('audio');
+  const now = Date.now();
+  
+  // Троттлинг - обновляем не чаще 1 раза в секунду
+  if (now - lastTimeUpdate < 1000 && !isSeekingProgress) return;
+  lastTimeUpdate = now;
+  
+  const currentTime = audio.currentTime;
+  const duration = audio.duration;
+  
+  // Обновляем таймеры
+  document.getElementById('time-elapsed').textContent = formatTime(currentTime);
+  document.getElementById('time-remaining').textContent = formatTime(duration - currentTime);
+  
+  // Обновляем прогресс бар
+  if (!isSeekingProgress && duration > 0) {
+    const progress = (currentTime / duration) * 100;
+    document.getElementById('player-progress-fill').style.width = `${progress}%`;
+  }
+  
+  // Проверяем sleep таймер
+  checkSleepTimer();
+  
+  // Обновляем лирику
+  renderLyricsEnhanced(currentTime);
+  updatePlayPauseIcon();
+}
+
+function onAudioSeeking() {
+  // Можно показать индикатор загрузки
+}
+
+function onAudioSeeked() {
+  // Убираем индикатор загрузки
+}
+
+function onAudioEnded() {
+  document.getElementById('time-remaining').textContent = '00:00';
+  
+  if (repeatMode) {
+    const audio = document.getElementById('audio');
+    audio.currentTime = 0;
+    audio.play();
+  } else if (autoPlayEnabled) {
+    nextTrack();
+  }
+}
+
+// Прогресс бар - перемотка
+function seekToPosition(e) {
+  const audio = document.getElementById('audio');
+  const progressBar = e.currentTarget;
+  const rect = progressBar.getBoundingClientRect();
+  const percent = (e.clientX - rect.left) / rect.width;
+  const time = audio.duration * Math.max(0, Math.min(1, percent));
+  
+  audio.currentTime = time;
+}
+
+function startSeekDrag(e) {
+  isSeekingProgress = true;
+  
+  const moveHandler = (e) => {
+    const progressBar = document.getElementById('player-progress-bar');
+    const rect = progressBar.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    
+    document.getElementById('player-progress-fill').style.width = `${percent * 100}%`;
+  };
+  
+  const endHandler = (e) => {
+    const progressBar = document.getElementById('player-progress-bar');
+    const rect = progressBar.getBoundingClientRect();
+    const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    
+    const audio = document.getElementById('audio');
+    audio.currentTime = audio.duration * percent;
+    
+    isSeekingProgress = false;
+    
+    document.removeEventListener('mousemove', moveHandler);
+    document.removeEventListener('mouseup', endHandler);
+    document.removeEventListener('touchmove', moveHandler);
+    document.removeEventListener('touchend', endHandler);
+  };
+  
+  document.addEventListener('mousemove', moveHandler);
+  document.addEventListener('mouseup', endHandler);
+  document.addEventListener('touchmove', moveHandler);
+  document.addEventListener('touchend', endHandler);
+  
+  e.preventDefault();
+}
+
+// Громкость
+function onVolumeSliderChange(e) {
+  const value = e.target.value / 100;
+  const audio = document.getElementById('audio');
+  
+  // Проверяем iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  if (audio) {
+    audio.volume = value;
+    
+    // На iOS показываем уведомление один раз
+    if (isIOS && !hasShownIOSVolumeNotice && value !== audio.volume) {
+      hasShownIOSVolumeNotice = true;
+      showIOSVolumeNotice();
+    }
+  }
+  
+  updateVolumeUI(value);
+  
+  // Сохраняем значение
+  localStorage.setItem('playerVolume', value);
+  PlayerState.save();
+}
+
+function onVolumeChange() {
+  const audio = document.getElementById('audio');
+  const volume = audio.volume;
+  const slider = document.getElementById('volume-slider');
+  
+  if (slider) {
+    slider.value = volume * 100;
+  }
+  
+  updateVolumeUI(volume);
+}
+
+function updateVolumeUI(volume) {
+  const percentage = Math.round(volume * 100);
+  document.getElementById('volume-percentage').textContent = `${percentage}%`;
+  document.getElementById('volume-fill').style.width = `${percentage}%`;
+  
+  // Обновляем иконку
+  const icon = document.getElementById('volume-icon');
+  if (icon) {
+    if (volume === 0 || isMuted) {
+      icon.innerHTML = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>';
+    } else if (volume < 0.5) {
+      icon.innerHTML = '<path d="M7 9v6h4l5 5V4l-5 5H7z"/>';
+    } else {
+            icon.innerHTML = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
+    }
+  }
+  
+  // Обновляем aria
+  const slider = document.getElementById('volume-slider');
+  if (slider) {
+    slider.setAttribute('aria-valuenow', percentage);
+  }
+}
+
+function toggleMute() {
+  const audio = document.getElementById('audio');
+  if (!audio) return;
+  
+  if (isMuted) {
+    audio.volume = parseFloat(localStorage.getItem('playerVolume') || 1);
+    isMuted = false;
+  } else {
+    localStorage.setItem('playerVolume', audio.volume);
+    audio.volume = 0;
+    isMuted = true;
+  }
+}
+
+function showIOSVolumeNotice() {
+  const notice = document.createElement('div');
+  notice.className = 'ios-volume-notice';
+  notice.textContent = 'На iPhone громкость регулируется системными кнопками';
+  document.body.appendChild(notice);
+  
+  setTimeout(() => {
+    notice.classList.add('show');
+  }, 100);
+  
+  setTimeout(() => {
+    notice.classList.remove('show');
+    setTimeout(() => notice.remove(), 300);
+  }, 3000);
+}
+
+// ==================== SLEEP ТАЙМЕР ====================
+function toggleSleepMenu() {
+  const menu = document.getElementById('sleep-menu');
+  menu.classList.toggle('active');
+  
+  // Закрываем при клике вне меню
+  if (menu.classList.contains('active')) {
+    setTimeout(() => {
+      document.addEventListener('click', closeSleepMenu);
+    }, 100);
+  }
+}
+
+function closeSleepMenu(e) {
+  if (e && e.target.closest('#sleep-timer-btn')) return;
+  
+  const menu = document.getElementById('sleep-menu');
+  menu.classList.remove('active');
+  document.removeEventListener('click', closeSleepMenu);
+}
+
+function setSleepTimer(minutes) {
+  closeSleepMenu();
+  
+  if (minutes === 'off') {
+    clearSleepTimer();
+    return;
+  }
+  
+  // Устанавливаем таймер
+  sleepTimerMode = minutes;
+  sleepTimerTarget = Date.now() + (minutes * 60 * 1000);
+  
+  // Сохраняем в localStorage
+  localStorage.setItem('sleepTimer', JSON.stringify({
+    mode: sleepTimerMode,
+    target: sleepTimerTarget,
+    setAt: Date.now()
+  }));
+  
+  // Обновляем UI
+  updateSleepTimerUI();
+  
+  // Показываем уведомление
+  NotificationSystem.info(`Таймер сна установлен на ${minutes} минут`);
+  
+  // Запускаем интервал обновления
+  if (sleepTimerInterval) clearInterval(sleepTimerInterval);
+  sleepTimerInterval = setInterval(updateSleepTimerUI, 1000);
+}
+
+function showTimePickerForSleep() {
+  closeSleepMenu();
+  
+  // Создаём модальное окно для выбора времени
+  const modal = document.createElement('div');
+  modal.className = 'modal-bg active';
+  modal.innerHTML = `
+    <div class="modal-feedback" style="max-width: 300px;">
+      <button class="bigclose" onclick="this.closest('.modal-bg').remove()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <h3>Установить таймер до:</h3>
+      <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0;">
+        <input type="number" id="sleep-hour" min="0" max="23" value="${new Date().getHours()}" 
+               style="width: 60px; padding: 10px; text-align: center; background: rgba(255,255,255,0.1); 
+                      border: 1px solid var(--border-color); border-radius: 8px; color: white;">
+        <span style="font-size: 24px;">:</span>
+        <input type="number" id="sleep-minute" min="0" max="59" value="${new Date().getMinutes() + 30}" 
+               style="width: 60px; padding: 10px; text-align: center; background: rgba(255,255,255,0.1);
+                      border: 1px solid var(--border-color); border-radius: 8px; color: white;">
+      </div>
+      <button onclick="setSleepTimerToTime()" class="btn-primary" style="width: 100%;">Установить</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function setSleepTimerToTime() {
+  const hour = parseInt(document.getElementById('sleep-hour').value);
+  const minute = parseInt(document.getElementById('sleep-minute').value);
+  
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hour, minute, 0, 0);
+  
+  // Если время уже прошло сегодня, устанавливаем на завтра
+  if (target <= now) {
+    target.setDate(target.getDate() + 1);
+  }
+  
+  sleepTimerMode = 'time';
+  sleepTimerTarget = target.getTime();
+  
+  // Сохраняем
+  localStorage.setItem('sleepTimer', JSON.stringify({
+    mode: sleepTimerMode,
+    target: sleepTimerTarget,
+    setAt: Date.now()
+  }));
+  
+  // Закрываем модальное окно
+  document.querySelector('.modal-bg').remove();
+  
+  // Обновляем UI
+  updateSleepTimerUI();
+  
+  // Уведомление
+  NotificationSystem.info(`Таймер сна установлен на ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+  
+  // Запускаем интервал
+  if (sleepTimerInterval) clearInterval(sleepTimerInterval);
+  sleepTimerInterval = setInterval(updateSleepTimerUI, 1000);
+}
+
+function clearSleepTimer() {
+  sleepTimerMode = null;
+  sleepTimerTarget = null;
+  
+  if (sleepTimerInterval) {
+    clearInterval(sleepTimerInterval);
+    sleepTimerInterval = null;
+  }
+  
+  localStorage.removeItem('sleepTimer');
+  
+  // Обновляем UI
+  const btn = document.getElementById('sleep-timer-btn');
+  btn.classList.remove('active');
+  btn.setAttribute('aria-label', 'Таймер сна: выключен');
+  
+  const badge = document.getElementById('sleep-timer-badge');
+  badge.style.display = 'none';
+  
+  NotificationSystem.info('Таймер сна отключён');
+}
+
+function updateSleepTimerUI() {
+  if (!sleepTimerTarget) return;
+  
+  const now = Date.now();
+  const remaining = sleepTimerTarget - now;
+  
+  if (remaining <= 0) {
+    // Таймер истёк
+    executeSleepTimer();
+    return;
+  }
+  
+  // Обновляем бейдж
+  const minutes = Math.ceil(remaining / 60000);
+  const badge = document.getElementById('sleep-timer-badge');
+  badge.textContent = minutes;
+  badge.style.display = 'block';
+  
+  // Обновляем aria-label
+  const btn = document.getElementById('sleep-timer-btn');
+  btn.classList.add('active');
+  btn.setAttribute('aria-label', `Таймер сна: осталось ${minutes} минут`);
+}
+
+function executeSleepTimer() {
+  // Останавливаем воспроизведение
+  const audio = document.getElementById('audio');
+  if (audio && !audio.paused) {
+    audio.pause();
+  }
+  
+  // Очищаем медиа-сессию
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = null;
+  }
+  
+  // Очищаем таймер
+  clearSleepTimer();
+  
+  // Показываем оверлей
+  showSleepOverlay();
+}
+
+function showSleepOverlay() {
+  const overlay = document.createElement('div');
+  overlay.className = 'sleep-overlay active';
+  overlay.innerHTML = `
+    <div class="sleep-content">
+      <div class="sleep-icon">😴</div>
+      <h2 class="sleep-title">Таймер сна сработал</h2>
+      <p class="sleep-message">Воспроизведение остановлено</p>
+      <div class="sleep-buttons">
+        <button class="sleep-btn sleep-btn-primary" onclick="closeSleepOverlay()">Готово</button>
+        <button class="sleep-btn sleep-btn-secondary" onclick="showCloseInstructions()">Закрыть приложение</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function closeSleepOverlay() {
+  const overlay = document.querySelector('.sleep-overlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 300);
+  }
+}
+
+function showCloseInstructions() {
+  const content = document.querySelector('.sleep-content');
+  content.innerHTML = `
+    <div class="sleep-icon">📱</div>
+    <h2 class="sleep-title">Как закрыть приложение</h2>
+    <p class="sleep-message">
+      <strong>iOS:</strong> Свайп вверх от нижнего края экрана<br>
+      <strong>Android:</strong> Кнопка "Назад" или свайп<br>
+      <strong>PWA:</strong> Закройте окно приложения
+    </p>
+    <button class="sleep-btn sleep-btn-primary" onclick="closeSleepOverlay()">Понятно</button>
+  `;
+}
+
+function restoreSleepTimer() {
+  const saved = localStorage.getItem('sleepTimer');
+  if (!saved) return;
+  
+  try {
+    const data = JSON.parse(saved);
+    
+    if (data.target > Date.now()) {
+      // Таймер ещё активен
+      sleepTimerMode = data.mode;
+      sleepTimerTarget = data.target;
+      
+      updateSleepTimerUI();
+      
+      // Запускаем интервал
+      if (sleepTimerInterval) clearInterval(sleepTimerInterval);
+      sleepTimerInterval = setInterval(updateSleepTimerUI, 1000);
+    } else {
+      // Таймер истёк пока приложение было закрыто
+      executeSleepTimer();
+    }
+  } catch (e) {
+    console.error('Failed to restore sleep timer:', e);
+  }
+}
+
+function checkSleepTimer() {
+  if (!sleepTimerTarget) return;
+  
+  if (Date.now() >= sleepTimerTarget) {
+    executeSleepTimer();
+  }
+}
+
+// ==================== TTL ПОЗИЦИИ (1 ЧАС) ====================
+class PositionManager {
+  static save(trackId, position) {
+    const data = {
+      trackId,
+      position,
+      timestamp: Date.now(),
+      version: VERSION
+    };
+    localStorage.setItem(`position_${trackId}`, JSON.stringify(data));
+  }
+  
+  static get(trackId) {
+    const saved = localStorage.getItem(`position_${trackId}`);
+    if (!saved) return null;
+    
+    try {
+      const data = JSON.parse(saved);
+      
+      // Проверяем TTL (1 час = 3600000 мс)
+      const age = Date.now() - data.timestamp;
+      if (age > 3600000) {
+        // Позиция устарела
+        localStorage.removeItem(`position_${trackId}`);
+        return null;
+      }
+      
+      // Проверяем версию
+      if (data.version !== VERSION) {
+        localStorage.removeItem(`position_${trackId}`);
+        return null;
+      }
+      
+      return data.position;
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  static clear(trackId) {
+    localStorage.removeItem(`position_${trackId}`);
+  }
+  
+  static clearAll() {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('position_')) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+}
+
+// Добавляем проверку позиции при воспроизведении
+function checkAndRestorePosition() {
+  if (currentTrack < 0) return;
+  
+  const trackId = `track_${currentTrack}`;
+  const savedPosition = PositionManager.get(trackId);
+  
+  if (savedPosition && savedPosition > 0) {
+    const audio = document.getElementById('audio');
+    if (audio) {
+      audio.currentTime = savedPosition;
+      NotificationSystem.info(`Продолжено с ${formatTime(savedPosition)}`);
+    }
+  }
+}
+
+// Сохраняем позицию при паузе и периодически
+function saveCurrentPosition() {
+  const audio = document.getElementById('audio');
+  if (!audio || currentTrack < 0) return;
+  
+  const trackId = `track_${currentTrack}`;
+  PositionManager.save(trackId, audio.currentTime);
+}
+
+// Добавляем обработчики событий для сохранения позиции
+window.addEventListener('beforeunload', saveCurrentPosition);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    saveCurrentPosition();
+  }
+});
+
+// Периодическое сохранение позиции (каждые 10 секунд)
+setInterval(() => {
+  const audio = document.getElementById('audio');
+  if (audio && !audio.paused) {
+    saveCurrentPosition();
+  }
+}, 10000);
 
 // Вспомогательная функция для получения текста кнопки
 function getLyricsButtonLabel() {
@@ -3495,6 +4527,25 @@ window.addEventListener('keydown', function(e) {
     if (currentTrack >= 0) {
       toggleLyricsView();
     }
+      // Громкость с клавиатуры
+  if (e.code === 'ArrowUp' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    const slider = document.getElementById('volume-slider');
+    if (slider) {
+      slider.value = Math.min(100, parseInt(slider.value) + 5);
+      slider.dispatchEvent(new Event('input'));
+    }
+  }
+  
+  if (e.code === 'ArrowDown' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    const slider = document.getElementById('volume-slider');
+    if (slider) {
+      slider.value = Math.max(0, parseInt(slider.value) - 5);
+      slider.dispatchEvent(new Event('input
+  
+  if (e.code === 'KeyM') {
+    toggleMute();
   }
 });
 
@@ -3620,6 +4671,21 @@ window.addEventListener('unhandledrejection', (event) => {
 <script>
 // JSZip будет загружен динамически при первом использовании функции скачивания альбома
 </script>
+<!-- Sleep Timer Overlay -->
+<div class="sleep-overlay" id="sleep-overlay">
+  <div class="sleep-content">
+    <div class="sleep-icon">😴</div>
+    <h2 class="sleep-title">Таймер сна сработал</h2>
+    <p class="sleep-message">Воспроизведение остановлено</p>
+    <div class="sleep-buttons">
+      <button class="sleep-btn sleep-btn-primary" onclick="closeSleepOverlay()">Готово</button>
+      <button class="sleep-btn sleep-btn-secondary" onclick="showCloseInstructions()">Закрыть приложение</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS Volume Notice -->
+<div class="ios-volume-notice" id="ios-volume-notice"></div>
 
 </body>
 </html>
