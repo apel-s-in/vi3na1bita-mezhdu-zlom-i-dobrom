@@ -1744,6 +1744,23 @@ if ('serviceWorker' in navigator) {
     if (event.data.type === 'REQUEST_OFFLINE_STATE') {
       syncOfflineState();
     }
+    if (event.data.type === 'CLEANUP_POSITIONS') {
+      // Очищаем устаревшие позиции
+      const keys = Object.keys(localStorage);
+      const now = Date.now();
+      keys.forEach(key => {
+        if (key.startsWith('position_')) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key));
+            if (data && (now - data.timestamp) > 3600000) {
+              localStorage.removeItem(key);
+            }
+          } catch (e) {
+            localStorage.removeItem(key);
+          }
+        }
+      });
+    }
   });
 }
 
