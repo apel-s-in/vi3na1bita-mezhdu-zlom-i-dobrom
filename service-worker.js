@@ -1,5 +1,5 @@
-// service-worker.js - v6.3.0
-const VERSION = '6.3.0';
+// service-worker.js - v6.3.1
+const VERSION = '6.3.1';
 const CACHE_NAME = `album-cache-v${VERSION}`;
 const OFFLINE_CACHE = 'album-offline-v1';
 
@@ -11,7 +11,6 @@ const CACHE_NAMES = {
 // Паттерны для исключения из кэша
 const SKIP_CACHE_PATTERNS = [
   /localStorage/,
-  /position_/,
   /sleepTimer/,
   /playerVolume/
 ];
@@ -59,15 +58,16 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      self.clients.claim();
+      // Очищаем все сохраненные позиции при активации новой версии
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
           client.postMessage({
-            type: 'CACHE_UPDATED',
+            type: 'CLEAR_ALL_POSITIONS',
             version: VERSION
           });
         });
       });
+      self.clients.claim();
     })
   );
 });
@@ -90,11 +90,9 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) {
-        // Возвращаем из кэша
         return cachedResponse;
       }
       
-      // Если офлайн режим и нет в кэше - возвращаем ошибку
       if (offlineMode && !navigator.onLine) {
         return new Response('Offline - resource not cached', {
           status: 503,
@@ -102,14 +100,11 @@ self.addEventListener('fetch', event => {
         });
       }
       
-      // Запрашиваем из сети
       return fetch(event.request).then(response => {
-        // Не кэшируем неуспешные ответы
         if (!response || response.status !== 200 || response.type === 'error') {
           return response;
         }
         
-        // Определяем нужно ли кэшировать
         const shouldCache = shouldCacheRequest(event.request);
         
         if (shouldCache) {
@@ -122,7 +117,6 @@ self.addEventListener('fetch', event => {
         return response;
       }).catch(error => {
         console.error('[SW] Fetch failed:', error);
-        // Можно вернуть fallback страницу если нужно
         return new Response('Network error', {
           status: 503,
           statusText: 'Service Unavailable'
@@ -139,7 +133,6 @@ async function handleRangeRequest(request) {
     const cachedResponse = await cache.match(request, { ignoreVary: true });
     
     if (!cachedResponse) {
-      // Если нет в кэше, пробуем загрузить
       if (!navigator.onLine && offlineMode) {
         return new Response('Offline - audio not cached', {
           status: 503,
@@ -198,27 +191,22 @@ function shouldCacheRequest(request) {
   const url = new URL(request.url);
   const pathname = url.pathname;
   
-  // Кэшируем аудио файлы
   if (pathname.includes('/audio/') && pathname.endsWith('.mp3')) {
     return true;
   }
   
-  // Кэшируем тексты песен
   if (pathname.includes('/lyrics/')) {
     return true;
   }
   
-  // Кэшируем обложки
   if (pathname.includes('Cover') && pathname.match(/\.(png|jpg|jpeg)$/)) {
     return true;
   }
   
-  // Кэшируем основные ресурсы
   if (pathname.match(/\.(html|css|js|json)$/)) {
     return true;
   }
   
-  // Кэшируем изображения
   if (pathname.includes('/img/') || pathname.includes('/icons/')) {
     return true;
   }
@@ -249,18 +237,6 @@ self.addEventListener('message', event => {
       event.source.postMessage({
         type: 'OFFLINE_STATE',
         value: offlineMode
-      });
-      break;
-      
-    case 'CLEANUP_OLD_DATA':
-      // Отправляем сообщение клиентам для очистки localStorage
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'CLEANUP_POSITIONS',
-            timestamp: Date.now()
-          });
-        });
       });
       break;
   }
@@ -308,19 +284,5 @@ async function clearOfflineCache() {
     console.error('[SW] Error clearing cache:', error);
   }
 }
-
-// Периодическая очистка устаревших позиций (каждый час)
-setInterval(() => {
-  self.clients.matchAll().then(clients => {
-    if (clients.length > 0) {
-      clients.forEach(client => {
-        client.postMessage({
-          type: 'CLEANUP_POSITIONS',
-          timestamp: Date.now()
-        });
-      });
-    }
-  });
-}, 3600000); // 1 час
 
 console.log('[SW] Service Worker v' + VERSION + ' loaded');
