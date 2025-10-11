@@ -2530,12 +2530,34 @@ function toggleBit() {
     }
     
     if (btn) btn.classList.add('bit-active');
-    initAudioContext();
-    startLogoPulsation();
-    NotificationSystem.success('🎵 Пульсация логотипа включена');
+    
+    // ИСПРАВЛЕНО: Безопасная инициализация
+    try {
+      initAudioContext();
+      startLogoPulsation();
+      NotificationSystem.success('🎵 Пульсация логотипа включена');
+    } catch (e) {
+      console.error('Ошибка инициализации пульсации:', e);
+      bitEnabled = false;
+      if (btn) btn.classList.remove('bit-active');
+      NotificationSystem.error('Не удалось включить пульсацию');
+    }
   } else {
     if (btn) btn.classList.remove('bit-active');
     stopLogoPulsation();
+    
+    // ИСПРАВЛЕНО: Полная очистка контекста
+    if (audioContext) {
+      try {
+        audioContext.close();
+      } catch (e) {
+        console.error('Ошибка закрытия контекста:', e);
+      }
+      audioContext = null;
+      audioSource = null;
+      analyser = null;
+    }
+    
     NotificationSystem.info('Пульсация логотипа выключена');
   }
   
@@ -2544,13 +2566,18 @@ function toggleBit() {
 
 // Инициализация Web Audio API
 function initAudioContext() {
-  // ИСПРАВЛЕНО: Всегда создаём новый контекст при смене трека
   try {
-    // Закрываем старый контекст если есть
+    // ИСПРАВЛЕНО: Проверяем и закрываем старый контекст безопасно
     if (audioContext) {
-      audioContext.close();
+      try {
+        if (audioContext.state !== 'closed') {
+          audioContext.close();
+        }
+      } catch (e) {
+        console.warn('Не удалось закрыть старый контекст:', e);
+      }
       audioContext = null;
-      audioSource = null; 
+      audioSource = null;
       analyser = null;
     }
     
@@ -2562,22 +2589,102 @@ function initAudioContext() {
     analyser.smoothingTimeConstant = 0.8;
     
     const audio = document.getElementById('audio');
-    if (audio) {
-      // Создаём новый источник
+    if (!audio) {
+      console.warn('Audio элемент не найден');
+      return;
+    }
+    
+    // ИСПРАВЛЕНО: Проверяем, не был ли уже создан источник для этого элемента
+    try {
+      // Пытаемся создать новый источник
       audioSource = audioContext.createMediaElementSource(audio);
       audioSource.connect(analyser);
       analyser.connect(audioContext.destination);
+    } catch (e) {
+      // Если источник уже был создан ранее, пересоздаём плеер
+      console.warn('Источник уже существует, пересоздаём подключение');
       
-      // Возобновляем контекст если он был приостановлен
-      if (audioContext.state === 'suspended') {
-        audioContext.resume();
+      // Сохраняем состояние
+      const currentTime = audio.currentTime;
+      const paused = audio.paused;
+      const volume = audio.volume;
+      const src = audio.src;
+      
+      // Пересоздаём audio элемент
+      const newAudio = audio.cloneNode(false);
+      newAudio.src = src;
+      newAudio.currentTime = currentTime;
+      newAudio.volume = volume;
+      
+      // Заменяем элемент
+      audio.parentNode.replaceChild(newAudio, audio);
+      
+      // Создаём источник для нового элемента
+      audioSource = audioContext.createMediaElementSource(newAudio);
+      audioSource.connect(analyser);
+      analyser.connect(audioContext.destination);
+      
+      // Восстанавливаем воспроизведение если нужно
+      if (!paused) {
+        newAudio.play().catch(err => console.log('Автовоспроизведение заблокировано'));
       }
+      
+      // Переподключаем обработчики событий
+      reattachAudioEventListeners(newAudio);
     }
+    
+    // Возобновляем контекст если он был приостановлен
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    
   } catch (e) {
     console.error('Web Audio API не поддерживается:', e);
-    NotificationSystem.error('Визуализация недоступна в вашем браузере');
-    bitEnabled = false;
+    
+    // Очищаем всё при ошибке
+    if (audioContext) {
+      try {
+        audioContext.close();
+      } catch (closeError) {
+        console.error('Ошибка закрытия контекста:', closeError);
+      }
+    }
+    
+    audioContext = null;
+    audioSource = null;
+    analyser = null;
+    
+    throw e; // Пробрасываем ошибку дальше
   }
+}
+// Функция для переподключения обработчиков событий к новому audio элементу
+function reattachAudioEventListeners(audioEl) {
+  if (!audioEl) return;
+  
+  audioEl.addEventListener('loadedmetadata', onAudioMetadataLoaded);
+  audioEl.addEventListener('timeupdate', onAudioTimeUpdate);
+  audioEl.addEventListener('seeking', onAudioSeeking);
+  audioEl.addEventListener('seeked', onAudioSeeked);
+  audioEl.addEventListener('ended', onAudioEnded);
+  audioEl.addEventListener('volumechange', onVolumeChange);
+  audioEl.addEventListener('play', () => {
+    if (bitEnabled && audioContext && audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    updatePlayPauseIcon();
+  });
+  audioEl.addEventListener('pause', updatePlayPauseIcon);
+  audioEl.addEventListener('error', (e) => {
+    console.error('Audio loading error:', e);
+    NotificationSystem.error('Ошибка загрузки трека');
+  });
+  
+  audioEl.addEventListener('canplay', () => {
+    if (bitEnabled && !analyser) {
+      initAudioContext();
+      startLogoPulsation();
+    }
+  });
 }
 
 // Запуск пульсации логотипа
@@ -2654,19 +2761,8 @@ function stopLogoPulsation() {
     cancelAnimationFrame(animationFrame);
     animationFrame = null;
   }
-}
-// Перезапуск пульсации при смене трека
-function restartLogoPulsation() {
-  if (!bitEnabled) return;
   
-  // Останавливаем старую анимацию
-  stopLogoPulsation();
-  
-  // Ждём немного и запускаем заново
-  setTimeout(() => {
-    initAudioContext();
-    startLogoPulsation();
-  }, 200);
+  // ИСПРАВЛЕНО: НЕ закрываем контекст здесь, только при полном отключении
 }
   
 // ==================== ГАЛЕРЕЯ ОБЛОЖЕК ====================
