@@ -247,7 +247,15 @@
       z-index: 10;
       position: relative;
     }
-    
+        /* Изоляция логотипа от конфликтов */
+    #logo-bottom {
+      will-change: transform;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+    }
+
     .logo-pulsing {
       animation: none !important;
     }
@@ -492,7 +500,7 @@
 
     #lyrics-window.animation-active .lyrics-window-line.active {
       /* Только эффект свечения, без изменения размера */
-      animation: lyricsGlow 1s ease-in-out infinite;
+      animation: lyricsGlow 2s ease-in-out infinite; /* Увеличена длительность для плавности */
     }
 
     @keyframes lyricsGlow {
@@ -2576,9 +2584,15 @@ function startLogoPulsation() {
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
   
+  // Сохраняем ссылку для оптимизации
+  let lastScale = 1;
+  
   function animate() {
     if (!bitEnabled) {
-      logo.style.transform = 'scale(1)';
+      if (lastScale !== 1) {
+        logo.style.transform = 'scale3d(1, 1, 1)';
+        lastScale = 1;
+      }
       return;
     }
     
@@ -2609,8 +2623,11 @@ function startLogoPulsation() {
     // Масштабируем логотип (от 1 до 1.3 при 100% интенсивности)
     const scale = 1 + (scaledAmplitude * 0.3);
     
-    // ВАЖНО: используем scale3d для аппаратного ускорения и изоляции
-    logo.style.transform = `scale3d(${scale}, ${scale}, 1)`;
+    // Обновляем только если изменилось значительно (оптимизация)
+    if (Math.abs(scale - lastScale) > 0.01) {
+      logo.style.transform = `scale3d(${scale}, ${scale}, 1)`;
+      lastScale = scale;
+    }
   }
   
   animate();
@@ -3264,34 +3281,35 @@ function onAudioMetadataLoaded() {
 
 function onAudioTimeUpdate() {
   const audio = document.getElementById('audio');
-  const now = Date.now();
-  
-  // Троттлинг - обновляем не чаще 1 раза в секунду
-  if (now - lastTimeUpdate < 1000 && !isSeekingProgress) return;
-  lastTimeUpdate = now;
-  
   const currentTime = audio.currentTime;
   const duration = audio.duration;
   
-  // Обновляем таймеры
-  const elapsedEl = document.getElementById('time-elapsed');
-  const remainingEl = document.getElementById('time-remaining');
-  
-  if (elapsedEl) elapsedEl.textContent = formatTime(currentTime);
-  if (remainingEl) remainingEl.textContent = formatTime(duration - currentTime);
-  
-  // Обновляем прогресс бар
+  // Обновляем прогресс бар ВСЕГДА для плавности
   if (!isSeekingProgress && duration > 0) {
     const progress = (currentTime / duration) * 100;
     const fillEl = document.getElementById('player-progress-fill');
     if (fillEl) fillEl.style.width = `${progress}%`;
   }
   
-  // Проверяем sleep таймер
-  checkSleepTimer();
-  
-  // Обновляем лирику
+  // Обновляем лирику ВСЕГДА для синхронизации
   renderLyricsEnhanced(currentTime);
+  
+  // Обновляем время только раз в секунду
+  const now = Date.now();
+  if (now - lastTimeUpdate >= 1000) {
+    lastTimeUpdate = now;
+    
+    // Обновляем таймеры
+    const elapsedEl = document.getElementById('time-elapsed');
+    const remainingEl = document.getElementById('time-remaining');
+    
+    if (elapsedEl) elapsedEl.textContent = formatTime(currentTime);
+    if (remainingEl) remainingEl.textContent = formatTime(duration - currentTime);
+    
+    // Проверяем sleep таймер
+    checkSleepTimer();
+  }
+  
   updatePlayPauseIcon();
 }
 
@@ -3874,11 +3892,12 @@ function updateLyricsWindowSize() {
 
 // Модифицированная функция renderLyrics для поддержки разных размеров окна
 function renderLyricsEnhanced(time) {
-  if (!currentLyrics || !currentLyrics.length || lyricsViewMode === 'hidden') {
-    if (lyricsViewMode !== 'hidden') {
-      const lyricsEl = document.getElementById('lyrics');
-      if (lyricsEl) lyricsEl.innerHTML = "";
-    }
+  // ИСПРАВЛЕНО: убираем лишние проверки для производительности
+  if (lyricsViewMode === 'hidden') return;
+  
+  if (!currentLyrics || !currentLyrics.length) {
+    const lyricsEl = document.getElementById('lyrics');
+    if (lyricsEl) lyricsEl.innerHTML = "";
     return;
   }
   
