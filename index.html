@@ -526,9 +526,9 @@
     .player-controls {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin: 10px 0;
-      padding: 10px;
+      gap: 5px; /* УМЕНЬШЕНО: было 8px */
+      margin: 5px 0; /* УМЕНЬШЕНО: было 10px 0 */
+      padding: 8px 10px; /* УМЕНЬШЕНО: было 10px */
       background: rgba(0,0,0,0.3);
       border-radius: 12px;
     }
@@ -545,17 +545,39 @@
       border: none;
       color: var(--secondary-color);
       cursor: pointer;
-      padding: 8px;
+      padding: 4px; /* УМЕНЬШЕНО */
       border-radius: 50%;
       transition: all 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 44px;
-      height: 44px;
+      width: 32px; /* УМЕНЬШЕНО для второго ряда */
+      height: 32px; /* УМЕНЬШЕНО для второго ряда */
       font-weight: bold;
-      font-size: 20px;
+      font-size: 16px; /* УМЕНЬШЕНО */
       position: relative;
+    }
+    
+    /* Кнопки первого ряда - крупнее */
+    .player-controls-row:first-child .player-control-btn {
+      width: 48px; /* Крупнее для первого ряда */
+      height: 48px;
+      padding: 8px;
+    }
+    
+    .player-controls-row:first-child .player-control-btn svg {
+      width: 28px;
+      height: 28px;
+    }
+    
+    /* Кнопки второго ряда - мельче */
+    .player-controls-row:last-child .player-control-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    .player-controls-row:last-child .player-control-btn {
+      font-size: 16px;
     }
     
     .player-control-btn:hover {
@@ -632,7 +654,7 @@
     /* ИСПРАВЛЕННЫЙ Прогресс бар для трека */
     .player-progress-wrapper {
       width: 100%;
-      margin: 10px 0;
+      margin: 3px 0 5px 0; /* УМЕНЬШЕНО: было 10px 0 */
       position: relative;
     }
 
@@ -668,24 +690,19 @@
       z-index: 2;
     }
 
-    /* Таймер времени */
+    /* Таймер времени - УБИРАЕМ ОТДЕЛЬНУЮ СТРОКУ */
     .player-time-display {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-      padding: 5px 10px;
+      display: none !important; /* Скрываем отдельную строку времени */
+    }
+    
+    /* Время в контролах плеера */
+    .time-in-controls {
       font-family: 'SF Mono', Monaco, 'Courier New', monospace;
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.7);
-      user-select: none;
-    }
-
-    .player-time-elapsed {
       color: var(--secondary-color);
-    }
-
-    .player-time-remaining {
-      color: rgba(255, 255, 255, 0.5);
+      min-width: 45px;
+      text-align: center;
+      user-select: none;
     }
 
         /* Контроллер громкости */
@@ -2979,16 +2996,12 @@ function renderLyricsBlock() {
       <div class="lyrics-scroll" id="lyrics"></div>
     </div>
     
-    <!-- Прогресс бар трека -->
+    <!-- Прогресс бар трека БЕЗ ВРЕМЕНИ -->
     <div class="player-progress-wrapper">
       <div class="player-progress-bar" id="player-progress-bar">
         <div class="player-progress-fill" id="player-progress-fill">
           <div class="player-progress-handle"></div>
         </div>
-      </div>
-      <div class="player-time-display">
-        <span class="player-time-elapsed" id="time-elapsed">00:00</span>
-        <span class="player-time-remaining" id="time-remaining">--:--</span>
       </div>
     </div>
     
@@ -2996,10 +3009,12 @@ function renderLyricsBlock() {
       <audio id="audio" preload="metadata" aria-hidden="true" tabindex="-1"></audio>
     </div>
     
-    <!-- ИСПРАВЛЕНО: Двухуровневая панель управления -->
+    <!-- НОВАЯ двухуровневая панель управления с временем -->
     <div class="player-controls" role="group" aria-label="Управление воспроизведением">
-      <!-- Первый ряд -->
+      <!-- Первый ряд с временем -->
       <div class="player-controls-row">
+        <span class="time-in-controls" id="time-elapsed">00:00</span>
+        
         <button class="player-control-btn" onclick="previousTrack()" 
                 title="Предыдущий трек (P)" aria-label="Предыдущий трек">
           <span class="tooltip">P</span>
@@ -3032,15 +3047,10 @@ function renderLyricsBlock() {
           </svg>
         </button>
         
-        <button class="player-control-btn${favoritesOnlyMode ? ' favorites-active' : ''}" 
-                id="favorites-btn" onclick="toggleFavoritesOnly()" 
-                title="Только избранные (F)" aria-label="Только избранные">
-          <span class="tooltip">F</span>
-          <img src="img/${favoritesOnlyMode ? 'star.png' : 'star2.png'}" alt="★" id="favorites-btn-icon"/>
-        </button>
+        <span class="time-in-controls" id="time-remaining">--:--</span>
       </div>
       
-      <!-- Второй ряд -->
+      <!-- Второй ряд в правильном порядке -->
       <div class="player-controls-row">
         <button class="player-control-btn" id="mute-btn" onclick="toggleMute()" 
                 title="Выключить звук (M)" aria-label="Выключить звук">
@@ -3060,19 +3070,6 @@ function renderLyricsBlock() {
           </svg>
         </button>
         
-        <button class="player-control-btn${repeatMode ? ' repeat-active' : ''}" 
-                id="repeat-btn" onclick="toggleRepeat()" 
-                title="Повтор трека (R)" aria-label="Повтор трека">
-          <span class="tooltip">R</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 2l4 4-4 4"/>
-            <path d="M3 11V9a4 4 0 014-4h14"/>
-            <path d="M7 22l-4-4 4-4"/>
-            <path d="M21 13v2a4 4 0 01-4 4H3"/>
-            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
-          </svg>
-        </button>
-        
         <button class="player-control-btn animation-btn${animationEnabled ? ' animation-active' : ''}" 
                 id="animation-btn" onclick="toggleAnimation()" 
                 title="Анимация лирики (A)" aria-label="Анимация лирики">
@@ -3085,6 +3082,19 @@ function renderLyricsBlock() {
                 title="Пульсация логотипа (B)" aria-label="Пульсация логотипа">
           <span class="tooltip">B</span>
           B
+        </button>
+        
+        <button class="player-control-btn${repeatMode ? ' repeat-active' : ''}" 
+                id="repeat-btn" onclick="toggleRepeat()" 
+                title="Повтор трека (R)" aria-label="Повтор трека">
+          <span class="tooltip">R</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 2l4 4-4 4"/>
+            <path d="M3 11V9a4 4 0 014-4h14"/>
+            <path d="M7 22l-4-4 4-4"/>
+            <path d="M21 13v2a4 4 0 01-4 4H3"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+          </svg>
         </button>
         
         <!-- Sleep таймер -->
@@ -3104,6 +3114,13 @@ function renderLyricsBlock() {
             <div class="sleep-menu-item" onclick="setSleepTimer(60)">60 минут</div>
             <div class="sleep-menu-item" onclick="showTimePickerForSleep()">К времени...</div>
           </div>
+        </button>
+        
+        <button class="player-control-btn${favoritesOnlyMode ? ' favorites-active' : ''}" 
+                id="favorites-btn" onclick="toggleFavoritesOnly()" 
+                title="Только избранные (F)" aria-label="Только избранные">
+          <span class="tooltip">F</span>
+          <img src="img/${favoritesOnlyMode ? 'star.png' : 'star2.png'}" alt="★" id="favorites-btn-icon"/>
         </button>
       </div>
     </div>
