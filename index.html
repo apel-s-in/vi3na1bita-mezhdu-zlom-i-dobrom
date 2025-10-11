@@ -505,11 +505,9 @@
 
     @keyframes lyricsGlow {
       0%, 100% { 
-        text-shadow: 0 1px 7px #73161644;
         opacity: 1;
       }
       50% { 
-        text-shadow: 0 0 25px var(--primary-color);
         opacity: 1;
       }
     }
@@ -2546,9 +2544,16 @@ function toggleBit() {
 
 // Инициализация Web Audio API
 function initAudioContext() {
-  if (audioContext) return;
-  
+  // ИСПРАВЛЕНО: Всегда создаём новый контекст при смене трека
   try {
+    // Закрываем старый контекст если есть
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+      audioSource = null; 
+      analyser = null;
+    }
+    
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioContext = new AudioContext();
     
@@ -2558,10 +2563,14 @@ function initAudioContext() {
     
     const audio = document.getElementById('audio');
     if (audio) {
-      if (!audioSource) {
-        audioSource = audioContext.createMediaElementSource(audio);
-        audioSource.connect(analyser);
-        analyser.connect(audioContext.destination);
+      // Создаём новый источник
+      audioSource = audioContext.createMediaElementSource(audio);
+      audioSource.connect(analyser);
+      analyser.connect(audioContext.destination);
+      
+      // Возобновляем контекст если он был приостановлен
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
       }
     }
   } catch (e) {
@@ -2646,7 +2655,20 @@ function stopLogoPulsation() {
     animationFrame = null;
   }
 }
-
+// Перезапуск пульсации при смене трека
+function restartLogoPulsation() {
+  if (!bitEnabled) return;
+  
+  // Останавливаем старую анимацию
+  stopLogoPulsation();
+  
+  // Ждём немного и запускаем заново
+  setTimeout(() => {
+    initAudioContext();
+    startLogoPulsation();
+  }, 200);
+}
+  
 // ==================== ГАЛЕРЕЯ ОБЛОЖЕК ====================
 function setCoverImage(idx) {
   coverGalleryIdx = (idx + coverGalleryArr.length) % coverGalleryArr.length;
@@ -3188,10 +3210,21 @@ function renderLyricsBlock() {
   initializeLyricsMode();
   applyLyricsViewMode();
   
-  // Инициализируем Web Audio API если включена пульсация
+  // ИСПРАВЛЕНО: Переинициализируем Web Audio API при каждой смене трека
   if (bitEnabled) {
-    initAudioContext();
-    startLogoPulsation();
+    // Останавливаем старую анимацию
+    stopLogoPulsation();
+    
+    // Сбрасываем аудио контекст
+    audioContext = null;
+    audioSource = null;
+    analyser = null;
+    
+    // Ждём загрузки аудио и инициализируем заново
+    setTimeout(() => {
+      initAudioContext();
+      startLogoPulsation();
+    }, 100);
   }
   
   // События аудио
@@ -3208,7 +3241,22 @@ function renderLyricsBlock() {
     NotificationSystem.error('Ошибка загрузки трека');
   });
 }
-
+// НОВОЕ: Возобновляем аудио контекст при воспроизведении
+  audioEl.addEventListener('play', () => {
+    if (bitEnabled && audioContext && audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    updatePlayPauseIcon();
+  });
+  
+  // НОВОЕ: Переинициализация при загрузке нового трека
+  audioEl.addEventListener('canplay', () => {
+    if (bitEnabled && !analyser) {
+      initAudioContext();
+      startLogoPulsation();
+    }
+  });
+  
 // ==================== КАСТОМНЫЙ ПЛЕЕР ====================
 let lastTimeUpdate = 0;
 let isSeekingProgress = false;
