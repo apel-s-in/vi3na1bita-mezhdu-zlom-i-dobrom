@@ -3234,19 +3234,16 @@ function renderLyricsBlock() {
   audioEl.addEventListener('seeked', onAudioSeeked);
   audioEl.addEventListener('ended', onAudioEnded);
   audioEl.addEventListener('volumechange', onVolumeChange);
-  audioEl.addEventListener('play', updatePlayPauseIcon);
-  audioEl.addEventListener('pause', updatePlayPauseIcon);
-  audioEl.addEventListener('error', (e) => {
-    console.error('Audio loading error:', e);
-    NotificationSystem.error('Ошибка загрузки трека');
-  });
-}
-// НОВОЕ: Возобновляем аудио контекст при воспроизведении
   audioEl.addEventListener('play', () => {
     if (bitEnabled && audioContext && audioContext.state === 'suspended') {
       audioContext.resume();
     }
     updatePlayPauseIcon();
+  });
+  audioEl.addEventListener('pause', updatePlayPauseIcon);
+  audioEl.addEventListener('error', (e) => {
+    console.error('Audio loading error:', e);
+    NotificationSystem.error('Ошибка загрузки трека');
   });
   
   // НОВОЕ: Переинициализация при загрузке нового трека
@@ -3256,7 +3253,8 @@ function renderLyricsBlock() {
       startLogoPulsation();
     }
   });
-  
+}
+
 // ==================== КАСТОМНЫЙ ПЛЕЕР ====================
 let lastTimeUpdate = 0;
 let isSeekingProgress = false;
