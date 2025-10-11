@@ -232,34 +232,21 @@
     
         /* Пульсирующий логотип */
     .logo-bottom {
-            max-width: 112px;
-            width: 23vw;
-            min-width: 66px;
-            height: auto;
-            display: block;
-            margin: 0 auto 15px auto !important;
-            cursor: pointer;
-            transition: none; /* Убираем CSS transition для JS анимации */
-            will-change: transform;
-            transform: translateZ(0);
-            transform-origin: center center;
-            isolation: isolate;
-            z-index: 10;
-            position: relative;
-            backface-visibility: hidden;
-            -webkit-backface-visibility: hidden;
-        }
-
-        .logo-pulsing {
-            animation: none !important;
-            transition: none !important; /* Отключаем все CSS переходы при пульсации */
-        }
-
-        /* Оптимизация производительности для GPU */
-        #logo-bottom {
-            transform: scale3d(1, 1, 1); /* Используем 3D трансформацию для GPU */
-            -webkit-transform: scale3d(1, 1, 1);
-        }
+      max-width: 112px;
+      width: 23vw;
+      min-width: 66px;
+      height: auto;
+      display: block;
+      margin: 0 auto 15px auto !important;
+      cursor: pointer;
+      transition: transform 0.1s ease-out;
+      will-change: transform;
+      transform: translateZ(0);
+      transform-origin: center center;
+      isolation: isolate;
+      z-index: 10;
+      position: relative;
+    }
         /* Изоляция логотипа от конфликтов */
     #logo-bottom {
       will-change: transform;
@@ -2577,7 +2564,7 @@ function toggleBit() {
   localStorage.setItem('bitEnabled', bitEnabled ? '1' : '0');
 }
 
-// Инициализация Web Audio API - УЛУЧШЕННАЯ ВЕРСИЯ
+// Инициализация Web Audio API
 function initAudioContext() {
   try {
     // ИСПРАВЛЕНО: Проверяем и закрываем старый контекст безопасно
@@ -2598,11 +2585,8 @@ function initAudioContext() {
     audioContext = new AudioContext();
     
     analyser = audioContext.createAnalyser();
-    // ИСПРАВЛЕНО: Оптимальные настройки для рок-музыки
-    analyser.fftSize = 512; // Увеличено с 256 для лучшего разрешения
-    analyser.smoothingTimeConstant = 0.3; // Уменьшено с 0.8 для резкости
-    analyser.minDecibels = -90;
-    analyser.maxDecibels = -10;
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
     
     const audio = document.getElementById('audio');
     if (!audio) {
@@ -2703,7 +2687,7 @@ function reattachAudioEventListeners(audioEl) {
   });
 }
 
-// Запуск пульсации логотипа - УЛУЧШЕННАЯ ВЕРСИЯ ДЛЯ РОКА
+// Запуск пульсации логотипа
 function startLogoPulsation() {
   if (!bitEnabled || !analyser) return;
   
@@ -2713,15 +2697,11 @@ function startLogoPulsation() {
   // Добавляем класс для изоляции
   logo.classList.add('logo-pulsing');
   
-  // ИСПРАВЛЕНО: Настройки уже установлены в initAudioContext
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
   
-  // Переменные для детекции ударов
-  let lastKickValue = 0;
-  let peakDecay = 0;
+  // Сохраняем ссылку для оптимизации
   let lastScale = 1;
-  let kickHistory = new Array(5).fill(0);
   
   function animate() {
     if (!bitEnabled) {
@@ -2736,82 +2716,34 @@ function startLogoPulsation() {
     
     analyser.getByteFrequencyData(dataArray);
     
-    // УЛУЧШЕННЫЙ АНАЛИЗ ЧАСТОТ ДЛЯ РОКА
-    
-    // Кик-барабан (20-80 Hz) - основной удар
-    let kick = 0;
-    for (let i = 0; i < 4; i++) {
-      kick += dataArray[i] * (1.2 - i * 0.1); // Усиленные весовые коэффициенты
-    }
-    kick = kick / 4;
-    
-    // Снейр (200-400 Hz) - резкий удар  
-    let snare = 0;
-    for (let i = 12; i < 24; i++) {
-      snare += dataArray[i];
-    }
-    snare = snare / 12;
-    
-    // Бас-гитара (80-250 Hz) - глубина
+    // Анализируем низкие частоты (басы)
     let bass = 0;
-    for (let i = 4; i < 14; i++) {
+    for (let i = 0; i < 8; i++) {
       bass += dataArray[i];
     }
-    bass = bass / 10;
+    bass = bass / 8;
     
-    // Обновляем историю для сглаживания
-    kickHistory.shift();
-    kickHistory.push(kick);
-    const avgKick = kickHistory.reduce((a, b) => a + b) / kickHistory.length;
-    
-    // УЛУЧШЕННАЯ детекция пиков
-    const kickDelta = kick - lastKickValue;
-    const dynamicThreshold = avgKick * 0.3 + 20; // Динамический порог
-    const isKickPeak = kickDelta > dynamicThreshold && kick > avgKick * 1.3;
-    
-    if (isKickPeak) {
-      peakDecay = 1.0;
-    } else {
-      peakDecay *= 0.88; // Более быстрое затухание для четкости
+    // Анализируем средние частоты
+    let mid = 0;
+    for (let i = 8; i < 32; i++) {
+      mid += dataArray[i];
     }
+    mid = mid / 24;
     
-    lastKickValue = kick;
+    // Комбинируем для общей пульсации
+    const amplitude = (bass * 0.7 + mid * 0.3) / 255;
     
-    // НОВАЯ формула для рок-музыки с акцентом на удары
-    const drumImpact = (kick / 255) * 0.6 + (snare / 255) * 0.25;
-    const bassGroove = (bass / 255) * 0.15;
+    // Применяем интенсивность
+    const scaledAmplitude = amplitude * (bitIntensity / 100);
     
-    // Основная амплитуда с учетом пиков
-    let amplitude = drumImpact + bassGroove + (peakDecay * 0.4);
+    // Масштабируем логотип (от 1 до 1.3 при 100% интенсивности)
+    const scale = 1 + (scaledAmplitude * 0.3);
     
-    // Ограничиваем максимальное значение
-    amplitude = Math.min(amplitude, 1.0);
-    
-    // Добавляем "панч" эффект для резких ударов
-    if (peakDecay > 0.6) {
-      amplitude = Math.max(amplitude, peakDecay * 0.85);
+    // Обновляем только если изменилось значительно (оптимизация)
+    if (Math.abs(scale - lastScale) > 0.01) {
+      logo.style.transform = `scale3d(${scale}, ${scale}, 1)`;
+      lastScale = scale;
     }
-    
-    // Применяем интенсивность с улучшенной кривой
-    const intensityMultiplier = bitIntensity / 100;
-    
-    // Нелинейная кривая для выразительности
-    const scaledAmplitude = Math.pow(amplitude * intensityMultiplier, 1.4);
-    
-    // Масштабируем логотип (от 1 до 1.45 при 100% интенсивности)
-    let scale = 1 + (scaledAmplitude * 0.45);
-    
-    // Минимальный порог изменения для устранения дрожания
-    if (Math.abs(scale - lastScale) < 0.008) {
-      scale = lastScale;
-    }
-    
-    // Быстрая интерполяция для четкости ударов
-    const smoothedScale = lastScale + (scale - lastScale) * 0.75;
-    
-    // Применяем трансформацию
-    logo.style.transform = `scale3d(${smoothedScale}, ${smoothedScale}, 1)`;
-    lastScale = smoothedScale;
   }
   
   animate();
@@ -2822,7 +2754,7 @@ function stopLogoPulsation() {
   const logo = document.getElementById('logo-bottom');
   if (logo) {
     logo.classList.remove('logo-pulsing');
-    logo.style.transform = 'scale3d(1, 1, 1)';
+    logo.style.transform = 'scale(1)';
   }
   
   if (animationFrame) {
