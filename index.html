@@ -1766,21 +1766,24 @@
       </div>
       <div id="social-links" class="socials-under-cover"></div>
 
-      <!-- Прогресс достижений (Этап 1: каркас) -->
+      <!-- Прогресс достижений -->
       <div id="ach-progress-root" class="ach-progress-root" aria-live="polite">
+        <!-- подсказка сразу под соцблоком -->
+        <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">
+          ✨ Мы готовим достижения. Слушайте — прогресс уже копится.
+        </div>
+
         <div class="ach-progress-header">
           <span class="ach-progress-title">Прогресс достижений</span>
           <span class="ach-badge-soon" id="ach-badge-soon">в разработке, скоро…</span>
         </div>
 
         <div class="ach-progress-bars">
-          <!-- Толстая шкала: Core -->
           <div class="ach-bar ach-bar-core">
-            <div class="ach-bar-fill" id="ach-core-fill" style="width: 0%"></div>
+            <div class="ach-bar-fill" id="ach-core-fill" style="width:0%"></div>
           </div>
-          <!-- Тонкая шкала: Все видимые -->
           <div class="ach-bar ach-bar-all">
-            <div class="ach-bar-fill" id="ach-all-fill" style="width: 0%"></div>
+            <div class="ach-bar-fill" id="ach-all-fill" style="width:0%"></div>
           </div>
           <div class="ach-bar-labels">
             <span id="ach-core-label">0/15 core</span>
@@ -1788,16 +1791,9 @@
           </div>
         </div>
 
-        <!-- Всплывающая подсказка -->
-        <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">
-          ✨ Мы готовим достижения. Слушайте — прогресс уже копится.
-        </div>
-
-        <!-- Лента последних ачивок (на будущее) -->
-        <!-- Лента последних ачивок (на будущее) -->
-      <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
-    </div>
-  </header> <!-- ← закрываем header здесь -->
+        <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
+      </div>
+    </header>
 
   <div class="track-list" id="track-list"></div>
     
@@ -2282,7 +2278,7 @@ function getDeviceHash() {
   return h;
 }
 
-// ==== Stats store (Этап 1) ====
+// ==== Stats store (Этап 1+2) ====
 const STATS_LS_KEY = 'vr_stats_v1';
 const StatsStore = {
   s: null,
@@ -2294,14 +2290,19 @@ const StatsStore = {
         if (Array.isArray(this.s.uniqueTracksPlayed)) {
           this.s.uniqueTracksPlayed = Array.from(new Set(this.s.uniqueTracksPlayed));
         }
+        // миграции Этап 2
+        if (!this.s.achievements) this.s.achievements = {};         // id -> { unlockedAt, tier }
+        if (typeof this.s.lastMajorAchAt !== 'number') this.s.lastMajorAchAt = 0;
       } else {
         this.s = this._fresh();
       }
-    } catch { this.s = this._fresh(); }
+    } catch {
+      this.s = this._fresh();
+    }
   },
   _fresh() {
     return {
-      schema: 1,
+      schema: 2,
       deviceHash: getDeviceHash(),
       createdAt: Date.now(),
       totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 },
@@ -2309,7 +2310,9 @@ const StatsStore = {
       uniqueTracksPlayed: [],
       byDay: {},            // YYYY-MM-DD -> { valid:n, seconds:s }
       streak: { current: 0, max: 0, lastDay: null },
-      likedCount: (JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length
+      likedCount: (JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length,
+      achievements: {},     // id -> { unlockedAt, tier }
+      lastMajorAchAt: 0
     };
   },
   save() {
@@ -2355,7 +2358,11 @@ const Stats = {
     const listenedMs = Math.max(0, posMs - (this.lastStart.startPosMs||0));
     const valid = isValidListen(listenedMs, opts.ended);
     const full  = isFullListen(listenedMs, durationMs, opts.ended);
-
+    // ВСТАВИТЬ: учёт валидного прослушивания при shuffle
+    if (valid && shuffleMode === true) {
+      Ach.incShuffleValid();
+    }
+    
     if (valid || full) {
       const s = StatsStore.s;
       const idx = this.lastStart.trackIndex;
@@ -2392,6 +2399,7 @@ const Stats = {
 
       StatsStore.save();
       AchProgress.updateFromStats();
+      Ach.evaluateAfterListen({ ts: now });
     }
 
     if (opts.ended) this.lastStart = null;
@@ -2402,11 +2410,150 @@ const Stats = {
     StatsStore.save();
   }
 };
+// ==== Реестр ачивок (Этап 2) ====
+const ACH_META = {
+  // Tier 1
+  play_first:{tier:1, core:true,  title:'Первое знакомство'},
+  unique_5_tracks:{tier:1, core:true, title:'Разный вкус'},
+  fav_3:{tier:1, core:false, title:'Первые любимчики'},
+  early_bird:{tier:1, core:false, title:'Ранняя пташка'},
+  night_listener:{tier:1, core:false, title:'Ночной слушатель'},
+  backup_first:{tier:1, core:true, title:'Бережёного бережёт'},
 
+  // Tier 2
+  time_listened_1h:{tier:2, core:true, title:'Час в наушниках'},
+  play_25_total:{tier:2, core:true, title:'На повторе'},
+  full_play_first:{tier:2, core:true, title:'До последней ноты'},
+  streak_3:{tier:2, core:true, title:'3 дня подряд'},
+  fav_5:{tier:2, core:true, title:'Мой плейлист'},
+  use_shuffle_5:{tier:2, core:false, title:'В случайном порядке'},
+
+  // Tier 3
+  unique_10_tracks:{tier:3, core:true, title:'Половина альбома'},
+  full_10_total:{tier:3, core:true, title:'Верное ухо'},
+  streak_7:{tier:3, core:true, title:'Недельный стрик'},
+  favorites_order_5_full:{tier:3, core:true, title:'Только избранное — по порядку'},
+  favorites_shuffle_5_full:{tier:3, core:true, title:'Только избранное — вперемешку'},
+  weekend_warrior:{tier:3, core:false, title:'Выходные с музыкой'},
+
+  // Tier 4
+  album_any_order_7d:{tier:4, core:true, title:'Весь альбом'},
+  album_in_order_session:{tier:4, core:true, title:'От первой до последней'},
+  time_listened_5h:{tier:4, core:false, title:'5 часов музыки'},
+  play_100_total:{tier:4, core:false, title:'В потоке'},
+  fav_8:{tier:4, core:false, title:'Коллекционер'},
+  socials_all_visited:{tier:4, core:false, title:'Подписчик всего'},
+  sleep_timer_5:{tier:4, core:false, title:'Бережный сон'},
+  pwa_installed:{tier:4, core:false, title:'На моём устройстве'},
+
+  // Tier 5
+  full_50_total:{tier:5, core:false, title:'Уважение к деталям'},
+  play_500_total:{tier:5, core:false, title:'Полтысячи'},
+  one_track_full_25:{tier:5, core:false, title:'Любимейший'},
+  one_track_full_100:{tier:5, core:false, title:'Абсолютный фаворит'},
+  streak_14:{tier:5, core:false, title:'Две недели подряд'},
+  streak_30:{tier:5, core:false, title:'Месяц без пропусков'},
+
+  // Tier 6 (секретные)
+  exact_time_11_11:{tier:6, core:false, hidden:true, title:'11:11'},
+  midnight_triple:{tier:6, core:false, hidden:true, title:'Полночный цикл'},
+  weekend_album:{tier:6, core:false, hidden:true, title:'Выходной марафон'},
+
+  // Backup
+  backup_3_days:{tier:4, core:false, title:'Запасливый'},
+  backup_after_major:{tier:4, core:false, title:'Сохранил после прогресса'}
+};
+
+// ==== Движок ачивок (Этап 2) ====
+const Ach = {
+  has(id){ return !!StatsStore.s.achievements[id]; },
+  unlock(id){
+    if (this.has(id)) return false;
+    const meta = ACH_META[id]||{};
+    StatsStore.s.achievements[id] = { unlockedAt: Date.now(), tier: meta.tier||0 };
+    // если Tier >=3 — отметим “major”
+    if ((meta.tier||0) >= 3) StatsStore.s.lastMajorAchAt = Date.now();
+    StatsStore.save();
+    // тост
+    NotificationSystem.success(`🏆 Достижение: ${meta.title||id}`);
+    // обновим шкалы и подсказку
+    AchProgress.updateFromStats();
+    return true;
+  },
+  // Быстрая выдача “событийных”
+  event(id){ this.unlock(id); },
+
+  // Проверка “простых” порогов после каждого прослушивания
+  evaluateAfterListen({ts}){
+    const S = StatsStore.s;
+    const uniq = (S.uniqueTracksPlayed||[]).length;
+    const tot = S.totals || {};
+    const liked = S.likedCount || 0;
+
+    // Tier 1
+    if (tot.totalValidPlays >= 1) this.unlock('play_first');
+    if (uniq >= 5) this.unlock('unique_5_tracks');
+    if (liked >= 3) this.unlock('fav_3');
+
+    // ранние/ночные окна — считаем по времени валидного прослушивания
+    const d = new Date(ts);
+    const t = d.toTimeString().slice(0,8);
+    if (t >= '05:00:00' && t <= '07:00:00') this.unlock('early_bird');
+    if (t >= '02:00:00' && t <= '04:30:00') this.unlock('night_listener');
+
+    // Tier 2
+    if (tot.totalSeconds >= 3600) this.unlock('time_listened_1h');
+    if (tot.totalValidPlays >= 25) this.unlock('play_25_total');
+    if (tot.totalFullPlays >= 1) this.unlock('full_play_first');
+    if ((StatsStore.s.streak?.max||0) >= 3) this.unlock('streak_3');
+    if (liked >= 5) this.unlock('fav_5');
+    if ((S._shuffleValid||0) >= 5) this.unlock('use_shuffle_5');
+
+    // Tier 3
+    if (uniq >= 10) this.unlock('unique_10_tracks');
+    if (tot.totalFullPlays >= 10) this.unlock('full_10_total');
+    if ((StatsStore.s.streak?.max||0) >= 7) this.unlock('streak_7');
+
+    // Tier 4
+    if (tot.totalSeconds >= 18_000) this.unlock('time_listened_5h');
+    if (tot.totalValidPlays >= 100) this.unlock('play_100_total');
+    if (liked >= 8) this.unlock('fav_8');
+
+    // Tier 5
+    if (tot.totalFullPlays >= 50) this.unlock('full_50_total');
+    if (tot.totalValidPlays >= 500) this.unlock('play_500_total');
+
+    // one_track_full_25/100 — проверим пер‑трек
+    const pt = StatsStore.s.perTrack || [];
+    for (let i=0;i<pt.length;i++){
+      const f = pt[i]?.fullPlays||0;
+      if (f >= 25) this.unlock('one_track_full_25');
+      if (f >= 100) this.unlock('one_track_full_100');
+    }
+
+    // ВНИМАНИЕ: сложные ачивки (favorites_order_5_full, favorites_shuffle_5_full,
+    // album_in_order_session) подключим на Этапе 3 (SessionManager).
+    // album_any_order_7d, weekend_warrior, weekend_album — запланированы на Этап 3 (окна/недели).
+  },
+
+  evaluateFromLikes(){
+    const liked = StatsStore.s.likedCount || 0;
+    if (liked >= 3) this.unlock('fav_3');
+    if (liked >= 5) this.unlock('fav_5');
+    if (liked >= 8) this.unlock('fav_8');
+  },
+
+  // учёт shuffle-валидных прослушиваний (для use_shuffle_5)
+  incShuffleValid(){
+    StatsStore.s._shuffleValid = (StatsStore.s._shuffleValid||0)+1;
+    StatsStore.save();
+  }
+};
+  
 // ==== Прогресс‑панель (Этап 1: проценты и подсказка) ====
 const AchProgress = {
-  coreTotal: 15,
-  visibleTotal: 34,
+  coreTotal: 15,        // фиксировано
+  visibleTotal: 34,     // все кроме 3 secret
   init() {
     if (!FeatureFlags.achievementsUI) return;
     this.coreFill  = document.getElementById('ach-core-fill');
@@ -2416,7 +2563,6 @@ const AchProgress = {
     this.bubble    = document.getElementById('ach-hint-bubble');
     this.set(0,0);
     this.updateFromStats();
-    this.showSoonBubble();
   },
   set(coreUnlocked, visibleUnlocked) {
     const corePct = Math.max(0, Math.min(100, Math.round(coreUnlocked/this.coreTotal*100)));
@@ -2427,15 +2573,56 @@ const AchProgress = {
     if (this.allLabel)  this.allLabel.textContent  = `${visibleUnlocked}/${this.visibleTotal} все`;
   },
   updateFromStats() {
-    // Этап 1: ачивки не выдаём → показатели 0/15 и 0/34
-    this.set(0, 0);
+    const ach = StatsStore.s.achievements || {};
+    let coreUnlocked = 0, visibleUnlocked = 0;
+    Object.keys(ach).forEach(id=>{
+      const meta = ACH_META[id]||{};
+      if (meta.core) coreUnlocked++;
+      if (!meta.hidden) visibleUnlocked++;
+    });
+    this.set(coreUnlocked, visibleUnlocked);
+    this.updateBubble();
   },
-  showSoonBubble() {
-    if (this.bubble) {
-      this.bubble.textContent = '✨ Мы готовим достижения. Слушайте — прогресс уже копится.';
-    }
+  updateBubble() {
+    if (!this.bubble) return;
+    const hint = this.computeNearestGoal();
+    this.bubble.textContent = hint || '✨ Продолжайте слушать — прогресс идёт.';
+  },
+  computeNearestGoal() {
+    const S = StatsStore.s, T = S.totals||{};
+    const uniq = (S.uniqueTracksPlayed||[]).length;
+    const liked = S.likedCount||0;
+    const streak = S.streak?.current||0;
+
+    const list = [];
+    const push = (id, need, have, unit, title) => {
+      if (Ach.has(id)) return;
+      const left = Math.max(0, need - have);
+      const pct = Math.max(0, Math.min(100, Math.round((have/need)*100)));
+      list.push({ id, left, pct, unit, title });
+    };
+
+    push('play_25_total', 25, T.totalValidPlays||0, 'прослушиваний', ACH_META.play_25_total.title);
+    push('time_listened_1h', 3600, Math.floor(T.totalSeconds||0), 'секунд', ACH_META.time_listened_1h.title);
+    if (uniq < 10) push('unique_10_tracks', 10, uniq, 'трека', ACH_META.unique_10_tracks.title);
+    push('full_10_total', 10, T.totalFullPlays||0, 'полных', ACH_META.full_10_total.title);
+    if (streak < 7) push('streak_7', 7, streak, 'дней подряд', ACH_META.streak_7.title);
+    if (liked < 5) push('fav_5', 5, liked, 'треков в избранном', ACH_META.fav_5.title);
+    push('play_100_total', 100, T.totalValidPlays||0, 'прослушиваний', ACH_META.play_100_total.title);
+    push('time_listened_5h', 18000, Math.floor(T.totalSeconds||0), 'секунд', ACH_META.time_listened_5h.title);
+
+    if (!list.length) return null;
+    list.sort((a,b)=> (a.left - b.left) || (b.pct - a.pct));
+    const best = list[0];
+    if (!best) return null;
+
+    const units = (u, n) => (u === 'секунд')
+      ? (n >= 60 ? `${Math.ceil(n/60)} мин` : `${n} сек`)
+      : `${n} ${u}`;
+
+    return `✨ До «${best.title}»: ${units(best.unit, best.left)}`;
   }
-};
+}; // ← закрываем объект AchProgress полностью
 
 // ==================== СОХРАНЕНИЕ СОСТОЯНИЯ ====================
 class PlayerState {
@@ -2928,11 +3115,9 @@ function initAudioContext() {
       if (!paused) {
         newAudio.play().catch(err => console.log('Автовоспроизведение заблокировано'));
       }
-      
-      // Переподключаем обработчики событий
+      // ВСТАВЛЕНО: перепривязать обработчики к новому элементу
       reattachAudioEventListeners(newAudio);
-    }
-    
+    } // ← закрываем внутренний catch(e)
     // Возобновляем контекст если он был приостановлен
     if (audioContext.state === 'suspended') {
       audioContext.resume();
@@ -2974,11 +3159,6 @@ function reattachAudioEventListeners(audioEl) {
     audioContext.resume();
   }
   Stats.onStart(currentTrack);
-  updatePlayPauseIcon();
-});
-
-audioEl.addEventListener('pause', () => {
-  Stats.onPauseOrStop({ ended: false });
   updatePlayPauseIcon();
 });
 
@@ -3149,16 +3329,15 @@ window.originalToggleLike = function(idx, e) {
 
 // Обновлённая функция toggleLike с поддержкой фильтров
 function toggleLike(idx, e) {
-  // Вызываем оригинальную функцию
+  // Вызываем оригинальную функцию (визуал, сохранение)
   window.originalToggleLike(idx, e);
-  
-  // Если активен фильтр - обновляем классы
+
+  // Если активен фильтр — обновляем классы видимости и информируем
   if (favoritesFilterActive) {
     updateFavoriteClasses();
-    
     const trackList = document.getElementById('track-list');
     const visibleCount = trackList.querySelectorAll('.track.is-favorite').length;
-    
+
     if (visibleCount === 0) {
       toggleFavoritesFilter();
       NotificationSystem.warning('Все треки удалены из избранного, фильтр отключён');
@@ -3169,11 +3348,10 @@ function toggleLike(idx, e) {
       }
     }
   }
-  
-  // Обработка для режима воспроизведения избранного
+
+  // Если включён режим воспроизведения только избранных — поддерживаем корректный плейлист/переключения
   if (favoritesOnlyMode) {
     updateAvailableTracks();
-    
     if (!isLiked(currentTrack)) {
       const nextFavorite = getNextFavoriteTrack();
       if (nextFavorite !== -1) {
@@ -3184,11 +3362,15 @@ function toggleLike(idx, e) {
         NotificationSystem.warning('Все треки удалены из избранного');
       }
     }
-    
     if (shuffleMode) {
       createShuffledPlaylist();
     }
   }
+
+  // ВАЖНО: всегда (один раз) обновляем статистику избранного и проверяем ачивки по лайкам
+  const likedCountNow = getLiked().length;
+  Stats.onLikedCountChanged(likedCountNow);
+  Ach.evaluateFromLikes();
 }
 
 // ==================== ФИЛЬТР ИЗБРАННЫХ В СПИСКЕ (ИСПРАВЛЕНО) ====================
@@ -3640,16 +3822,18 @@ function renderLyricsBlock() {
   audioEl.addEventListener('ended', onAudioEnded);
   audioEl.addEventListener('volumechange', onVolumeChange);
   audioEl.addEventListener('play', () => {
-    if (bitEnabled && audioContext && audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-    updatePlayPauseIcon();
-  });
-  audioEl.addEventListener('pause', updatePlayPauseIcon);
-  audioEl.addEventListener('error', (e) => {
-    console.error('Audio loading error:', e);
-    NotificationSystem.error('Ошибка загрузки трека');
-  });
+   if (bitEnabled && audioContext && audioContext.state === 'suspended') {
+     audioContext.resume();
+   }
+   Stats.onStart(currentTrack);                // ВСТАВЛЕНО
+   updatePlayPauseIcon();
+ });
+
+audioEl.addEventListener('pause', () => {     // ВСТАВЛЕНО
+  Stats.onPauseOrStop({ ended: false });      // ВСТАВЛЕНО
+  updatePlayPauseIcon();
+});
+
   
   // НОВОЕ: Переинициализация при загрузке нового трека
   audioEl.addEventListener('canplay', () => {
