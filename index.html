@@ -1710,6 +1710,31 @@
       letter-spacing:.04em;
       text-transform: uppercase;
     }
+    /* Кнопки бэкапа под прогрессом */
+    .ach-backup-controls{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .backup-btn{
+      color:#fff;
+      background: var(--secondary-color);
+      border:none;
+      border-radius:8px;
+      font-weight:700;
+      letter-spacing:.02em;
+      padding:8px 12px;
+      cursor:pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .backup-btn.secondary{
+      background: #2a2a2a;
+      color: rgba(255,255,255,0.9);
+      border:1px solid var(--border-color);
+    }
+    .backup-btn:hover{ opacity:.9; }
 
     /* bubble-подсказка — остаётся как было */
     .socials-under-cover{ margin: 14px auto 8px auto; }
@@ -1783,6 +1808,13 @@
             <div class="ach-bar-fill" id="ach-one-fill" style="width:0%"></div>
           </div>
           <div class="ach-done-label" id="ach-done-label">ВЫПОЛНЕНО: 0 / 34</div>
+        </div>
+        
+        <!-- Кнопки резервной копии -->
+        <div class="ach-backup-controls" id="ach-backup-controls">
+          <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
+          <button class="backup-btn secondary" id="backup-import-btn" type="button">ИМПОРТ</button>
+          <input type="file" id="backup-file-input" accept="application/json" hidden />
         </div>
 
         <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
@@ -2288,6 +2320,10 @@ const StatsStore = {
         // миграции Этап 2
         if (!this.s.achievements) this.s.achievements = {};         // id -> { unlockedAt, tier }
         if (typeof this.s.lastMajorAchAt !== 'number') this.s.lastMajorAchAt = 0;
+        // миграции Этап 4
+        if (!this.s.backups) this.s.backups = { dates: [] };
+        if (!this.s.socialsVisited) this.s.socialsVisited = {};
+        if (typeof this.s.sleepTimerStops !== 'number') this.s.sleepTimerStops = 0;
       } else {
         this.s = this._fresh();
       }
@@ -2307,7 +2343,10 @@ const StatsStore = {
       streak: { current: 0, max: 0, lastDay: null },
       likedCount: (JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length,
       achievements: {},     // id -> { unlockedAt, tier }
-      lastMajorAchAt: 0
+      lastMajorAchAt: 0,
+      backups: { dates: [] },     // даты сохранений бэкапа YYYY-MM-DD
+      socialsVisited: {},         // title -> true
+      sleepTimerStops: 0          // число срабатываний таймера сна
     };
   },
   save() {
@@ -2858,6 +2897,104 @@ const AchProgress = {
     return `✨ До «${best.title}»: ${units(best.unit, best.left)}`;
   }
 };
+// ==== Бэкап: экспорт/импорт ====
+async function backupExport() {
+  try {
+    const payload = {
+      appVersion: VERSION,
+      exportedAt: Date.now(),
+      deviceHash: getDeviceHash(),
+      stats: StatsStore.s
+    };
+    const checksum = await sha256String(JSON.stringify(payload));
+    const file = {
+      kind: 'vr_backup_v1',
+      checksum,
+      payload
+    };
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const date = new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
+    const fname = `vitrina-backup-${date}.json`;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 500);
+
+    // учёт ачивок backup_*
+    const dayKey = localDayKey(Date.now());
+    if (!StatsStore.s.backups.dates.includes(dayKey)) {
+      StatsStore.s.backups.dates.push(dayKey);
+    }
+    StatsStore.save();
+    Ach.unlock('backup_first');
+    if (StatsStore.s.backups.dates.length >= 3) Ach.unlock('backup_3_days');
+    if (StatsStore.s.lastMajorAchAt && (Date.now() - StatsStore.s.lastMajorAchAt) <= 24*60*60*1000) {
+      Ach.unlock('backup_after_major');
+    }
+
+    NotificationSystem.success('Бэкап сохранён');
+  } catch (e) {
+    console.error(e);
+    NotificationSystem.error('Не удалось создать бэкап');
+  }
+}
+
+async function backupImportFromFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    if (json?.kind !== 'vr_backup_v1' || !json?.payload) {
+      NotificationSystem.error('Неверный формат файла');
+      return;
+    }
+    const calc = await sha256String(JSON.stringify(json.payload));
+    if (calc !== json.checksum) {
+      NotificationSystem.error('Файл повреждён (checksum mismatch)');
+      return;
+    }
+    const incoming = json.payload;
+    if (incoming.deviceHash !== getDeviceHash()) {
+      NotificationSystem.error('Бэкап от другого устройства');
+      return;
+    }
+
+    // Защита от отката
+    const currentDone = Object.keys(StatsStore.s.achievements||{}).length;
+    const incomingDone = Object.keys(incoming.stats?.achievements||{}).length;
+    if (incomingDone < currentDone) {
+      if (!confirm('В бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) {
+        return;
+      }
+    }
+
+    StatsStore.s = incoming.stats;
+    // миграции на всякий случай
+    if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
+    if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
+    if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
+
+    StatsStore.save();
+    AchProgress.updateFromStats();
+    NotificationSystem.success('Бэкап импортирован');
+  } catch (e) {
+    console.error(e);
+    NotificationSystem.error('Не удалось импортировать бэкап');
+  }
+}
+
+// SHA-256 строки (UTF-8)
+async function sha256String(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 
 // ==================== СОХРАНЕНИЕ СОСТОЯНИЯ ====================
 class PlayerState {
@@ -3036,6 +3173,18 @@ function initializeMainUi() {
   // ==== Этап 1: старт статы и прогресс‑панели ====
   StatsStore.init();
   AchProgress.init();
+  // Привязка кнопок бэкапа
+  document.getElementById('backup-export-btn')?.addEventListener('click', backupExport);
+  const importBtn = document.getElementById('backup-import-btn');
+  const importInput = document.getElementById('backup-file-input');
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) backupImportFromFile(file);
+      importInput.value = '';
+    });
+  }
 
   document.getElementById('support-link').href = config.donateLink;
   
@@ -3508,6 +3657,18 @@ function startCoverAutoPlay() {
 }
 
 // ==================== СОЦИАЛЬНЫЕ СЕТИ ====================
+function markSocialVisited(title) {
+  StatsStore.s.socialsVisited[title] = true;
+  StatsStore.save();
+  try {
+    const total = (config.socials || []).length;
+    const visited = Object.keys(StatsStore.s.socialsVisited).length;
+    if (total && visited >= total) {
+      Ach.unlock('socials_all_visited');
+    }
+  } catch {}
+}
+
 function buildSocials() {
   if (!config || !config.socials) return;
   const links = config.socials.map(x => 
@@ -3516,6 +3677,14 @@ function buildSocials() {
   if (DOM.socialLinks) {
     DOM.socialLinks.innerHTML = links;
   }
+  // Учёт кликов по соцссылкам
+  try {
+    const anchors = DOM.socialLinks.querySelectorAll('a');
+    anchors.forEach(a => {
+      const title = a.textContent.trim();
+      a.addEventListener('click', () => markSocialVisited(title), { once: true });
+    });
+  } catch {}
 }
 
 // ==================== ИЗБРАННОЕ ====================
@@ -4538,15 +4707,24 @@ function executeSleepTimer() {
   if (audio && !audio.paused) {
     audio.pause();
   }
-  
+
   // Очищаем медиа-сессию
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = null;
   }
-  
+
+  // Учёт события "таймер сна сработал"
+  try {
+    StatsStore.s.sleepTimerStops = (StatsStore.s.sleepTimerStops || 0) + 1;
+    StatsStore.save();
+    if (StatsStore.s.sleepTimerStops >= 5) {
+      Ach.unlock('sleep_timer_5');
+    }
+  } catch {}
+
   // Очищаем таймер
   clearSleepTimer();
-  
+
   // Показываем оверлей
   showSleepOverlay();
 }
@@ -6261,7 +6439,10 @@ async function hashManifest() {
 document.getElementById('install-modal').onclick = function(e) {
   if (e.target === this) closeInstallModal();
 };
-
+// Достижение: приложение установлено (PWA)
+window.addEventListener('appinstalled', () => {
+  Ach.unlock('pwa_installed');
+});
 // ==================== ОБРАТНАЯ СВЯЗЬ ====================
 let isRealTextarea = false;
 
