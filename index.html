@@ -1708,22 +1708,32 @@
       font-size:.9em;
       color: rgba(255,255,255,0.8);
     }
-    .ach-hint-bubble{
-      position:absolute;
-      right:6px;
-      top:-10px;
-      transform: translateY(-100%);
-      background: #1f2533;
-      border:1px solid var(--border-color);
-      color:#e9f0ff;
-      padding:8px 10px;
-      border-radius:10px;
-      box-shadow:0 4px 20px rgba(0,0,0,0.35);
-      font-size:.92em;
-      max-width: 96%;
-    }
-    .ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
-    @media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
+/* Соцблок — немного места снизу, чтобы bubble не “лип” */
+.socials-under-cover { margin: 14px auto 8px auto; }
+
+/* Подсказка теперь в потоке над полосами */
+.ach-hint-bubble{
+  position: relative;   /* было absolute */
+  right: auto;
+  top: auto;
+  transform: none;      /* убираем translate */
+  background: #1f2533;
+  border:1px solid var(--border-color);
+  color:#e9f0ff;
+  padding:8px 10px;
+  border-radius:10px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.35);
+  font-size:.92em;
+  max-width: 100%;
+  margin-bottom: 10px;  /* отступ перед заголовком прогресса */
+  z-index: 1;           /* на всякий случай */
+}
+
+/* На всякий случай фиксируем выравнивание названий треков слева */
+.track .track-title { text-align: left; }
+
+.ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
+@media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
   </style>
 </head>
 <body>
@@ -1755,7 +1765,6 @@
         </button>
       </div>
       <div id="social-links" class="socials-under-cover"></div>
-            <div id="social-links" class="socials-under-cover"></div>
 
       <!-- Прогресс достижений (Этап 1: каркас) -->
       <div id="ach-progress-root" class="ach-progress-root" aria-live="polite">
@@ -1785,10 +1794,12 @@
         </div>
 
         <!-- Лента последних ачивок (на будущее) -->
-        <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
-      </div>
-    
-    <div class="track-list" id="track-list"></div>
+        <!-- Лента последних ачивок (на будущее) -->
+      <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
+    </div>
+  </header> <!-- ← закрываем header здесь -->
+
+  <div class="track-list" id="track-list"></div>
     
     <div class="bottom-controls-center">
       <!-- КНОПКА ФИЛЬТРА НАД ЛОГОТИПОМ -->
@@ -2949,27 +2960,34 @@ function initAudioContext() {
 // Функция для переподключения обработчиков событий к новому audio элементу
 function reattachAudioEventListeners(audioEl) {
   if (!audioEl) return;
-  
+
   audioEl.addEventListener('loadedmetadata', onAudioMetadataLoaded);
   audioEl.addEventListener('timeupdate', onAudioTimeUpdate);
   audioEl.addEventListener('seeking', onAudioSeeking);
   audioEl.addEventListener('seeked', onAudioSeeked);
   audioEl.addEventListener('ended', onAudioEnded);
   audioEl.addEventListener('volumechange', onVolumeChange);
+
+  // НУЖНО: play + учёт старта
   audioEl.addEventListener('play', () => {
-    if (bitEnabled && audioContext && audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-    // Тихий учёт начала прослушивания
-    Stats.onStart(currentTrack);
+  if (bitEnabled && audioContext && audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  Stats.onStart(currentTrack);
+  updatePlayPauseIcon();
+});
+
+audioEl.addEventListener('pause', () => {
+  Stats.onPauseOrStop({ ended: false });
+  updatePlayPauseIcon();
+});
+
+  // ОДИН обработчик pause
+  audioEl.addEventListener('pause', () => {
+    Stats.onPauseOrStop({ ended: false });
     updatePlayPauseIcon();
   });
-  audioEl.addEventListener('pause', updatePlayPauseIcon);
-  audioEl.addEventListener('error', (e) => {
-    console.error('Audio loading error:', e);
-    NotificationSystem.error('Ошибка загрузки трека');
-  });
-  
+
   audioEl.addEventListener('canplay', () => {
     if (bitEnabled && !analyser) {
       initAudioContext();
@@ -3756,6 +3774,8 @@ function onAudioSeeked() {
 
 // ИСПРАВЛЕНО: Автопереход на следующий трек
 function onAudioEnded() {
+  // учёт завершённого прослушивания
+  Stats.onPauseOrStop({ ended: true });
   const remainingEl = document.getElementById('time-remaining');
   if (remainingEl) remainingEl.textContent = '00:00';
   
