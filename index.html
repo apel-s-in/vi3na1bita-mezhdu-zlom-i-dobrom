@@ -1644,6 +1644,86 @@
         display: none;
       }
     }
+
+    /* ==== Прогресс достижений (Этап 1) ==== */
+    .ach-progress-root{
+      width:100%;
+      max-width:398px;
+      margin:12px auto 8px auto;
+      padding:10px 12px;
+      background: rgba(0,0,0,0.30);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      position: relative;
+    }
+    .ach-progress-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    .ach-progress-title{
+      font-weight:700;
+      letter-spacing: .02em;
+      color:#fff;
+    }
+    .ach-badge-soon{
+      font-size:.82em;
+      color:#bbb;
+      background: #232b38;
+      border:1px solid var(--border-color);
+      padding:2px 8px;
+      border-radius:999px;
+    }
+    .ach-progress-bars{
+      position:relative;
+      padding-top:8px;
+    }
+    .ach-bar{
+      position:relative;
+      width:100%;
+      background: rgba(255,255,255,0.10);
+      border-radius:3px;
+      overflow:hidden;
+    }
+    .ach-bar-core{ height:6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+    .ach-bar-all{
+      height:3px;
+      position:absolute;
+      left:0; right:0; top:3px;
+      background: rgba(255,255,255,0.12);
+      border-radius:2px;
+    }
+    .ach-bar-fill{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      transition: width 0.3s ease;
+    }
+    .ach-bar-labels{
+      margin-top:8px;
+      display:flex;
+      justify-content:space-between;
+      font-size:.9em;
+      color: rgba(255,255,255,0.8);
+    }
+    .ach-hint-bubble{
+      position:absolute;
+      right:6px;
+      top:-10px;
+      transform: translateY(-100%);
+      background: #1f2533;
+      border:1px solid var(--border-color);
+      color:#e9f0ff;
+      padding:8px 10px;
+      border-radius:10px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.35);
+      font-size:.92em;
+      max-width: 96%;
+    }
+    .ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
+    @media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
   </style>
 </head>
 <body>
@@ -1675,7 +1755,38 @@
         </button>
       </div>
       <div id="social-links" class="socials-under-cover"></div>
-    </header>
+            <div id="social-links" class="socials-under-cover"></div>
+
+      <!-- Прогресс достижений (Этап 1: каркас) -->
+      <div id="ach-progress-root" class="ach-progress-root" aria-live="polite">
+        <div class="ach-progress-header">
+          <span class="ach-progress-title">Прогресс достижений</span>
+          <span class="ach-badge-soon" id="ach-badge-soon">в разработке, скоро…</span>
+        </div>
+
+        <div class="ach-progress-bars">
+          <!-- Толстая шкала: Core -->
+          <div class="ach-bar ach-bar-core">
+            <div class="ach-bar-fill" id="ach-core-fill" style="width: 0%"></div>
+          </div>
+          <!-- Тонкая шкала: Все видимые -->
+          <div class="ach-bar ach-bar-all">
+            <div class="ach-bar-fill" id="ach-all-fill" style="width: 0%"></div>
+          </div>
+          <div class="ach-bar-labels">
+            <span id="ach-core-label">0/15 core</span>
+            <span id="ach-all-label">0/34 все</span>
+          </div>
+        </div>
+
+        <!-- Всплывающая подсказка -->
+        <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">
+          ✨ Мы готовим достижения. Слушайте — прогресс уже копится.
+        </div>
+
+        <!-- Лента последних ачивок (на будущее) -->
+        <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
+      </div>
     
     <div class="track-list" id="track-list"></div>
     
@@ -1993,6 +2104,14 @@ const BUILD_INFO = {
 // Логирование версии при загрузке
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`, 'color: #E80100; font-size: 16px; font-weight: bold;');
 console.log(`%cBuild: ${BUILD_DATE}`, 'color: #4daaff; font-size: 12px;');
+
+// ==== Feature flags (Этап 1) ====
+const FeatureFlags = {
+  achievementsUI: (localStorage.getItem('ff_achievements_ui') ?? '1') === '1',   // показывать панель
+  statsCollect:   (localStorage.getItem('ff_stats_collect') ?? '1') === '1',     // тихий сбор статы
+  achievementsLogic: (localStorage.getItem('ff_achievements_logic') ?? '0') === '1' // Этап 2+
+};
+
 // Кэшированные DOM элементы
 const DOM = {};
 
@@ -2140,6 +2259,172 @@ class NotificationSystem {
   static warning(msg) { this.show(msg, 'warning', 4000); }
   static offline(msg) { this.show(msg, 'offline'); }
 }
+
+// ==== Device hash ====
+function getDeviceHash() {
+  let h = localStorage.getItem('device_hash');
+  if (h) return h;
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  h = 'dev_' + Array.from(buf).map(b=>b.toString(16).padStart(2,'0')).join('');
+  localStorage.setItem('device_hash', h);
+  return h;
+}
+
+// ==== Stats store (Этап 1) ====
+const STATS_LS_KEY = 'vr_stats_v1';
+const StatsStore = {
+  s: null,
+  init() {
+    try {
+      const raw = localStorage.getItem(STATS_LS_KEY);
+      if (raw) {
+        this.s = JSON.parse(raw);
+        if (Array.isArray(this.s.uniqueTracksPlayed)) {
+          this.s.uniqueTracksPlayed = Array.from(new Set(this.s.uniqueTracksPlayed));
+        }
+      } else {
+        this.s = this._fresh();
+      }
+    } catch { this.s = this._fresh(); }
+  },
+  _fresh() {
+    return {
+      schema: 1,
+      deviceHash: getDeviceHash(),
+      createdAt: Date.now(),
+      totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 },
+      perTrack: Array.from({length: 16}, ()=>({ validPlays:0, fullPlays:0, totalSeconds:0, lastPlayedAt:0 })),
+      uniqueTracksPlayed: [],
+      byDay: {},            // YYYY-MM-DD -> { valid:n, seconds:s }
+      streak: { current: 0, max: 0, lastDay: null },
+      likedCount: (JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length
+    };
+  },
+  save() {
+    const clone = structuredClone(this.s);
+    localStorage.setItem(STATS_LS_KEY, JSON.stringify(clone));
+  }
+};
+
+// ==== Правила валидности ====
+function isValidListen(listenedMs, ended) {
+  return listenedMs >= 13_000 || ended === true;
+}
+function isFullListen(listenedMs, durationMs, ended) {
+  if (!durationMs) return false;
+  return ended === true || listenedMs >= 0.9 * durationMs;
+}
+function localDayKey(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ==== Тихий сбор статы (Этап 1) ====
+const Stats = {
+  active: FeatureFlags.statsCollect,
+  lastStart: null,       // { ts, trackIndex, startPosMs }
+  onStart(trackIndex) {
+    if (!this.active) return;
+    const audio = document.getElementById('audio');
+    if (!audio) return;
+    this.lastStart = {
+      ts: Date.now(),
+      trackIndex,
+      startPosMs: Math.floor((audio.currentTime||0)*1000)
+    };
+  },
+  onPauseOrStop(opts={ ended:false }) {
+    if (!this.active || !this.lastStart) return;
+    const audio = document.getElementById('audio');
+    if (!audio) return;
+    const now = Date.now();
+    const durationMs = Math.floor((audio.duration||0)*1000);
+    const posMs = opts.ended ? Math.floor(durationMs) : Math.floor((audio.currentTime||0)*1000);
+    const listenedMs = Math.max(0, posMs - (this.lastStart.startPosMs||0));
+    const valid = isValidListen(listenedMs, opts.ended);
+    const full  = isFullListen(listenedMs, durationMs, opts.ended);
+
+    if (valid || full) {
+      const s = StatsStore.s;
+      const idx = this.lastStart.trackIndex;
+      if (valid) {
+        s.totals.totalValidPlays += 1;
+        s.totals.totalSeconds += listenedMs/1000;
+        if (!s.uniqueTracksPlayed.includes(idx)) s.uniqueTracksPlayed.push(idx);
+      }
+      if (full) s.totals.totalFullPlays += 1;
+
+      const pt = s.perTrack[idx];
+      if (valid) pt.validPlays += 1;
+      if (full) pt.fullPlays += 1;
+      pt.totalSeconds += listenedMs/1000;
+      pt.lastPlayedAt = now;
+
+      if (valid) {
+        const key = localDayKey(now);
+        s.byDay[key] = s.byDay[key] || { valid:0, seconds:0 };
+        s.byDay[key].valid += 1;
+        s.byDay[key].seconds += listenedMs/1000;
+
+        if (!s.streak.lastDay) {
+          s.streak.current = 1;
+        } else if (key !== s.streak.lastDay) {
+          const prev = new Date(s.streak.lastDay+'T00:00:00');
+          const cur  = new Date(key+'T00:00:00');
+          const diff = Math.round((cur - prev)/86400000);
+          s.streak.current = (diff === 1) ? (s.streak.current+1) : 1;
+        }
+        s.streak.lastDay = key;
+        s.streak.max = Math.max(s.streak.max, s.streak.current);
+      }
+
+      StatsStore.save();
+      AchProgress.updateFromStats();
+    }
+
+    if (opts.ended) this.lastStart = null;
+  },
+  onLikedCountChanged(cnt) {
+    if (!this.active) return;
+    StatsStore.s.likedCount = cnt;
+    StatsStore.save();
+  }
+};
+
+// ==== Прогресс‑панель (Этап 1: проценты и подсказка) ====
+const AchProgress = {
+  coreTotal: 15,
+  visibleTotal: 34,
+  init() {
+    if (!FeatureFlags.achievementsUI) return;
+    this.coreFill  = document.getElementById('ach-core-fill');
+    this.allFill   = document.getElementById('ach-all-fill');
+    this.coreLabel = document.getElementById('ach-core-label');
+    this.allLabel  = document.getElementById('ach-all-label');
+    this.bubble    = document.getElementById('ach-hint-bubble');
+    this.set(0,0);
+    this.updateFromStats();
+    this.showSoonBubble();
+  },
+  set(coreUnlocked, visibleUnlocked) {
+    const corePct = Math.max(0, Math.min(100, Math.round(coreUnlocked/this.coreTotal*100)));
+    const allPct  = Math.max(0, Math.min(100, Math.round(visibleUnlocked/this.visibleTotal*100)));
+    if (this.coreFill)  this.coreFill.style.width = corePct + '%';
+    if (this.allFill)   this.allFill.style.width  = allPct + '%';
+    if (this.coreLabel) this.coreLabel.textContent = `${coreUnlocked}/${this.coreTotal} core`;
+    if (this.allLabel)  this.allLabel.textContent  = `${visibleUnlocked}/${this.visibleTotal} все`;
+  },
+  updateFromStats() {
+    // Этап 1: ачивки не выдаём → показатели 0/15 и 0/34
+    this.set(0, 0);
+  },
+  showSoonBubble() {
+    if (this.bubble) {
+      this.bubble.textContent = '✨ Мы готовим достижения. Слушайте — прогресс уже копится.';
+    }
+  }
+};
 
 // ==================== СОХРАНЕНИЕ СОСТОЯНИЯ ====================
 class PlayerState {
@@ -2315,6 +2600,10 @@ function initializeMainUi() {
   
   setCoverImage(coverGalleryIdx);
   buildSocials();
+  // ==== Этап 1: старт статы и прогресс‑панели ====
+  StatsStore.init();
+  AchProgress.init();
+
   document.getElementById('support-link').href = config.donateLink;
   
   if (config.background) {
@@ -2671,6 +2960,8 @@ function reattachAudioEventListeners(audioEl) {
     if (bitEnabled && audioContext && audioContext.state === 'suspended') {
       audioContext.resume();
     }
+    // Тихий учёт начала прослушивания
+    Stats.onStart(currentTrack);
     updatePlayPauseIcon();
   });
   audioEl.addEventListener('pause', updatePlayPauseIcon);
