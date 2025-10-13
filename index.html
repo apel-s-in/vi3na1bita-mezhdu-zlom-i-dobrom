@@ -1646,9 +1646,12 @@
     }
 
     /* ==== Прогресс достижений (Этап 1) ==== */
+    /* ==== Прогресс достижений — новая версия ==== */
+
+    /* ширина в линию с lyrics и плеером */
     .ach-progress-root{
       width:100%;
-      max-width:398px;
+      max-width:395px;             /* как .audio-wrapper */
       margin:12px auto 8px auto;
       padding:10px 12px;
       background: rgba(0,0,0,0.30);
@@ -1657,29 +1660,28 @@
       box-shadow: 0 2px 12px rgba(0,0,0,0.25);
       position: relative;
     }
+
+    /* заголовок по центру */
     .ach-progress-header{
       display:flex;
-      justify-content:space-between;
+      justify-content:center;      /* центрируем */
       align-items:center;
       margin-bottom:8px;
     }
+    .ach-progress-header.ach-center { justify-content:center; }
+
     .ach-progress-title{
-      font-weight:700;
-      letter-spacing: .02em;
       color:#fff;
+      font-weight:800;
+      letter-spacing:.06em;
+      text-transform: uppercase;   /* КАПС */
+      font-size: .98em;
     }
-    .ach-badge-soon{
-      font-size:.82em;
-      color:#bbb;
-      background: #232b38;
-      border:1px solid var(--border-color);
-      padding:2px 8px;
-      border-radius:999px;
-    }
-    .ach-progress-bars{
-      position:relative;
-      padding-top:8px;
-    }
+
+    /* контейнер под шкалу и подпись */
+    .ach-progress-bars{ position:relative; padding-top:4px; }
+
+    /* одна шкала */
     .ach-bar{
       position:relative;
       width:100%;
@@ -1687,53 +1689,49 @@
       border-radius:3px;
       overflow:hidden;
     }
-    .ach-bar-core{ height:6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
-    .ach-bar-all{
-      height:3px;
-      position:absolute;
-      left:0; right:0; top:3px;
-      background: rgba(255,255,255,0.12);
-      border-radius:2px;
-    }
+    .ach-bar-single{ height:6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+
+    /* заливка */
     .ach-bar-fill{
       height:100%;
       width:0%;
       background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
       transition: width 0.3s ease;
     }
-    .ach-bar-labels{
+
+    /* подпись ВЫПОЛНЕНО: X / Y */
+    .ach-done-label{
       margin-top:8px;
-      display:flex;
-      justify-content:space-between;
-      font-size:.9em;
-      color: rgba(255,255,255,0.8);
+      width:100%;
+      text-align:center;
+      font-size:.88em;
+      color: rgba(255,255,255,0.9);
+      font-weight:800;
+      letter-spacing:.04em;
+      text-transform: uppercase;
     }
-/* Соцблок — немного места снизу, чтобы bubble не “лип” */
-.socials-under-cover { margin: 14px auto 8px auto; }
 
-/* Подсказка теперь в потоке над полосами */
-.ach-hint-bubble{
-  position: relative;   /* было absolute */
-  right: auto;
-  top: auto;
-  transform: none;      /* убираем translate */
-  background: #1f2533;
-  border:1px solid var(--border-color);
-  color:#e9f0ff;
-  padding:8px 10px;
-  border-radius:10px;
-  box-shadow:0 4px 20px rgba(0,0,0,0.35);
-  font-size:.92em;
-  max-width: 100%;
-  margin-bottom: 10px;  /* отступ перед заголовком прогресса */
-  z-index: 1;           /* на всякий случай */
-}
+    /* bubble-подсказка — остаётся как было */
+    .socials-under-cover{ margin: 14px auto 8px auto; }
+    .ach-hint-bubble{
+      position: relative;
+      right: auto; top: auto; transform: none;
+      background: #1f2533;
+      border:1px solid var(--border-color);
+      color:#e9f0ff;
+      padding:8px 10px;
+      border-radius:10px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.35);
+      font-size:.92em;
+      max-width: 100%;
+      margin-bottom: 10px;
+      z-index: 1;
+    }
 
-/* На всякий случай фиксируем выравнивание названий треков слева */
-.track .track-title { text-align: left; }
-
-.ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
-@media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
+    /* общий мелкий фикс */
+    .track .track-title { text-align: left; }
+    .ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
+    @media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
   </style>
 </head>
 <body>
@@ -1769,29 +1767,26 @@
       <!-- Прогресс достижений -->
       <div id="ach-progress-root" class="ach-progress-root" aria-live="polite">
         <!-- подсказка сразу под соцблоком -->
+        <!-- ОСТАВИТЬ bubble сразу под соцблоком (ничего не менять, если он уже есть) -->
         <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">
           ✨ Мы готовим достижения. Слушайте — прогресс уже копится.
         </div>
 
-        <div class="ach-progress-header">
-          <span class="ach-progress-title">Прогресс достижений</span>
-          <span class="ach-badge-soon" id="ach-badge-soon">в разработке, скоро…</span>
+        <!-- Новый заголовок по центру и КАПСОМ -->
+        <div class="ach-progress-header ach-center">
+          <span class="ach-progress-title">ПРОГРЕСС ДОСТИЖЕНИЙ</span>
         </div>
 
+        <!-- ОДНА шкала прогресса + подпись ВЫПОЛНЕНО: X / Y -->
         <div class="ach-progress-bars">
-          <div class="ach-bar ach-bar-core">
-            <div class="ach-bar-fill" id="ach-core-fill" style="width:0%"></div>
+          <div class="ach-bar ach-bar-single">
+            <div class="ach-bar-fill" id="ach-one-fill" style="width:0%"></div>
           </div>
-          <div class="ach-bar ach-bar-all">
-            <div class="ach-bar-fill" id="ach-all-fill" style="width:0%"></div>
-          </div>
-          <div class="ach-bar-labels">
-            <span id="ach-core-label">0/15 core</span>
-            <span id="ach-all-label">0/34 все</span>
-          </div>
+          <div class="ach-done-label" id="ach-done-label">ВЫПОЛНЕНО: 0 / 34</div>
         </div>
 
         <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
+
       </div>
     </header>
 
@@ -2550,44 +2545,43 @@ const Ach = {
   }
 };
   
-// ==== Прогресс‑панель (Этап 1: проценты и подсказка) ====
+// ==== Прогресс‑панель — одна шкала + подпись ВЫПОЛНЕНО: X / Y ====
 const AchProgress = {
-  coreTotal: 15,        // фиксировано
-  visibleTotal: 34,     // все кроме 3 secret
+  // считаем “видимые” достижения (без скрытых)
+  totalVisible: Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length,
+
   init() {
     if (!FeatureFlags.achievementsUI) return;
-    this.coreFill  = document.getElementById('ach-core-fill');
-    this.allFill   = document.getElementById('ach-all-fill');
-    this.coreLabel = document.getElementById('ach-core-label');
-    this.allLabel  = document.getElementById('ach-all-label');
+    this.oneFill   = document.getElementById('ach-one-fill');
+    this.doneLabel = document.getElementById('ach-done-label');
     this.bubble    = document.getElementById('ach-hint-bubble');
-    this.set(0,0);
+    this.render(0, this.totalVisible);
     this.updateFromStats();
   },
-  set(coreUnlocked, visibleUnlocked) {
-    const corePct = Math.max(0, Math.min(100, Math.round(coreUnlocked/this.coreTotal*100)));
-    const allPct  = Math.max(0, Math.min(100, Math.round(visibleUnlocked/this.visibleTotal*100)));
-    if (this.coreFill)  this.coreFill.style.width = corePct + '%';
-    if (this.allFill)   this.allFill.style.width  = allPct + '%';
-    if (this.coreLabel) this.coreLabel.textContent = `${coreUnlocked}/${this.coreTotal} core`;
-    if (this.allLabel)  this.allLabel.textContent  = `${visibleUnlocked}/${this.visibleTotal} все`;
+
+  // отрисовка одной шкалы и подписи
+  render(done, total) {
+    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : 0;
+    if (this.oneFill)   this.oneFill.style.width = pct + '%';
+    if (this.doneLabel) this.doneLabel.textContent = `ВЫПОЛНЕНО: ${done} / ${total}`;
   },
+
   updateFromStats() {
+    // сколько из “видимых” уже выполнено
     const ach = StatsStore.s.achievements || {};
-    let coreUnlocked = 0, visibleUnlocked = 0;
-    Object.keys(ach).forEach(id=>{
-      const meta = ACH_META[id]||{};
-      if (meta.core) coreUnlocked++;
-      if (!meta.hidden) visibleUnlocked++;
-    });
-    this.set(coreUnlocked, visibleUnlocked);
+    const doneVisible = Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length;
+    const total = this.totalVisible;
+    this.render(doneVisible, total);
     this.updateBubble();
   },
+
   updateBubble() {
     if (!this.bubble) return;
     const hint = this.computeNearestGoal();
     this.bubble.textContent = hint || '✨ Продолжайте слушать — прогресс идёт.';
   },
+
+  // “ближайшая цель” — оставляем без изменений (как раньше)
   computeNearestGoal() {
     const S = StatsStore.s, T = S.totals||{};
     const uniq = (S.uniqueTracksPlayed||[]).length;
@@ -2622,7 +2616,7 @@ const AchProgress = {
 
     return `✨ До «${best.title}»: ${units(best.unit, best.left)}`;
   }
-}; // ← закрываем объект AchProgress полностью
+};
 
 // ==================== СОХРАНЕНИЕ СОСТОЯНИЯ ====================
 class PlayerState {
