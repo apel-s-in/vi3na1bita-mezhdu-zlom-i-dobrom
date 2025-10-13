@@ -2328,6 +2328,29 @@ function localDayKey(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+// ==== Вспомогательные функции времени (локальное) ====
+// Входит ли локальное время ts в интервал [fromHHMMSS .. toHHMMSS]
+function isBetweenLocalTime(ts, fromHHMMSS, toHHMMSS) {
+  const t = new Date(ts).toTimeString().slice(0,8); // "HH:MM:SS"
+  return t >= fromHHMMSS && t <= toHHMMSS;
+}
+// ISO-неделя вида YYYY-Www
+function getISOWeekId(ts) {
+  const d = new Date(ts);
+  const dayNr = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dayNr + 3);
+  const firstThursday = new Date(d.getFullYear(), 0, 4);
+  const firstDayNr = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
+  const week = 1 + Math.round((d - firstThursday) / 604800000);
+  const year = d.getFullYear();
+  return `${year}-W${String(week).padStart(2,'0')}`;
+}
+// Выходной ли день (локально)
+function isWeekendLocal(ts) {
+  const w = new Date(ts).getDay(); // 0 Sun, 6 Sat
+  return w === 0 || w === 6;
+}
 
 // ==== Тихий сбор статы (Этап 1) ====
 const Stats = {
@@ -2347,20 +2370,38 @@ const Stats = {
     if (!this.active || !this.lastStart) return;
     const audio = document.getElementById('audio');
     if (!audio) return;
+
     const now = Date.now();
     const durationMs = Math.floor((audio.duration||0)*1000);
     const posMs = opts.ended ? Math.floor(durationMs) : Math.floor((audio.currentTime||0)*1000);
     const listenedMs = Math.max(0, posMs - (this.lastStart.startPosMs||0));
     const valid = isValidListen(listenedMs, opts.ended);
     const full  = isFullListen(listenedMs, durationMs, opts.ended);
-    // ВСТАВИТЬ: учёт валидного прослушивания при shuffle
+
+    // use_shuffle_5 — учёт валидного прослушивания в shuffle‑режиме
     if (valid && shuffleMode === true) {
       Ach.incShuffleValid();
     }
-    
+
     if (valid || full) {
       const s = StatsStore.s;
       const idx = this.lastStart.trackIndex;
+  
+      // Сначала — дергаем SessionManager для сложных ачивок (он сам проверит valid/full)
+      Session.onListenStop({
+        trackIndex: idx,
+        ts: now,
+        listenedMs,
+        durationMs,
+        ended: opts.ended,
+        flags: {
+          favoritesOnly: !!favoritesOnlyMode,
+          shuffle: !!shuffleMode,
+          isFavoriteNow: isLiked(idx)
+        }
+      });
+
+      // totals
       if (valid) {
         s.totals.totalValidPlays += 1;
         s.totals.totalSeconds += listenedMs/1000;
@@ -2368,12 +2409,14 @@ const Stats = {
       }
       if (full) s.totals.totalFullPlays += 1;
 
+      // per-track
       const pt = s.perTrack[idx];
       if (valid) pt.validPlays += 1;
       if (full) pt.fullPlays += 1;
       pt.totalSeconds += listenedMs/1000;
       pt.lastPlayedAt = now;
 
+      // byDay + streak
       if (valid) {
         const key = localDayKey(now);
         s.byDay[key] = s.byDay[key] || { valid:0, seconds:0 };
@@ -2392,6 +2435,7 @@ const Stats = {
         s.streak.max = Math.max(s.streak.max, s.streak.current);
       }
 
+      // Сохраняем и пересчитываем простые ачивки (это Этап 2 логика)
       StatsStore.save();
       AchProgress.updateFromStats();
       Ach.evaluateAfterListen({ ts: now });
@@ -2399,12 +2443,209 @@ const Stats = {
 
     if (opts.ended) this.lastStart = null;
   },
+
   onLikedCountChanged(cnt) {
     if (!this.active) return;
     StatsStore.s.likedCount = cnt;
     StatsStore.save();
   }
 };
+// ==== SessionManager (Этап 3) ====
+// Отвечает за “сессию” (разрыв >30 минут), последовательности и окна для сложных ачивок.
+const SESSION_GAP_MS = 30 * 60 * 1000;
+const FAVORITES_WINDOW_MS = 2 * 60 * 60 * 1000;  // 2 часа
+const ALBUM_SESSION_LIMIT_MS = 4 * 60 * 60 * 1000; // 4 часа
+
+const Session = {
+  id: null,
+  startedAt: 0,
+  lastActiveAt: 0,
+  // “Только избранное — по порядку”
+  favOrderedRun: [],        // массив индексов подряд
+  // “Альбом по порядку в одной сессии”
+  albumExpected: 0,         // ждём 0..15
+  albumFirstAt: 0,          // время начала последовательности
+  // “Только избранное — вперемешку” (окно 2 часа)
+  favShuffleEvents: [],     // [{ts, trackIndex}]
+  favShuffleWindowStart: 0,
+  // “Полночный цикл”
+  midnightTriple: { trackIndex: null, count: 0 },
+
+  reset(now = Date.now()) {
+    this.id = crypto.randomUUID();
+    this.startedAt = now;
+    this.lastActiveAt = now;
+
+    this.favOrderedRun = [];
+    this.albumExpected = 0;
+    this.albumFirstAt = now;
+
+    this.favShuffleEvents = [];
+    this.favShuffleWindowStart = 0;
+
+    this.midnightTriple = { trackIndex: null, count: 0 };
+  },
+
+  ensureSession(now) {
+    if (!this.id) this.reset(now);
+    if (now - this.lastActiveAt > SESSION_GAP_MS) this.reset(now);
+  },
+
+  onStart({ trackIndex, ts }) {
+    this.ensureSession(ts);
+    this.lastActiveAt = ts;
+
+    // Секретка 11:11 (старт)
+    if (isBetweenLocalTime(ts, '11:11:00', '11:11:30')) {
+      Ach.unlock('exact_time_11_11');
+    }
+    // Полночное окно активируем/сбрасываем
+    if (!isBetweenLocalTime(ts, '00:00:00', '00:30:00')) {
+      this.midnightTriple = { trackIndex: null, count: 0 };
+    }
+  },
+
+  onListenStop({ trackIndex, ts, listenedMs, durationMs, ended, flags }) {
+    this.ensureSession(ts);
+    this.lastActiveAt = ts;
+
+    const valid = isValidListen(listenedMs, ended);
+    const full  = isFullListen(listenedMs, durationMs, ended);
+    if (!valid && !full) return;
+
+    const S = StatsStore.s;
+
+    // ===== Сложные ачивки =====
+
+    // 1) Только избранное — по порядку (внутри одной сессии)
+    // Условия: favoritesOnly=true, shuffle=false, full=true, треки идут в альбомном порядке без иных между.
+    if (flags.favoritesOnly && !flags.shuffle && full && flags.isFavoriteNow) {
+      if (this.favOrderedRun.length === 0) {
+        // начинаем с текущего трека: допускаем старт не обязательно с 0 — но нужен строгий рост
+        this.favOrderedRun = [trackIndex];
+      } else {
+        const last = this.favOrderedRun[this.favOrderedRun.length - 1];
+        if (trackIndex === last + 1) {
+          this.favOrderedRun.push(trackIndex);
+        } else {
+          // сброс, если нарушено
+          this.favOrderedRun = [trackIndex];
+        }
+      }
+      if (this.favOrderedRun.length >= 5) {
+        Ach.unlock('favorites_order_5_full');
+      }
+    } else {
+      // если вышли из режима — сброс последовательности
+      if (!flags.favoritesOnly || flags.shuffle || !flags.isFavoriteNow) {
+        this.favOrderedRun = [];
+      }
+    }
+
+    // 2) Только избранное — вперемешку (окно 2 часа, без обычных треков)
+    // Условия: favoritesOnly=true, shuffle=true, full=true, >=5 уникальных избранных за 2 часа.
+    if (flags.favoritesOnly && flags.shuffle) {
+      const cutoff = ts - FAVORITES_WINDOW_MS;
+
+      // если в окне случился валидный НЕ избранный — полностью сбрасываем окно
+      if (valid && !flags.isFavoriteNow) {
+        this.favShuffleEvents = [];
+        this.favShuffleWindowStart = 0;
+      } else if (full && flags.isFavoriteNow) {
+        // добавляем событие
+        this.favShuffleEvents.push({ ts, trackIndex });
+        // чистим устаревшие
+        this.favShuffleEvents = this.favShuffleEvents.filter(e => e.ts >= cutoff);
+        // метка старта окна
+        if (!this.favShuffleWindowStart || this.favShuffleWindowStart < cutoff) {
+          this.favShuffleWindowStart = ts;
+        }
+        // считаем уникальные
+        const uniq = new Set(this.favShuffleEvents.map(e => e.trackIndex));
+        if (uniq.size >= 5) {
+          Ach.unlock('favorites_shuffle_5_full');
+        }
+      }
+    } else {
+      // вышли из режима — окно стираем
+      this.favShuffleEvents = [];
+      this.favShuffleWindowStart = 0;
+    }
+
+    // 3) Альбом по порядку в одной сессии (каждый ≥60%), общее время последовательности ≤4 часа
+    if (durationMs > 0 && listenedMs >= 0.6 * durationMs) {
+      // если последовательность только началась — поставим “первый момент”
+      if (this.albumExpected === 0) {
+        this.albumFirstAt = ts;
+      }
+      const withinLimit = (ts - this.albumFirstAt) <= ALBUM_SESSION_LIMIT_MS;
+      if (trackIndex === this.albumExpected && withinLimit) {
+        this.albumExpected += 1;
+        if (this.albumExpected === 16) {
+          Ach.unlock('album_in_order_session');
+          // после выполнения — сброс, чтобы не триггерить снова случайно
+          this.albumExpected = 0;
+          this.albumFirstAt = ts;
+        }
+      } else {
+        // сброс последовательности; начнём заново, если этот трек — 0‑й
+        this.albumExpected = (trackIndex === 0) ? 1 : 0;
+        this.albumFirstAt = ts;
+      }
+    }
+
+    // 4) Полночный цикл (00:00–00:30): один и тот же трек полностью 3 раза подряд
+    if (full && isBetweenLocalTime(ts, '00:00:00', '00:30:00')) {
+      if (this.midnightTriple.trackIndex === null || this.midnightTriple.trackIndex === trackIndex) {
+        this.midnightTriple.trackIndex = trackIndex;
+        this.midnightTriple.count += 1;
+        if (this.midnightTriple.count >= 3) {
+          Ach.unlock('midnight_triple');
+        }
+      } else {
+        // другой трек — начинаем заново с 1
+        this.midnightTriple = { trackIndex, count: 1 };
+      }
+    }
+
+    // 5) “Весь альбом” за 7×24ч (любой порядок, валидные прослушивания)
+    if (valid) {
+      S._last7 = S._last7 || [];
+      S._last7.push({ ts, trackIndex });
+      const cutoff7 = ts - 7*24*60*60*1000;
+      S._last7 = S._last7.filter(e => e.ts >= cutoff7);
+      const set = new Set(S._last7.map(e => e.trackIndex));
+      if (set.size === 16) {
+        Ach.unlock('album_any_order_7d');
+      }
+    }
+
+    // 6) Weekend Warrior: валидные прослушивания и в субботу, и в воскресенье одной ISO‑недели
+    if (valid && isWeekendLocal(ts)) {
+      S._weeks = S._weeks || {}; // id -> {sat:bool, sun:bool}
+      const id = getISOWeekId(ts);
+      const wd = new Date(ts).getDay(); // 6=Sat, 0=Sun
+      S._weeks[id] = S._weeks[id] || { sat:false, sun:false };
+      if (wd === 6) S._weeks[id].sat = true;
+      if (wd === 0) S._weeks[id].sun = true;
+      if (S._weeks[id].sat && S._weeks[id].sun) {
+        Ach.unlock('weekend_warrior');
+      }
+    }
+
+    // 7) Weekend Album: все 16 валидных прослушиваний в пределах одного выходного дня
+    if (valid && isWeekendLocal(ts)) {
+      const dayKey = localDayKey(ts);
+      S._weekendDay = S._weekendDay || {}; // YYYY-MM-DD -> Set
+      if (!S._weekendDay[dayKey]) S._weekendDay[dayKey] = new Set();
+      S._weekendDay[dayKey].add(trackIndex);
+      if (S._weekendDay[dayKey].size === 16) {
+        Ach.unlock('weekend_album');
+      }
+    }
+  }
+};
+
 // ==== Реестр ачивок (Этап 2) ====
 const ACH_META = {
   // Tier 1
@@ -3149,12 +3390,15 @@ function reattachAudioEventListeners(audioEl) {
 
   // НУЖНО: play + учёт старта
   audioEl.addEventListener('play', () => {
-  if (bitEnabled && audioContext && audioContext.state === 'suspended') {
-    audioContext.resume();
-  }
-  Stats.onStart(currentTrack);
-  updatePlayPauseIcon();
-});
+    if (bitEnabled && audioContext && audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    // фиксация начала для статы
+    Stats.onStart(currentTrack);
+    // фиксация начала для сложных ачивок (секретки и сессии)
+    Session.onStart({ trackIndex: currentTrack, ts: Date.now() });
+    updatePlayPauseIcon();
+  });
 
   // ОДИН обработчик pause
   audioEl.addEventListener('pause', () => {
@@ -3816,19 +4060,18 @@ function renderLyricsBlock() {
   audioEl.addEventListener('ended', onAudioEnded);
   audioEl.addEventListener('volumechange', onVolumeChange);
   audioEl.addEventListener('play', () => {
-   if (bitEnabled && audioContext && audioContext.state === 'suspended') {
-     audioContext.resume();
-   }
-   Stats.onStart(currentTrack);                // ВСТАВЛЕНО
-   updatePlayPauseIcon();
- });
+    if (bitEnabled && audioContext && audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    Stats.onStart(currentTrack);
+    Session.onStart({ trackIndex: currentTrack, ts: Date.now() });
+    updatePlayPauseIcon();
+  });
+  audioEl.addEventListener('pause', () => {
+    Stats.onPauseOrStop({ ended: false });
+    updatePlayPauseIcon();
+  });
 
-audioEl.addEventListener('pause', () => {     // ВСТАВЛЕНО
-  Stats.onPauseOrStop({ ended: false });      // ВСТАВЛЕНО
-  updatePlayPauseIcon();
-});
-
-  
   // НОВОЕ: Переинициализация при загрузке нового трека
   audioEl.addEventListener('canplay', () => {
     if (bitEnabled && !analyser) {
