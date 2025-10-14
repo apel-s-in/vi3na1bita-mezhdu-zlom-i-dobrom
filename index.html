@@ -2874,12 +2874,25 @@ const AchProgress = {
     this.updateBubble();
   },
 
-  updateBubble() {
-    if (!this.bubble) return;
-    const hint = this.computeNearestGoal();
-    this.bubble.textContent = hint || '✨ Продолжайте слушать — прогресс идёт.';
-  },
+  async updateBubble() {
+      if (!this.bubble) return;
+      const hint = this.computeNearestGoal();
+      // Анимированный emoji для bubble
+      let emojiHtml = `<span class="ach-hint-emoji" id="ach-hint-emoji"></span>`;
+      const mainText = hint
+        ? hint.replace(/^✨\s?/, '')   // убираем старый emoji, если есть
+        : 'Продолжайте слушать — прогресс идёт.';
+      this.bubble.innerHTML = emojiHtml + mainText;
 
+      // AnimatedEmoji подключаем
+      const emojiEl = document.getElementById('ach-hint-emoji');
+      if (emojiEl && window.AnimatedEmoji) {
+        // trophy если ближайшая ачивка есть, sparkles если просто encouragement
+        let sid = mainText.match(/До «.+»:/) ? 'trophy' : 'sparkles';
+        AnimatedEmoji.mount(emojiEl, sid === "trophy" ? "achievement" : "info", mainText, 24, sid);
+      }
+    },
+  
   // “ближайшая цель” — оставляем без изменений (как раньше)
   computeNearestGoal() {
     const S = StatsStore.s, T = S.totals||{};
@@ -2929,6 +2942,7 @@ const AnimatedEmoji = {
     warning:     { id: 'warning',           txt: '⚠️' },
     offline:     { id: 'satellite_antenna', txt: '📡' },
     achievement: { id: 'trophy',            txt: '🏆' },
+    sparkles:    { id: 'sparkles',          txt: '✨' }, // для подсказки в bubble
   },
 
   async ensureLottie() {
@@ -2947,9 +2961,9 @@ const AnimatedEmoji = {
     return (type in this.map) ? type : 'info';
   },
 
-  async mount(container, type, message, size=24) {
+  async mount(container, type, message, size=24, sid) {
     if (!container) return;
-    const key = this.chooseKey(type, message);
+    const key = sid ? sid : this.chooseKey(type, message);
     const meta = this.map[key] || this.map.info;
     const id = meta.id;
     container.textContent = '';
