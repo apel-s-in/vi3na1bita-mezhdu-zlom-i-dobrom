@@ -2004,14 +2004,7 @@
         <!-- Кнопки резервной копии -->
         <div class="ach-backup-controls" id="ach-backup-controls">
           <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
-          <button class="backup-btn secondary" id="backup-import-btn" type="button">ИМПОРТ</button>
           <input type="file" id="backup-file-input" accept="application/json" hidden />
-        </div>
-
-        <div style="margin-top:8px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-          <button class="backup-btn secondary" onclick="promptReset('stats')">Очистить статистику</button>
-          <button class="backup-btn secondary" onclick="promptReset('ach')">Очистить достижения</button>
-          <button class="backup-btn secondary" onclick="promptReset('all')">Сбросить всё</button>
         </div>
 
         <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
@@ -2169,19 +2162,57 @@
   <div class="modal-bg" id="modal-backup-prompt">
     <div class="modal-feedback" style="max-width:400px;">
       <button class="bigclose" onclick="closeBackupPrompt()" title="Закрыть">
+        <svg viewBox="0 0 48 48">...</svg>
+      </button>
+      <div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Сохраните ваши достижения</div>
+      <div style="color:#bbb;line-height:1.5;margin-bottom:10px;">
+        Сохраните файл резервной копии, чтобы не потерять прогресс. При утере данных приз может быть не подтверждён без файла.
+      </div>
+
+      <!-- Галочки настроек напоминаний -->
+      <label class="checkbox-container" style="margin-top:6px;">
+        <input type="checkbox" id="backup-opt-never">
+        <span class="checkmark"></span>
+        Не напоминать больше
+      </label>
+      <label class="checkbox-container" style="margin-top:6px;">
+        <input type="checkbox" id="backup-opt-5">
+        <span class="checkmark"></span>
+        Напомнить через 5 достижений
+      </label>
+
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+        <button class="btn-secondary" onclick="closeBackupPromptWithChoice()">Отмена</button>
+        <button class="btn-primary" onclick="backupExportWithLevel()">Сохранить…</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-bg" id="reset-modal">
+    <div class="modal-feedback" style="max-width:320px;">
+      <button class="bigclose" onclick="closeResetModal()" title="Закрыть">
         <svg viewBox="0 0 48 48">
           <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
           <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
         </svg>
       </button>
-      <div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Сохраните ваши достижения</div>
-      <div style="color:#bbb;line-height:1.5;margin-bottom:14px;">
-        Сохраните файл резервной копии, чтобы не потерять прогресс. При утере данных приз может быть не подтверждён без файла.
-      </div>
-      <div style="display:flex;gap:8px;justify-content:center;">
-        <button class="btn-secondary" onclick="closeBackupPrompt()">Отмена</button>
-        <button class="btn-primary" onclick="backupExportWithLevel()">Сохранить…</button>
-      </div>
+      <div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Очистка данных</div>
+      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeResetModal();promptReset('stats')">Очистить статистику</button>
+      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeResetModal();promptReset('ach')">Очистить достижения</button>
+      <button class="offline-btn online" style="width:98%;" onclick="closeResetModal();promptReset('all')">Сбросить всё</button>
+    </div>
+  </div>
+  <div class="modal-bg" id="backup-actions-modal">
+    <div class="modal-feedback" style="max-width:360px;">
+      <button class="bigclose" onclick="closeBackupActions()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="download-modal-title">Сохранение достижений</div>
+      <button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupExportWithLevel()">Сохранить на устройство</button>
+      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupShare()">Отправить</button>
+      <button class="offline-btn" style="width:98%;" onclick="closeBackupActions();document.getElementById('backup-file-input').click()">Импорт</button>
     </div>
   </div>
 
@@ -3079,11 +3110,19 @@ const Ach = {
     AchProgress.updateFromStats();
 
     // автоподсказка бэкапа:
-    // 1-й, 10-й и все уровни, начиная с 13-го (13,14,15,...)
+    // первый раз — на 10‑м; далее — на каждом >=13, с учётом настроек пользователя;
+    // перед последним достижением — всегда показать.
     try {
       const visibleCount = getVisibleAchievementsCount();
-      if (visibleCount === 1 || visibleCount === 10 || visibleCount >= 13) {
-    setTimeout(openBackupPrompt, 150);
+      const allowByLevel = (visibleCount === 10 || visibleCount >= 13);
+      if (allowByLevel && shouldShowBackupPrompt(visibleCount)) {
+        setTimeout(openBackupPrompt, 150);
+      } else {
+        // даже если пользователь запретил — перед последним достижением всегда предложить
+        const totalVisible = Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length;
+        if (visibleCount === totalVisible - 1) {
+          setTimeout(openBackupPrompt, 150);
+        }
       }
     } catch(e){}
 
@@ -3181,31 +3220,25 @@ const AchProgress = {
   },
 
   updateFromStats() {
-    // сколько из “видимых” уже выполнено
     const ach = StatsStore.s.achievements || {};
     const doneVisible = Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length;
     const total = this.totalVisible;
     this.render(doneVisible, total);
+
+    // подготовим список из 5 ближайших
+    this._bubbleItems = this.computeGoalsList().slice(0, 5);
+    this._bubbleIdx = 0;
     this.updateBubble();
+
+    // запустим цикл ротации по 10 секунд
+    if (this._bubbleTimer) clearInterval(this._bubbleTimer);
+    if (this._bubbleItems.length > 1) {
+      this._bubbleTimer = setInterval(() => {
+        this._bubbleIdx = (this._bubbleIdx + 1) % this._bubbleItems.length;
+        this.updateBubble();
+      }, 10000);
+    }
   },
-
-  async updateBubble() {
-      if (!this.bubble) return;
-      const hint = this.computeNearestGoal();
-      // Анимированный emoji для bubble
-      let emojiHtml = `<span class="ach-hint-emoji" id="ach-hint-emoji"></span>`;
-      const mainText = hint
-        ? hint.replace(/^✨\s?/, '')   // убираем старый emoji, если есть
-        : 'Продолжайте слушать — прогресс идёт.';
-      this.bubble.innerHTML = emojiHtml + mainText;
-
-      // AnimatedEmoji подключаем
-      const emojiEl = document.getElementById('ach-hint-emoji');
-      if (emojiEl && typeof AnimatedEmoji !== 'undefined') {
-        const sid = mainText.match(/До «.+»:/) ? 'trophy' : 'sparkles';
-        AnimatedEmoji.mount(emojiEl, sid === 'trophy' ? 'achievement' : 'info', mainText, 24, sid);
-      }
-    },
   
   // “ближайшая цель” — оставляем без изменений (как раньше)
   computeNearestGoal() {
@@ -3241,8 +3274,56 @@ const AchProgress = {
       : `${n} ${u}`;
 
     return `✨ До «${best.title}»: ${units(best.unit, best.left)}`;
+  },
+
+  computeGoalsList() {
+    const S = StatsStore.s, T = S.totals||{};
+    const uniq = (S.uniqueTracksPlayed||[]).length;
+    const liked = S.likedCount||0;
+    const streak = S.streak?.current||0;
+
+    const list = [];
+    const push = (id, need, have, unit, title) => {
+      if (Ach.has(id)) return;
+      const left = Math.max(0, need - have);
+      const pct = Math.max(0, Math.min(100, Math.round((have/need)*100)));
+      list.push({ id, left, pct, unit, title });
+    };
+
+    push('play_25_total', 25, T.totalValidPlays||0, 'прослушиваний', ACH_META.play_25_total.title);
+    push('time_listened_1h', 3600, Math.floor(T.totalSeconds||0), 'секунд', ACH_META.time_listened_1h.title);
+    if (uniq < 10) push('unique_10_tracks', 10, uniq, 'трека', ACH_META.unique_10_tracks.title);
+    push('full_10_total', 10, T.totalFullPlays||0, 'полных', ACH_META.full_10_total.title);
+    if (streak < 7) push('streak_7', 7, streak, 'дней подряд', ACH_META.streak_7.title);
+    if (liked < 5) push('fav_5', 5, liked, 'треков в избранном', ACH_META.fav_5.title);
+    push('play_100_total', 100, T.totalValidPlays||0, 'прослушиваний', ACH_META.play_100_total.title);
+    push('time_listened_5h', 18000, Math.floor(T.totalSeconds||0), 'секунд', ACH_META.time_listened_5h.title);
+
+    if (!list.length) return [];
+    list.sort((a,b)=> (a.left - b.left) || (b.pct - a.pct));
+
+    const units = (u, n) => (u === 'секунд')
+      ? (n >= 60 ? `${Math.ceil(n/60)} мин` : `${n} сек`)
+      : `${n} ${u}`;
+
+    return list.slice(0, 5).map(it => `✨ До «${it.title}»: ${units(it.unit, it.left)}`);
+  },
+
+  async updateBubble() {
+    if (!this.bubble) return;
+    const items = this._bubbleItems || [];
+    const text = items.length ? items[this._bubbleIdx || 0] : 'Продолжайте слушать — прогресс идёт.';
+    const clean = text.replace(/^✨\s?/, '');
+    this.bubble.innerHTML = `<span class="ach-hint-emoji" id="ach-hint-emoji"></span>${clean}`;
+
+    const emojiEl = document.getElementById('ach-hint-emoji');
+    if (emojiEl && typeof AnimatedEmoji !== 'undefined') {
+      const sid = /До «.+»:/.test(text) ? 'trophy' : 'sparkles';
+      AnimatedEmoji.mount(emojiEl, sid === 'trophy' ? 'achievement' : 'info', text, 24, sid);
+    }
   }
 };
+
 // ==== Список достижений (модалка) ====
 
 // Прогресс по популярным порогам для доступных ачивок
@@ -3461,7 +3542,7 @@ const MyStats = {
   },
 
   render() {
-    if (!config) return; // ждём конфиг для названий треков
+    if (!config) return;
     const I = this.insights();
 
     const fmtTime = (sec)=>{
@@ -3469,7 +3550,6 @@ const MyStats = {
       const m = Math.floor((sec%3600)/60);
       return h>0 ? `${h}ч ${m}м` : `${m}м`;
     };
-
     const trackTitle = (idx)=> (config?.tracks?.[idx]?.title || `Трек ${(idx+1)}`);
 
     const topValidHtml = I.topValid.length
@@ -3488,21 +3568,24 @@ const MyStats = {
     const maxW = Math.max(1, ...I.byWeekday);
     const weekdayLabels = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
-    const byHourHtml = `<div class="chart-bars">` + I.byHour.map((v, h)=>(
+    const hoursOpen = localStorage.getItem('myStatsHoursOpen') !== '0';
+    const weekOpen  = localStorage.getItem('myStatsWeekOpen')  !== '0';
+
+    const byHourHtml = I.byHour.map((v,h)=>(
       `<div class="chart-row">
         <div class="label">${String(h).padStart(2,'0')}</div>
         <div class="bar"><div class="fill" style="width:${Math.round((v/maxHour)*100)}%"></div></div>
         <div class="val">${v}</div>
       </div>`
-    )).join('') + `</div>`;
+    )).join('');
 
-    const byWeekHtml = `<div class="chart-bars">` + I.byWeekday.map((v, d)=>(
+    const byWeekHtml = I.byWeekday.map((v,d)=>(
       `<div class="chart-row">
         <div class="label">${weekdayLabels[d]}</div>
         <div class="bar"><div class="fill" style="width:${Math.round((v/maxW)*100)}%"></div></div>
         <div class="val">${v}</div>
       </div>`
-    )).join('') + `</div>`;
+    )).join('');
 
     this.body.innerHTML = `
       <div class="stats-grid">
@@ -3532,14 +3615,18 @@ const MyStats = {
         </div>
       </div>
 
-      <div class="chart-block">
-        <div class="chart-title">По часам суток</div>
-        ${byHourHtml}
+      <div class="chart-block" id="chart-hours">
+        <div class="chart-title" style="cursor:pointer;" id="chart-hours-toggle">По часам суток</div>
+        <div class="chart-bars" id="chart-hours-bars" ${hoursOpen ? '' : 'style="display:none;"'}>
+          ${byHourHtml}
+        </div>
       </div>
 
-      <div class="chart-block">
-        <div class="chart-title">По дням недели</div>
-        ${byWeekHtml}
+      <div class="chart-block" id="chart-week">
+        <div class="chart-title" style="cursor:pointer;" id="chart-week-toggle">По дням недели</div>
+        <div class="chart-bars" id="chart-week-bars" ${weekOpen ? '' : 'style="display:none;"'}>
+          ${byWeekHtml}
+        </div>
       </div>
 
       <div class="stats-grid">
@@ -3562,7 +3649,32 @@ const MyStats = {
         <div class="stat-title">Топ‑5 по времени</div>
         ${topTimeHtml}
       </div>
+
+      <div style="display:flex; justify-content:center; margin-top:8px;">
+        <button class="backup-btn" id="stats-reset-open-btn" type="button">ОЧИСТИТЬ</button>
+      </div>
     `;
+    // привязка кнопки "ОЧИСТИТЬ"
+    const rst = document.getElementById('stats-reset-open-btn');
+    if (rst) rst.onclick = openResetModal;
+    const hoursT = document.getElementById('chart-hours-toggle');
+    const hoursBars = document.getElementById('chart-hours-bars');
+    if (hoursT && hoursBars) {
+      hoursT.onclick = () => {
+        const vis = hoursBars.style.display !== 'none';
+        hoursBars.style.display = vis ? 'none' : '';
+        localStorage.setItem('myStatsHoursOpen', vis ? '0' : '1');
+      };
+    }
+    const weekT = document.getElementById('chart-week-toggle');
+    const weekBars = document.getElementById('chart-week-bars');
+    if (weekT && weekBars) {
+      weekT.onclick = () => {
+        const vis = weekBars.style.display !== 'none';
+        weekBars.style.display = vis ? 'none' : '';
+        localStorage.setItem('myStatsWeekOpen', vis ? '0' : '1');
+      };
+    }
   }
 };
 
@@ -3647,7 +3759,8 @@ async function backupExport(levelForName) {
       buildDate: BUILD_DATE,
       exportedAt: new Date().toISOString(),
       deviceHash: getDeviceHash(),
-      stats: StatsStore.s
+      stats: StatsStore.s,
+      statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
     };
     const checksum = await sha256String(JSON.stringify(payload));
     const file = { kind: 'vr_backup_v1', checksum, payload };
@@ -3682,6 +3795,37 @@ async function backupExport(levelForName) {
   } catch (e) {
     console.error(e);
     NotificationSystem.error('Не удалось создать бэкап');
+  }
+}
+async function backupShare() {
+  try {
+    const payload = {
+      appVersion: VERSION,
+      buildDate: BUILD_DATE,
+      exportedAt: new Date().toISOString(),
+      deviceHash: getDeviceHash(),
+      stats: StatsStore.s,
+      statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
+    };
+    const checksum = await sha256String(JSON.stringify(payload));
+    const file = { kind: 'vr_backup_v1', checksum, payload };
+    const jsonText = JSON.stringify(file, null, 2);
+
+    if (navigator.canShare && window.File && navigator.canShare({ files: [new File([""],"a.json")] })) {
+      const blob = new Blob([jsonText], { type: 'application/json' });
+      const fname = `vitrina-backup-${new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)}.json`;
+      const f = new File([blob], fname, { type: 'application/json' });
+      await navigator.share({ title: 'Бэкап достижений', text: 'Мой прогресс и ачивки', files: [f] });
+      NotificationSystem.success('Бэкап отправлен');
+    } else if (navigator.share) {
+      await navigator.share({ title: 'Бэкап достижений', text: jsonText });
+      NotificationSystem.success('Бэкап отправлен как текст');
+    } else {
+      await navigator.clipboard.writeText(jsonText);
+      NotificationSystem.success('JSON бэкапа скопирован в буфер');
+    }
+  } catch(e) {
+    NotificationSystem.error('Не удалось отправить бэкап');
   }
 }
 
@@ -3719,6 +3863,15 @@ async function backupImportFromFile(file) {
     if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
     if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
     if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
+        // миграция: perTrack.byHour / byWeekday для старых бэкапов
+    if (Array.isArray(StatsStore.s.perTrack)) {
+      for (let i = 0; i < StatsStore.s.perTrack.length; i++) {
+        const pt = StatsStore.s.perTrack[i] || {};
+        if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
+        if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0);
+        StatsStore.s.perTrack[i] = pt;
+      }
+    }
 
     StatsStore.save();
     AchProgress.updateFromStats();
@@ -3728,6 +3881,10 @@ async function backupImportFromFile(file) {
     NotificationSystem.error('Не удалось импортировать бэкап');
   }
 }
+function openResetModal(){ document.getElementById('reset-modal')?.classList.add('active'); }
+function closeResetModal(){ document.getElementById('reset-modal')?.classList.remove('active'); }
+document.getElementById('reset-modal').onclick = function(e){ if (e.target === this) closeResetModal(); };
+
 function promptReset(kind) {
   const expect = kind==='all' ? 'Сбросить-ВСЁ' : (kind==='stats'?'Сбросить-СТАТЫ':'Сбросить-АЧИВКИ');
   const code = prompt(`Для подтверждения введите: ${expect}`);
@@ -3760,12 +3917,77 @@ async function sha256String(str) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 function openBackupPrompt() {
-  document.getElementById('modal-backup-prompt')?.classList.add('active');
+  const el = document.getElementById('modal-backup-prompt');
+  if (!el) return;
+  // Сбрасываем одноразовый порог, если он уже достигнут
+  try {
+    const nextAtStr = localStorage.getItem('backup_prompt_next');
+    const nextAt = nextAtStr ? parseInt(nextAtStr, 10) : null;
+    const cur = getVisibleAchievementsCount();
+    if (Number.isInteger(nextAt) && cur >= nextAt) {
+      localStorage.removeItem('backup_prompt_next');
+    }
+  } catch {}
+  el.classList.add('active');
 }
+function openBackupActions(){ document.getElementById('backup-actions-modal')?.classList.add('active'); }
+function closeBackupActions(){ document.getElementById('backup-actions-modal')?.classList.remove('active'); }
+document.getElementById('backup-actions-modal')?.addEventListener('click', (e)=>{
+  if (e.target === e.currentTarget) closeBackupActions();
+});
+
 function closeBackupPrompt() {
   document.getElementById('modal-backup-prompt')?.classList.remove('active');
 }
+// Решение: показывать ли подсказку бэкапа при данном количестве выполненных достижений
+function shouldShowBackupPrompt(doneVisible) {
+  try {
+    // Всегда показываем перед последним достижением (игнорируем настройки)
+    const totalVisible = Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length;
+    if (doneVisible === totalVisible - 1) return true;
 
+    // Считать настройки
+    const mode = localStorage.getItem('backup_prompt_mode'); // 'never' | null
+    const nextAtStr = localStorage.getItem('backup_prompt_next'); // число в строке
+    const nextAt = nextAtStr ? parseInt(nextAtStr, 10) : null;
+
+    if (mode === 'never') return false;
+    if (Number.isInteger(nextAt)) {
+      // показываем только когда достигнут порог nextAt
+      return doneVisible >= nextAt;
+    }
+    // По умолчанию — показываем (если другие условия Ach.unlock сработали)
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+// Применяем выбор пользователя из галочек при закрытии
+function closeBackupPromptWithChoice() {
+  try {
+    const never = document.getElementById('backup-opt-never')?.checked;
+    const plus5 = document.getElementById('backup-opt-5')?.checked;
+
+    // Если выбрано "не напоминать" — оно имеет приоритет
+    if (never) {
+      localStorage.setItem('backup_prompt_mode', 'never');
+      localStorage.removeItem('backup_prompt_next');
+    } else if (plus5) {
+      // напоминать через 5 достижений от текущего уровня
+      const cur = getVisibleAchievementsCount();
+      const next = cur + 5;
+      localStorage.removeItem('backup_prompt_mode');
+      localStorage.setItem('backup_prompt_next', String(next));
+    } else {
+      // Сброс явных настроек — будет работать дефолтная логика
+      localStorage.removeItem('backup_prompt_mode');
+      localStorage.removeItem('backup_prompt_next');
+    }
+  } catch {}
+  closeBackupPrompt();
+}
+  
 // Сколько видимых ачивок выполнено (без скрытых)
 function getVisibleAchievementsCount() {
   const ach = StatsStore.s?.achievements || {};
@@ -3972,12 +4194,10 @@ function initializeMainUi() {
     achModalBg.onclick = (e) => { if (e.target === achModalBg) closeAchievementsModal(); };
   }
 
-  // Привязка кнопок бэкапа
-  document.getElementById('backup-export-btn')?.addEventListener('click', backupExportWithLevel);
-  const importBtn = document.getElementById('backup-import-btn');
+  // Привязка кнопки "СОХРАНИТЬ ДОСТИЖЕНИЯ" (меню действий)
+  document.getElementById('backup-export-btn')?.addEventListener('click', openBackupActions);
   const importInput = document.getElementById('backup-file-input');
-  if (importBtn && importInput) {
-    importBtn.addEventListener('click', () => importInput.click());
+  if (importInput) {
     importInput.addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       if (file) backupImportFromFile(file);
