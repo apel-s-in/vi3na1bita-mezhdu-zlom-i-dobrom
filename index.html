@@ -376,35 +376,6 @@
       will-change: height, opacity;
     }
     
-    /* Анимированный фон лирики */
-    .lyrics-animated-bg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      opacity: 0;
-      background: linear-gradient(45deg, 
-        rgba(232,1,0,0.05), 
-        rgba(77,170,255,0.05), 
-        rgba(232,1,0,0.05));
-      background-size: 400% 400%;
-      animation: none;
-      z-index: 0;
-      pointer-events: none;
-    }
-    
-    .lyrics-animated-bg.active {
-      opacity: 0.15;
-      animation: lyricsGradient 15s ease infinite;
-    }
-    
-    @keyframes lyricsGradient {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    
     #lyrics-window.lyrics-hidden {
       height: 0 !important;
       opacity: 0;
@@ -1766,6 +1737,26 @@
       margin-bottom: 10px;
       z-index: 1;
     }
+    /* Иконка ✨/🏆 в подсказке bubble */
+    .ach-hint-emoji {
+      display: inline-block;
+      width: 1.4em;
+      height: 1.4em;
+      vertical-align: middle;
+      margin-right: .2em;
+      margin-bottom: -.15em;
+      animation: hint-emoji-bounce 1.5s cubic-bezier(.58,1.9,.3,1) infinite;
+      will-change: transform;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ach-hint-emoji { animation: none; }
+    }
+    @keyframes hint-emoji-bounce {
+      0%, 100% { transform: translateY(0) scale(1); filter: brightness(1);}
+      28%  { transform: translateY(-8px) scale(1.08); filter: brightness(1.1);}
+      35%  { filter: brightness(1.45);}
+      55%  { filter: brightness(1.13);}
+    }
 
     /* общий мелкий фикс */
     .track .track-title { text-align: left; }
@@ -1829,6 +1820,12 @@
           <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
           <button class="backup-btn secondary" id="backup-import-btn" type="button">ИМПОРТ</button>
           <input type="file" id="backup-file-input" accept="application/json" hidden />
+        </div>
+
+        <div style="margin-top:8px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button class="backup-btn secondary" onclick="promptReset('stats')">Очистить статистику</button>
+          <button class="backup-btn secondary" onclick="promptReset('ach')">Очистить достижения</button>
+          <button class="backup-btn secondary" onclick="promptReset('all')">Сбросить всё</button>
         </div>
 
         <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
@@ -1971,7 +1968,26 @@
       </div>
     </div>
   </div>
-  
+  <!-- Модалка подсказки бэкапа (отдельная, не внутри других модалок) -->
+  <div class="modal-bg" id="modal-backup-prompt">
+    <div class="modal-feedback" style="max-width:400px;">
+      <button class="bigclose" onclick="closeBackupPrompt()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Сохраните ваши достижения</div>
+      <div style="color:#bbb;line-height:1.5;margin-bottom:14px;">
+        Сохраните файл резервной копии, чтобы не потерять прогресс. При утере данных приз может быть не подтверждён без файла.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button class="btn-secondary" onclick="closeBackupPrompt()">Отмена</button>
+        <button class="btn-primary" onclick="backupExportWithLevel()">Сохранить…</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-bg" id="sizeConfirmModal">
     <div class="modal-feedback" style="max-width: 350px;">
       <h3 style="text-align: center;">Подтверждение загрузки</h3>
@@ -2323,7 +2339,47 @@ function getDeviceHash() {
   localStorage.setItem('device_hash', h);
   return h;
 }
+// ==== Integrity / Anti‑tamper ====
+const CRC_LS_KEY = 'vr_crc_v1';
 
+const Integrity = {
+  async compute() {
+    const base = {
+      deviceHash: getDeviceHash(),
+      stats: StatsStore.s ? {
+        totals: StatsStore.s.totals,
+        perTrack: StatsStore.s.perTrack,
+        unique: StatsStore.s.uniqueTracksPlayed,
+        byDay: StatsStore.s.byDay,
+        streak: StatsStore.s.streak,
+        likedCount: StatsStore.s.likedCount
+      } : null,
+      achievements: StatsStore.s ? StatsStore.s.achievements : null
+    };
+    const raw = JSON.stringify(base);
+    const buf = new TextEncoder().encode(raw);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  },
+  async update() {
+    try {
+      const crc = await this.compute();
+      localStorage.setItem(CRC_LS_KEY, crc);
+    } catch(e){ console.warn('Integrity update failed', e); }
+  },
+  async verifyOnBoot() {
+    try {
+      const saved = localStorage.getItem(CRC_LS_KEY);
+      const crc = await this.compute();
+      if (saved && saved !== crc) {
+        NotificationSystem.error('Обнаружены изменения данных. Для призов восстановите из бэкапа.');
+        console.warn('Anti‑tamper: mismatch', { saved, crc });
+        return false;
+      }
+      return true;
+    } catch(e){ return true; }
+  }
+};
 // ==== Stats store (Этап 1+2) ====
 const STATS_LS_KEY = 'vr_stats_v1';
 const StatsStore = {
@@ -2371,6 +2427,8 @@ const StatsStore = {
   save() {
     const clone = structuredClone(this.s);
     localStorage.setItem(STATS_LS_KEY, JSON.stringify(clone));
+    // обновим checksum локального состояния
+    Integrity.update();
   }
 };
 
@@ -2772,6 +2830,16 @@ const Ach = {
     NotificationSystem.success(`🏆 Достижение: ${meta.title||id}`);
     // обновим шкалы и подсказку
     AchProgress.updateFromStats();
+
+    // автоподсказка бэкапа:
+    // 1-й, 10-й и все уровни, начиная с 13-го (13,14,15,...)
+    try {
+      const visibleCount = getVisibleAchievementsCount();
+      if (visibleCount === 1 || visibleCount === 10 || visibleCount >= 13) {
+    setTimeout(openBackupPrompt, 150);
+      }
+    } catch(e){}
+
     return true;
   },
   // Быстрая выдача “событийных”
@@ -3003,23 +3071,22 @@ const AnimatedEmoji = {
   }
 };
 // ==== Бэкап: экспорт/импорт ====
-async function backupExport() {
+async function backupExport(levelForName) {
   try {
     const payload = {
       appVersion: VERSION,
-      exportedAt: Date.now(),
+      buildDate: BUILD_DATE,
+      exportedAt: new Date().toISOString(),
       deviceHash: getDeviceHash(),
       stats: StatsStore.s
     };
     const checksum = await sha256String(JSON.stringify(payload));
-    const file = {
-      kind: 'vr_backup_v1',
-      checksum,
-      payload
-    };
+    const file = { kind: 'vr_backup_v1', checksum, payload };
     const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+
     const date = new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
-    const fname = `vitrina-backup-${date}.json`;
+    const lvl = (typeof levelForName === 'number') ? `-lvl${levelForName}` : '';
+    const fname = `vitrina-backup-${date}${lvl}.json`;
 
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -3042,7 +3109,6 @@ async function backupExport() {
     if (StatsStore.s.lastMajorAchAt && (Date.now() - StatsStore.s.lastMajorAchAt) <= 24*60*60*1000) {
       Ach.unlock('backup_after_major');
     }
-
     NotificationSystem.success('Бэкап сохранён');
   } catch (e) {
     console.error(e);
@@ -3093,12 +3159,55 @@ async function backupImportFromFile(file) {
     NotificationSystem.error('Не удалось импортировать бэкап');
   }
 }
+function promptReset(kind) {
+  const expect = kind==='all' ? 'Сбросить-ВСЁ' : (kind==='stats'?'Сбросить-СТАТЫ':'Сбросить-АЧИВКИ');
+  const code = prompt(`Для подтверждения введите: ${expect}`);
+  if (code !== expect) {
+    NotificationSystem.warning('Отменено');
+    return;
+  }
+
+  if (kind === 'stats' || kind === 'all') {
+    const dev = getDeviceHash(); // device сохраняем
+    localStorage.removeItem(STATS_LS_KEY);
+    StatsStore.init();
+    StatsStore.s.deviceHash = dev;
+    StatsStore.save();
+  }
+  if (kind === 'ach' || kind === 'all') {
+    StatsStore.s.achievements = {};
+    StatsStore.s.lastMajorAchAt = 0;
+    StatsStore.save();
+  }
+
+  AchProgress.updateFromStats();
+  NotificationSystem.success('Сброс выполнен. Можно начать заново.');
+}
 
 // SHA-256 строки (UTF-8)
 async function sha256String(str) {
   const enc = new TextEncoder().encode(str);
   const buf = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function openBackupPrompt() {
+  document.getElementById('modal-backup-prompt')?.classList.add('active');
+}
+function closeBackupPrompt() {
+  document.getElementById('modal-backup-prompt')?.classList.remove('active');
+}
+
+// Сколько видимых ачивок выполнено (без скрытых)
+function getVisibleAchievementsCount() {
+  const ach = StatsStore.s?.achievements || {};
+  return Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length;
+}
+
+// Экспорт с уровнем в имени файла
+async function backupExportWithLevel() {
+  closeBackupPrompt();
+  const lvl = getVisibleAchievementsCount();
+  await backupExport(lvl);
 }
 
 // ==================== СОХРАНЕНИЕ СОСТОЯНИЯ ====================
@@ -3278,8 +3387,11 @@ function initializeMainUi() {
   // ==== Этап 1: старт статы и прогресс‑панели ====
   StatsStore.init();
   AchProgress.init();
+  // Проверка целостности локальных данных
+  Integrity.verifyOnBoot();
+
   // Привязка кнопок бэкапа
-  document.getElementById('backup-export-btn')?.addEventListener('click', backupExport);
+  document.getElementById('backup-export-btn')?.addEventListener('click', backupExportWithLevel);
   const importBtn = document.getElementById('backup-import-btn');
   const importInput = document.getElementById('backup-file-input');
   if (importBtn && importInput) {
@@ -4689,8 +4801,11 @@ function setSleepTimer(minutes) {
 
 function showTimePickerForSleep() {
   closeSleepMenu();
-  
-  // Создаём модальное окно для выбора времени
+  const now = new Date();
+  const baseMin = now.getMinutes() + 30;
+  const defHour = (now.getHours() + Math.floor(baseMin / 60)) % 24;
+  const defMinute = baseMin % 60;
+
   const modal = document.createElement('div');
   modal.className = 'modal-bg active';
   modal.innerHTML = `
@@ -4703,11 +4818,11 @@ function showTimePickerForSleep() {
       </button>
       <h3>Установить таймер до:</h3>
       <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0;">
-        <input type="number" id="sleep-hour" min="0" max="23" value="${new Date().getHours()}" 
+        <input type="number" id="sleep-hour" min="0" max="23" value="${defHour}" 
                style="width: 60px; padding: 10px; text-align: center; background: rgba(255,255,255,0.1); 
                       border: 1px solid var(--border-color); border-radius: 8px; color: white;">
         <span style="font-size: 24px;">:</span>
-        <input type="number" id="sleep-minute" min="0" max="59" value="${new Date().getMinutes() + 30}" 
+        <input type="number" id="sleep-minute" min="0" max="59" value="${defMinute}" 
                style="width: 60px; padding: 10px; text-align: center; background: rgba(255,255,255,0.1);
                       border: 1px solid var(--border-color); border-radius: 8px; color: white;">
       </div>
