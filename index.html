@@ -1757,7 +1757,81 @@
       35%  { filter: brightness(1.45);}
       55%  { filter: brightness(1.13);}
     }
+    /* Кликабельность bubble для открытия списка ачивок */
+    .ach-hint-bubble {
+      cursor: pointer;
+    }
+    .ach-hint-bubble:hover {
+      border-color: var(--secondary-color);
+      box-shadow: 0 4px 24px rgba(77,170,255,0.25);
+    }
 
+    /* === Модалка “Список достижений” === */
+    .ach-modal { max-width: 420px; width: 96vw; max-height: 80vh; overflow: hidden; padding-bottom: 10px; }
+    .ach-modal h2 { font-size: 1.12em; margin: 0 0 10px 0; text-align: center; color: var(--secondary-color); }
+
+    .ach-tabs {
+      display: flex; gap: 6px; justify-content: center; margin: 6px 0 10px 0; flex-wrap: wrap;
+    }
+    .ach-tab {
+      border: 1px solid var(--border-color);
+      background: #1e2431;
+      color: #cfe3ff;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: .9em;
+      cursor: pointer;
+      user-select: none;
+    }
+    .ach-tab.active {
+      background: var(--secondary-color);
+      color: #fff;
+      border-color: var(--secondary-color);
+    }
+
+    .ach-list-wrap {
+      max-height: 60vh; overflow: auto;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 6px;
+    }
+    .ach-group-title {
+      font-weight: 800; letter-spacing: .04em; color: #9fc3ff; font-size: .9em;
+      margin: 10px 4px 6px 4px; text-transform: uppercase;
+    }
+
+    .ach-item {
+      display: grid; grid-template-columns: 28px 1fr auto; gap: 8px;
+      padding: 10px 8px; margin: 4px 0;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      background: rgba(0,0,0,0.25);
+    }
+    .ach-item:hover { background: rgba(255,255,255,0.06); }
+    .ach-item.done { opacity: .8; }
+    .ach-status {
+      width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .ach-main { min-width: 0; }
+    .ach-title { font-weight: 700; color:#fff; }
+    .ach-sub { font-size: .86em; color: #9aa8c4; margin-top: 2px; }
+    .ach-right { display: flex; align-items: center; gap: 6px; }
+
+    .ach-mini-bar {
+      width: 110px; height: 6px; background: rgba(255,255,255,0.10); border-radius: 3px; overflow: hidden;
+    }
+    .ach-mini-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+
+    .ach-lock { color:#9aa8c4; font-size: .92em; }
+
+    /* Кнопка закрытия в правом верхнем углу уже есть (.bigclose). Сделаем заголовок липким */
+    .ach-modal .sticky-head {
+      position: sticky; top: 0; background: var(--modal-bg); padding-top: 10px; z-index: 1;
+    }
+    
     /* общий мелкий фикс */
     .track .track-title { text-align: left; }
     .ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
@@ -2151,6 +2225,30 @@
           <span class="hotkey-desc">Выключить/включить звук</span>
         </div>
       </div>
+    </div>
+  </div>
+  
+  <!-- Список достижений -->
+  <div class="modal-bg" id="achievements-modal">
+    <div class="modal-feedback ach-modal">
+      <button class="bigclose" onclick="closeAchievementsModal()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <div class="sticky-head">
+        <h2>Список достижений</h2>
+        <div class="ach-tabs">
+          <button class="ach-tab active" data-filter="all">Все</button>
+          <button class="ach-tab" data-filter="available">Доступные</button>
+          <button class="ach-tab" data-filter="done">Выполненные</button>
+          <button class="ach-tab" data-filter="secret">Секретные</button>
+        </div>
+      </div>
+
+      <div class="ach-list-wrap" id="ach-list-container"></div>
     </div>
   </div>
 
@@ -2954,10 +3052,9 @@ const AchProgress = {
 
       // AnimatedEmoji подключаем
       const emojiEl = document.getElementById('ach-hint-emoji');
-      if (emojiEl && window.AnimatedEmoji) {
-        // trophy если ближайшая ачивка есть, sparkles если просто encouragement
-        let sid = mainText.match(/До «.+»:/) ? 'trophy' : 'sparkles';
-        AnimatedEmoji.mount(emojiEl, sid === "trophy" ? "achievement" : "info", mainText, 24, sid);
+      if (emojiEl && typeof AnimatedEmoji !== 'undefined') {
+        const sid = mainText.match(/До «.+»:/) ? 'trophy' : 'sparkles';
+        AnimatedEmoji.mount(emojiEl, sid === 'trophy' ? 'achievement' : 'info', mainText, 24, sid);
       }
     },
   
@@ -2997,6 +3094,138 @@ const AchProgress = {
     return `✨ До «${best.title}»: ${units(best.unit, best.left)}`;
   }
 };
+// ==== Список достижений (модалка) ====
+
+// Прогресс по популярным порогам для доступных ачивок
+function getAchievementProgressMeta() {
+  const S = StatsStore.s;
+  const T = S.totals || {};
+  return {
+    play_25_total:     { need: 25,    have: T.totalValidPlays || 0,             label: 'прослушиваний' },
+    play_100_total:    { need: 100,   have: T.totalValidPlays || 0,             label: 'прослушиваний' },
+    time_listened_1h:  { need: 3600,  have: Math.floor(T.totalSeconds||0),      label: 'секунд' },
+    time_listened_5h:  { need: 18000, have: Math.floor(T.totalSeconds||0),      label: 'секунд' },
+    unique_10_tracks:  { need: 10,    have: (S.uniqueTracksPlayed||[]).length,  label: 'трека' },
+    full_10_total:     { need: 10,    have: T.totalFullPlays || 0,              label: 'полных' },
+    fav_5:             { need: 5,     have: S.likedCount || 0,                   label: 'избранных' },
+    fav_8:             { need: 8,     have: S.likedCount || 0,                   label: 'избранных' },
+    streak_7:          { need: 7,     have: (S.streak?.max||0),                  label: 'дней подряд' },
+    streak_3:          { need: 3,     have: (S.streak?.max||0),                  label: 'дней подряд' }
+  };
+}
+function formatUnits(u, n) {
+  if (u === 'секунд') return (n >= 60 ? `${Math.floor(n/60)} мин` : `${n} сек`);
+  return `${n} ${u}`;
+}
+function getAchievementProgress(id) {
+  const mp = getAchievementProgressMeta()[id];
+  if (!mp) return null;
+  const have = Math.max(0, mp.have);
+  const need = Math.max(1, mp.need);
+  const pct = Math.max(0, Math.min(100, Math.round((have/need)*100)));
+  const left = Math.max(0, need - have);
+  return { have, need, pct, left, label: mp.label, text: `Осталось: ${formatUnits(mp.label, left)}` };
+}
+
+function openAchievementsModal(filter='all') {
+  try {
+    buildAchievementsList(filter);
+    document.getElementById('achievements-modal')?.classList.add('active');
+  } catch(e) {
+    console.error('Achievements modal error:', e);
+    NotificationSystem.error('Не удалось открыть список достижений');
+  }
+}
+function closeAchievementsModal() {
+  document.getElementById('achievements-modal')?.classList.remove('active');
+}
+
+function buildAchievementsList(activeFilter='all') {
+  const container = document.getElementById('ach-list-container');
+  if (!container) return;
+
+  const s = StatsStore.s || { achievements:{} };
+  const doneSet = new Set(Object.keys(s.achievements||{}));
+
+  const all = Object.keys(ACH_META).map(id => {
+    const meta = ACH_META[id] || {};
+    const hidden = !!meta.hidden;
+    const done = doneSet.has(id);
+    const unlockedAt = done ? (s.achievements[id]?.unlockedAt || 0) : 0;
+    const core = !!meta.core;
+    return { id, title: meta.title || id, hidden, done, unlockedAt, core, tier: meta.tier||0 };
+  });
+
+  // Фильтрация по запросу
+  const filterFn = {
+    all:       (a)=>true,
+    available: (a)=> !a.done && !a.hidden,
+    done:      (a)=> a.done,
+    secret:    (a)=> a.hidden && !a.done
+  }[activeFilter] || ((a)=>true);
+
+  // Группы: Core / Остальные / Секретные
+  const groupCore  = all.filter(a=>!a.hidden && a.core).filter(filterFn);
+  const groupOther = all.filter(a=>!a.hidden && !a.core).filter(filterFn);
+  const groupSecret= all.filter(a=> a.hidden).filter(filterFn);
+
+  // Сортировка: выполненные вниз внутри группы? Пусть: невыполненные сверху, затем выполненные по дате
+  const byStatus = (a,b)=> (Number(a.done)-Number(b.done)) || (a.tier - b.tier) || a.title.localeCompare(b.title,'ru');
+  groupCore.sort(byStatus);
+  groupOther.sort(byStatus);
+  groupSecret.sort((a,b)=> a.title.localeCompare(b.title,'ru'));
+
+  // Рендер
+  let html = '';
+
+  function renderGroup(title, arr) {
+    if (!arr.length) return '';
+    let out = `<div class="ach-group-title">${title}</div>`;
+    arr.forEach(a=>{
+      const progress = (!a.done && !a.hidden) ? getAchievementProgress(a.id) : null;
+      const statusIcon = a.done ? '✅' : (a.hidden ? '🔒' : '🔸');
+      const doneClass = a.done ? ' done' : '';
+      const right = a.done
+        ? `<span class="ach-done-date">${a.unlockedAt ? new Date(a.unlockedAt).toLocaleDateString() : ''}</span>`
+        : (a.hidden ? `<span class="ach-lock">Секретное</span>`
+                    : (progress ? `<div class="ach-mini-bar"><div class="ach-mini-fill" style="width:${progress.pct}%"></div></div>` : ''));
+
+      const sub = a.done
+        ? `Открыто: ${a.unlockedAt ? new Date(a.unlockedAt).toLocaleString() : ''}`
+        : (a.hidden ? `Откроется при особых условиях` 
+                    : (progress ? `${progress.text}` : `Доступно для выполнения`));
+
+      out += `
+      <div class="ach-item${doneClass}" data-ach="${a.id}">
+        <div class="ach-status">${statusIcon}</div>
+        <div class="ach-main">
+          <div class="ach-title">${a.title}</div>
+          <div class="ach-sub">${sub}</div>
+        </div>
+        <div class="ach-right">${right||''}</div>
+      </div>`;
+    });
+    return out;
+  }
+
+  html += renderGroup('Core', groupCore);
+  html += renderGroup('Остальные', groupOther);
+  html += renderGroup('Секретные', groupSecret);
+
+  container.innerHTML = html || `<div class="ach-lock" style="text-align:center; padding:16px;">Ничего не найдено по фильтру</div>`;
+
+  // Навесим табы
+  const tabs = document.querySelectorAll('#achievements-modal .ach-tab');
+  tabs.forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.filter === activeFilter);
+    btn.onclick = () => {
+      tabs.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      buildAchievementsList(btn.dataset.filter);
+    };
+  });
+}
+
 // ==== Animated Noto Emoji (Lottie + WebP+PNG fallback) ====
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
@@ -3389,6 +3618,17 @@ function initializeMainUi() {
   AchProgress.init();
   // Проверка целостности локальных данных
   Integrity.verifyOnBoot();
+  // Открытие списка достижений по тапу на bubble
+  const bubble = document.getElementById('ach-hint-bubble');
+  if (bubble) {
+    bubble.title = 'Открыть список достижений';
+    bubble.addEventListener('click', () => openAchievementsModal('all'));
+  }
+  // Закрытие модалки по клику на фон
+  const achModalBg = document.getElementById('achievements-modal');
+  if (achModalBg) {
+    achModalBg.onclick = (e) => { if (e.target === achModalBg) closeAchievementsModal(); };
+  }
 
   // Привязка кнопок бэкапа
   document.getElementById('backup-export-btn')?.addEventListener('click', backupExportWithLevel);
