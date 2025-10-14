@@ -2037,6 +2037,42 @@
           <!-- Сюда отрисовывается контент -->
         </div>
       </div>
+      <!-- ГЛОБАЛЬНАЯ СТАТИСТИКА -->
+      <div id="global-stats-root" class="my-stats-root" style="margin-top:8px;">
+        <button class="my-stats-header" id="global-stats-toggle" type="button" aria-expanded="false">
+          ГЛОБАЛЬНАЯ СТАТИСТИКА
+          <span class="chev" aria-hidden="true">▼</span>
+        </button>
+        <div class="my-stats-body" id="global-stats-body" hidden>
+          <div class="chart-block" style="margin-top:4px;">
+            <div class="ach-group-title" style="margin:4px;">Период</div>
+            <div class="ach-tabs" style="margin-top:2px;">
+              <button class="ach-tab active" data-period="today" id="gs-tab-today">Сегодня</button>
+              <button class="ach-tab" data-period="week" id="gs-tab-week">Неделя</button>
+              <button class="ach-tab" data-period="month" id="gs-tab-month">Месяц</button>
+            </div>
+          </div>
+
+          <div class="stat-card" id="gs-error" style="display:none; border-color: #8a2a2a; color: #ffb3b3;">
+            Глобальная статистика временно недоступна.
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-title">Топ‑5 треков по числу слушателей</div>
+            <ul class="stat-list" id="gs-top-listens"></ul>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-title">Топ‑5 по суммарному времени (мин)</div>
+            <ul class="stat-list" id="gs-top-time"></ul>
+          </div>
+
+          <div class="chart-block">
+            <div class="chart-title">Обновлено</div>
+            <div id="gs-updated" style="color:#9aa8c4; font-size:.9em;">—</div>
+          </div>
+        </div>
+      </div>
 
       <!-- Кнопка ГОРЯЧИЕ КЛАВИШИ - появляется динамически между кнопками -->
       <button class="hotkeys-btn" id="hotkeys-btn" style="display: none;" onclick="showHotkeysModal()">
@@ -2416,6 +2452,10 @@ const BUILD_INFO = {
   author: 'Витрина Разбита',
   repository: 'https://github.com/apel-s-in/vi3na1bita-mezhdu-zlom-i-dobrom'
 };
+// ==== Глобальная статистика (настройка URL вашего Cloudflare Worker) ====
+// Поставьте URL вашего endpoint (пример: 'https://vr-stats.example.workers.dev')
+// Если оставить пустым '', отправка отключится автоматически.
+const GLOBAL_STATS_URL = ''; // TODO: Вставьте ваш URL, например: 'https://vr-stats.yourdomain.workers.dev'
 
 // Логирование версии при загрузке
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`, 'color: #E80100; font-size: 16px; font-weight: bold;');
@@ -2423,9 +2463,11 @@ console.log(`%cBuild: ${BUILD_DATE}`, 'color: #4daaff; font-size: 12px;');
 
 // ==== Feature flags (Этап 1) ====
 const FeatureFlags = {
-  achievementsUI: (localStorage.getItem('ff_achievements_ui') ?? '1') === '1',   // показывать панель
-  statsCollect:   (localStorage.getItem('ff_stats_collect') ?? '1') === '1',     // тихий сбор статы
-  achievementsLogic: (localStorage.getItem('ff_achievements_logic') ?? '0') === '1' // Этап 2+
+  achievementsUI:   (localStorage.getItem('ff_achievements_ui') ?? '1') === '1',
+  statsCollect:     (localStorage.getItem('ff_stats_collect') ?? '1') === '1',
+  achievementsLogic:(localStorage.getItem('ff_achievements_logic') ?? '0') === '1',
+  globalStatsSend:  (localStorage.getItem('ff_global_stats_send') ?? '0') === '1', // по умолчанию выкл, вкл когда поставите URL
+  globalStatsUI:    (localStorage.getItem('ff_global_stats_ui') ?? '1') === '1'
 };
 
 // Кэшированные DOM элементы
@@ -2833,6 +2875,14 @@ const Stats = {
       Ach.evaluateAfterListen({ ts: now });
       // Обновим раздел "Моя статистика", если он открыт
       MyStats.update();
+      // Глобальная статистика: поставить событие в очередь
+      GlobalStats.enqueueEvent({
+        ts: now,
+        trackIndex: idx,
+        listenedMs,
+        ended: !!opts.ended,
+        durationMs
+      });
     }
 
     if (opts.ended) this.lastStart = null;
@@ -3677,7 +3727,153 @@ const MyStats = {
     }
   }
 };
+// ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ====
+const GS_Q_KEY = 'vr_gs_queue_v1';
 
+const GlobalStats = {
+  period: 'today',
+  sending: false,
+  errorOnce: false,
+
+  init() {
+    if (!FeatureFlags.globalStatsUI) return;
+    this.root = document.getElementById('global-stats-root');
+    this.body = document.getElementById('global-stats-body');
+    this.toggleBtn = document.getElementById('global-stats-toggle');
+    if (!this.root || !this.body || !this.toggleBtn) return;
+
+    // Состояние открыт/закрыт
+    const open = localStorage.getItem('globalStatsOpen') === '1';
+    this.toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.body.hidden = !open;
+
+    this.toggleBtn.addEventListener('click', () => {
+      const expanded = this.toggleBtn.getAttribute('aria-expanded') === 'true';
+      const next = !expanded;
+      this.toggleBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
+      this.body.hidden = !next;
+      localStorage.setItem('globalStatsOpen', next ? '1' : '0');
+      if (next) this.fetchAndRender();
+    });
+
+    // Табы периода
+    ['today','week','month'].forEach(p=>{
+      const el = document.getElementById('gs-tab-'+p);
+      if (el) el.onclick = ()=>{
+        this.period = p;
+        ['today','week','month'].forEach(pp=>{
+          const btn = document.getElementById('gs-tab-'+pp);
+          if (btn) btn.classList.toggle('active', pp===p);
+        });
+        this.fetchAndRender(true);
+      };
+    });
+
+    // Если секция открыта — сразу загрузить
+    if (open) this.fetchAndRender();
+
+    // Попробовать отправить накопленную очередь при запуске
+    this.flush();
+  },
+
+  enqueueEvent(ev) {
+    try {
+      if (!FeatureFlags.globalStatsSend) return;
+      if (!GLOBAL_STATS_URL) return; // пока не настроили URL
+      const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
+      q.push(ev);
+      localStorage.setItem(GS_Q_KEY, JSON.stringify(q));
+      // Лёгкий авто‑флаш, чтобы не копилось
+      if (navigator.onLine && q.length >= 5) this.flush();
+    } catch(e) {}
+  },
+
+  async flush() {
+    if (!FeatureFlags.globalStatsSend) return;
+    if (!GLOBAL_STATS_URL) return;
+    if (this.sending) return;
+
+    const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
+    if (!q.length) return;
+
+    this.sending = true;
+    try {
+      const payload = {
+        deviceHash: getDeviceHash(),
+        appVersion: VERSION,
+        platform: navigator.userAgent,
+        events: q
+      };
+      await fetch(`${GLOBAL_STATS_URL}/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        body: JSON.stringify(payload)
+      });
+      localStorage.setItem(GS_Q_KEY, JSON.stringify([]));
+    } catch (e) {
+      // оставим в очереди до следующего раза
+    } finally {
+      this.sending = false;
+    }
+  },
+
+  async fetchAndRender(force=false) {
+    if (!FeatureFlags.globalStatsUI) return;
+    if (!this.root || this.body.hidden) return;
+    const errEl = document.getElementById('gs-error');
+    const topL = document.getElementById('gs-top-listens');
+    const topT = document.getElementById('gs-top-time');
+    const upd  = document.getElementById('gs-updated');
+
+    if (!GLOBAL_STATS_URL) {
+      if (errEl) { errEl.style.display = ''; errEl.textContent = 'Не настроен сервер глобальной статистики.'; }
+      if (topL) topL.innerHTML = '';
+      if (topT) topT.innerHTML = '';
+      if (upd)  upd.textContent = '—';
+      return;
+    }
+
+    try {
+      if (errEl) errEl.style.display = 'none';
+      const res = await fetch(`${GLOBAL_STATS_URL}/top?period=${this.period}`, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      this.renderLists(data);
+    } catch (e) {
+      if (errEl) errEl.style.display = '';
+      if (!this.errorOnce) {
+        this.errorOnce = true;
+        NotificationSystem.warning('Глобальная статистика недоступна');
+      }
+    }
+  },
+
+  renderLists(data) {
+    const topL = document.getElementById('gs-top-listens');
+    const topT = document.getElementById('gs-top-time');
+    const upd  = document.getElementById('gs-updated');
+    if (!config) return;
+
+    // ожидаемый формат:
+    // { top_listens: [{idx: number, count: number}, ...],
+    //   top_time:    [{idx: number, seconds: number}, ...],
+    //   updatedAt:   "2025-02-01T12:00:00Z" }
+    const toTitle = (idx)=> (config?.tracks?.[idx]?.title || `Трек ${(idx+1)}`);
+
+    const list1 = (data.top_listens||[]).slice(0,5).map(x=>(
+      `<li><span>${toTitle(x.idx)}</span><span>${x.count||0}</span></li>`
+    )).join('');
+    const list2 = (data.top_time||[]).slice(0,5).map(x=>{
+      const mins = Math.round((x.seconds||0)/60);
+      return `<li><span>${toTitle(x.idx)}</span><span>${mins}</span></li>`;
+    }).join('');
+
+    if (topL) topL.innerHTML = list1 || '<li><span>—</span><span>0</span></li>';
+    if (topT) topT.innerHTML = list2 || '<li><span>—</span><span>0</span></li>';
+    if (upd)  upd.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—';
+  }
+};
 // ==== Animated Noto Emoji (Lottie + WebP+PNG fallback) ====
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
@@ -4182,6 +4378,8 @@ function initializeMainUi() {
   Integrity.verifyOnBoot();
   // Моя статистика
   MyStats.init();
+  // Глобальная статистика
+  GlobalStats.init();
   // Открытие списка достижений по тапу на bubble
   const bubble = document.getElementById('ach-hint-bubble');
   if (bubble) {
@@ -7578,6 +7776,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ==================== МОНИТОРИНГ СЕТИ ====================
 window.addEventListener('online', () => {
   NotificationSystem.success('Соединение восстановлено');
+  try { GlobalStats.flush(); } catch(e) {}
 });
 
 window.addEventListener('offline', () => {
