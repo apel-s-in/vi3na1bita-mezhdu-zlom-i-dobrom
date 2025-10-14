@@ -255,10 +255,6 @@
       transform: translateZ(0);
       -webkit-transform: translateZ(0);
     }
-
-    .logo-pulsing {
-      animation: none !important;
-    }
     
     .logo-pulsing {
       animation: none !important;
@@ -1831,7 +1827,123 @@
     .ach-modal .sticky-head {
       position: sticky; top: 0; background: var(--modal-bg); padding-top: 10px; z-index: 1;
     }
-    
+
+    /* === МОЯ СТАТИСТИКА === */
+    .my-stats-root {
+      width: 100%;
+      max-width: 395px;
+      margin: 4px auto 0 auto;
+      background: rgba(0,0,0,0.30);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .my-stats-header {
+      width: 100%;
+      background: #1f2533;
+      color: #e9f0ff;
+      border: none;
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-size: .98em;
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .my-stats-header .chev { transition: transform .2s ease; }
+    .my-stats-header[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+    .my-stats-body {
+      padding: 10px 12px 12px 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 380px) { .stats-grid { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat-title {
+      font-size: .86em;
+      color: #9aa8c4;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-weight: 800;
+      color: #fff;
+      font-size: 1.1em;
+    }
+
+    .stat-list {
+      margin: 8px 0 12px 0;
+      padding: 0;
+      list-style: none;
+    }
+    .stat-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(255,255,255,0.08);
+      font-size: .96em;
+    }
+    .stat-list li:last-child { border-bottom: none; }
+
+    .chart-block { margin: 12px 0; }
+    .chart-title {
+      font-weight: 800;
+      font-size: .92em;
+      color: #9fc3ff;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .chart-bars {
+      display: grid;
+      gap: 4px;
+    }
+    .chart-row {
+      display: grid;
+      grid-template-columns: 26px 1fr 40px;
+      align-items: center;
+      gap: 6px;
+    }
+    .chart-row .label {
+      color: #9aa8c4;
+      font-size: .86em;
+      text-align: right;
+    }
+    .chart-row .bar {
+      height: 8px;
+      background: rgba(255,255,255,0.10);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .chart-row .fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+    .chart-row .val {
+      color: rgba(255,255,255,0.8);
+      font-size: .86em;
+      text-align: right;
+    }
+
     /* общий мелкий фикс */
     .track .track-title { text-align: left; }
     .ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
@@ -1921,7 +2033,18 @@
       <!-- ОСТАЛЬНЫЕ КНОПКИ -->
       <button id="install-pwa-btn" style="display: none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button>
       <button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button>
-      
+
+      <!-- МОЯ СТАТИСТИКА -->
+      <div id="my-stats-root" class="my-stats-root">
+        <button class="my-stats-header" id="my-stats-toggle" type="button" aria-expanded="false">
+          МОЯ СТАТИСТИКА
+          <span class="chev" aria-hidden="true">▼</span>
+        </button>
+        <div class="my-stats-body" id="my-stats-body" hidden>
+          <!-- Сюда отрисовывается контент -->
+        </div>
+      </div>
+
       <!-- Кнопка ГОРЯЧИЕ КЛАВИШИ - появляется динамически между кнопками -->
       <button class="hotkeys-btn" id="hotkeys-btn" style="display: none;" onclick="showHotkeysModal()">
         ГОРЯЧИЕ КЛАВИШИ
@@ -2497,6 +2620,15 @@ const StatsStore = {
         if (!this.s.backups) this.s.backups = { dates: [] };
         if (!this.s.socialsVisited) this.s.socialsVisited = {};
         if (typeof this.s.sleepTimerStops !== 'number') this.s.sleepTimerStops = 0;
+        // миграция Этап 5: массивы по часам/дням недели на треках
+        if (Array.isArray(this.s.perTrack)) {
+          for (let i = 0; i < this.s.perTrack.length; i++) {
+            const pt = this.s.perTrack[i] || {};
+            if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
+            if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0); // 0=Пн .. 6=Вс
+            this.s.perTrack[i] = pt;
+          }
+        }
       } else {
         this.s = this._fresh();
       }
@@ -2510,7 +2642,11 @@ const StatsStore = {
       deviceHash: getDeviceHash(),
       createdAt: Date.now(),
       totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 },
-      perTrack: Array.from({length: 16}, ()=>({ validPlays:0, fullPlays:0, totalSeconds:0, lastPlayedAt:0 })),
+      perTrack: Array.from({length: 16}, ()=>({
+        validPlays:0, fullPlays:0, totalSeconds:0, lastPlayedAt:0,
+        byHour: Array(24).fill(0),
+        byWeekday: Array(7).fill(0) // 0=Пн .. 6=Вс
+      })),
       uniqueTracksPlayed: [],
       byDay: {},            // YYYY-MM-DD -> { valid:n, seconds:s }
       streak: { current: 0, max: 0, lastDay: null },
@@ -2630,6 +2766,17 @@ const Stats = {
       pt.totalSeconds += listenedMs/1000;
       pt.lastPlayedAt = now;
 
+      // распределение по часам/дням недели для валидных прослушиваний
+      if (valid) {
+        try {
+          const d = new Date(now);
+          const hour = d.getHours();                      // 0..23
+          const weekday = (d.getDay() + 6) % 7;           // 0=Пн .. 6=Вс
+          if (Array.isArray(pt.byHour)) pt.byHour[hour] = (pt.byHour[hour]||0) + 1;
+          if (Array.isArray(pt.byWeekday)) pt.byWeekday[weekday] = (pt.byWeekday[weekday]||0) + 1;
+        } catch(e) {}
+      }
+
       // byDay + streak
       if (valid) {
         const key = localDayKey(now);
@@ -2653,6 +2800,8 @@ const Stats = {
       StatsStore.save();
       AchProgress.updateFromStats();
       Ach.evaluateAfterListen({ ts: now });
+      // Обновим раздел "Моя статистика", если он открыт
+      MyStats.update();
     }
 
     if (opts.ended) this.lastStart = null;
@@ -3226,6 +3375,197 @@ function buildAchievementsList(activeFilter='all') {
   });
 }
 
+// ==== МОЯ СТАТИСТИКА (раздел под кнопкой скачивания) ====
+const MyStats = {
+  root: null, body: null, toggleBtn: null,
+
+  init() {
+    this.root = document.getElementById('my-stats-root');
+    this.body = document.getElementById('my-stats-body');
+    this.toggleBtn = document.getElementById('my-stats-toggle');
+    if (!this.root || !this.body || !this.toggleBtn) return;
+
+    // состояние открыт/закрыт
+    const open = localStorage.getItem('myStatsOpen') === '1';
+    this.toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.body.hidden = !open;
+
+    this.toggleBtn.addEventListener('click', () => {
+      const expanded = this.toggleBtn.getAttribute('aria-expanded') === 'true';
+      const next = !expanded;
+      this.toggleBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
+      this.body.hidden = !next;
+      localStorage.setItem('myStatsOpen', next ? '1' : '0');
+      if (next) this.render();
+    });
+
+    if (open) this.render();
+  },
+
+  update() {
+    // обновляем только если секция открыта
+    if (this.body && !this.body.hidden) {
+      this.render();
+    }
+  },
+
+  insights() {
+    const S = StatsStore.s;
+    const P = S.perTrack || [];
+    const totals = S.totals || { totalSeconds:0, totalValidPlays:0, totalFullPlays:0 };
+    const unique = (S.uniqueTracksPlayed||[]).length;
+    const liked = S.likedCount || 0;
+    const streakCur = S.streak?.current || 0;
+    const streakMax = S.streak?.max || 0;
+
+    // топы
+    const topValid = P
+      .map((pt, idx)=>({ idx, cnt: pt.validPlays||0 }))
+      .sort((a,b)=> b.cnt - a.cnt).slice(0,5);
+
+    const topTime = P
+      .map((pt, idx)=>({ idx, secs: pt.totalSeconds||0 }))
+      .sort((a,b)=> b.secs - a.secs).slice(0,5);
+
+    // гистограммы
+    const byHour = Array(24).fill(0);
+    const byWeekday = Array(7).fill(0); // 0=Пн .. 6=Вс
+    for (let i=0;i<P.length;i++){
+      const pt = P[i];
+      if (Array.isArray(pt.byHour)) {
+        for (let h=0;h<24;h++) byHour[h] += pt.byHour[h]||0;
+      }
+      if (Array.isArray(pt.byWeekday)) {
+        for (let d=0;d<7;d++) byWeekday[d] += pt.byWeekday[d]||0;
+      }
+    }
+
+    // today / 7 дней
+    const todayKey = localDayKey(Date.now());
+    const today = S.byDay?.[todayKey] || { valid:0, seconds:0 };
+    const cutoff = Date.now() - 7*24*60*60*1000;
+    let weekValid = 0, weekSeconds = 0;
+    Object.keys(S.byDay||{}).forEach(k=>{
+      const d = new Date(k+'T00:00:00').getTime();
+      if (d >= cutoff) {
+        weekValid += S.byDay[k]?.valid||0;
+        weekSeconds += S.byDay[k]?.seconds||0;
+      }
+    });
+
+    return {
+      totals, unique, liked, streakCur, streakMax,
+      topValid, topTime, byHour, byWeekday,
+      today, weekValid, weekSeconds
+    };
+  },
+
+  render() {
+    if (!config) return; // ждём конфиг для названий треков
+    const I = this.insights();
+
+    const fmtTime = (sec)=>{
+      const h = Math.floor(sec/3600);
+      const m = Math.floor((sec%3600)/60);
+      return h>0 ? `${h}ч ${m}м` : `${m}м`;
+    };
+
+    const trackTitle = (idx)=> (config?.tracks?.[idx]?.title || `Трек ${(idx+1)}`);
+
+    const topValidHtml = I.topValid.length
+      ? `<ul class="stat-list">` + I.topValid.map(x=>(
+          `<li><span>${trackTitle(x.idx)}</span><span>${x.cnt}</span></li>`
+        )).join('') + `</ul>`
+      : `<div class="stat-sub">Недостаточно данных</div>`;
+
+    const topTimeHtml = I.topTime.length
+      ? `<ul class="stat-list">` + I.topTime.map(x=>(
+          `<li><span>${trackTitle(x.idx)}</span><span>${fmtTime(x.secs)}</span></li>`
+        )).join('') + `</ul>`
+      : `<div class="stat-sub">Недостаточно данных</div>`;
+
+    const maxHour = Math.max(1, ...I.byHour);
+    const maxW = Math.max(1, ...I.byWeekday);
+    const weekdayLabels = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+    const byHourHtml = `<div class="chart-bars">` + I.byHour.map((v, h)=>(
+      `<div class="chart-row">
+        <div class="label">${String(h).padStart(2,'0')}</div>
+        <div class="bar"><div class="fill" style="width:${Math.round((v/maxHour)*100)}%"></div></div>
+        <div class="val">${v}</div>
+      </div>`
+    )).join('') + `</div>`;
+
+    const byWeekHtml = `<div class="chart-bars">` + I.byWeekday.map((v, d)=>(
+      `<div class="chart-row">
+        <div class="label">${weekdayLabels[d]}</div>
+        <div class="bar"><div class="fill" style="width:${Math.round((v/maxW)*100)}%"></div></div>
+        <div class="val">${v}</div>
+      </div>`
+    )).join('') + `</div>`;
+
+    this.body.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">Всего времени</div>
+          <div class="stat-value">${fmtTime(I.totals.totalSeconds||0)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Уникальные треки</div>
+          <div class="stat-value">${I.unique}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Валидных прослушиваний</div>
+          <div class="stat-value">${I.totals.totalValidPlays||0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Полных прослушиваний</div>
+          <div class="stat-value">${I.totals.totalFullPlays||0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Стрик (текущий/макс.)</div>
+          <div class="stat-value">${I.streakCur} / ${I.streakMax}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">В избранном</div>
+          <div class="stat-value">${I.liked}</div>
+        </div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-title">По часам суток</div>
+        ${byHourHtml}
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-title">По дням недели</div>
+        ${byWeekHtml}
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">Сегодня</div>
+          <div class="stat-value">${I.today.valid||0} просл. · ${fmtTime(I.today.seconds||0)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">7 дней</div>
+          <div class="stat-value">${I.weekValid} просл. · ${fmtTime(I.weekSeconds)}</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Топ‑5 по прослушиваниям</div>
+        ${topValidHtml}
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Топ‑5 по времени</div>
+        ${topTimeHtml}
+      </div>
+    `;
+  }
+};
+
 // ==== Animated Noto Emoji (Lottie + WebP+PNG fallback) ====
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
@@ -3618,6 +3958,8 @@ function initializeMainUi() {
   AchProgress.init();
   // Проверка целостности локальных данных
   Integrity.verifyOnBoot();
+  // Моя статистика
+  MyStats.init();
   // Открытие списка достижений по тапу на bubble
   const bubble = document.getElementById('ach-hint-bubble');
   if (bubble) {
