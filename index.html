@@ -1458,7 +1458,21 @@
       align-items: center;
       gap: 10px;
     }
-    
+    .toast-emoji {
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .toast-emoji img, .toast-emoji svg, .toast-emoji canvas {
+      width: 24px;
+      height: 24px;
+      display: block;
+      object-fit: contain;
+    }
+
     .toast-info { border-left: 4px solid var(--secondary-color); }
     .toast-success { border-left: 4px solid #27b34c; }
     .toast-error { border-left: 4px solid var(--primary-color); }
@@ -2259,13 +2273,18 @@ class NotificationSystem {
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
       <div class="toast-content">
-        ${this.getIcon(type)}
-        <span>${message}</span>
+        <span class="toast-emoji" aria-hidden="true"></span>
+        <span class="toast-text">${message}</span>
       </div>
     `;
-    
+
     document.body.appendChild(toast);
-    
+    // Вставляем анимированный эмодзи (или fallback)
+    try {
+      const emojiEl = toast.querySelector('.toast-emoji');
+      AnimatedEmoji.mount(emojiEl, type, message, 24);
+    } catch(e) {}
+
     await new Promise(r => setTimeout(r, 50));
     toast.classList.add('show');
     await new Promise(r => setTimeout(r, duration));
@@ -2897,6 +2916,78 @@ const AchProgress = {
     return `✨ До «${best.title}»: ${units(best.unit, best.left)}`;
   }
 };
+// ==== Animated Noto Emoji (Lottie + WebP+PNG fallback) ====
+const AnimatedEmoji = {
+  base: 'assets/emoji/noto',
+  disable: (localStorage.getItem('emoji_anim_disable') === '1')
+           || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+
+  map: {
+    info:        { id: 'loudspeaker',       txt: '📢' },
+    success:     { id: 'white_check_mark',  txt: '✅' },
+    error:       { id: 'cross_mark',        txt: '❌' },
+    warning:     { id: 'warning',           txt: '⚠️' },
+    offline:     { id: 'satellite_antenna', txt: '📡' },
+    achievement: { id: 'trophy',            txt: '🏆' },
+  },
+
+  async ensureLottie() {
+    if (this._lottie) return this._lottie;
+    await new Promise((res, rej)=>{
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+    this._lottie = window.lottie;
+    return this._lottie;
+  },
+
+  chooseKey(type, message) {
+    if (type === 'success' && message && /^🏆/.test(message)) return 'achievement';
+    return (type in this.map) ? type : 'info';
+  },
+
+  async mount(container, type, message, size=24) {
+    if (!container) return;
+    const key = this.chooseKey(type, message);
+    const meta = this.map[key] || this.map.info;
+    const id = meta.id;
+    container.textContent = '';
+    container.style.width = container.style.height = size + 'px';
+
+    if (this.disable) {
+      const img = document.createElement('img');
+      img.alt = ''; img.width = img.height = size;
+      img.src = `${this.base}/static/${id}.png`;
+      img.onerror = () => { container.textContent = meta.txt; };
+      container.appendChild(img);
+      return;
+    }
+
+    try {
+      await this.ensureLottie();
+      const anim = window.lottie.loadAnimation({
+        container,
+        renderer: 'svg',
+        loop: false,
+        autoplay: true,
+        path: `${this.base}/animated/${id}.json`
+      });
+      setTimeout(()=>{ try { anim.stop(); } catch(e){} }, 1200);
+      return;
+    } catch (e) {}
+
+    // fallback
+    const img = document.createElement('img');
+    img.alt = ''; img.width = img.height = size;
+    img.src = `${this.base}/fallback/${id}.webp`;
+    img.onerror = () => {
+      img.src = `${this.base}/fallback/${id}.png`;
+      img.onerror = () => { container.textContent = meta.txt; };
+    };
+    container.appendChild(img);
+  }
+
 // ==== Бэкап: экспорт/импорт ====
 async function backupExport() {
   try {
