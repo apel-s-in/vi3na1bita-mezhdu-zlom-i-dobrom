@@ -1717,6 +1717,15 @@
     }
     .backup-btn:hover{ opacity:.9; }
 
+    /* Компактный вид прогресса после успешного автосейва в облако */
+    .ach-progress-root.cloud-saved { 
+      padding-bottom: 8px; 
+      margin-bottom: 8px;
+    }
+    .ach-progress-root.cloud-saved .ach-backup-controls {
+      display: none !important;
+    }
+
     /* Anti‑tamper баннер под прогрессом */
     .tamper-banner{
       margin-top:10px;
@@ -3461,8 +3470,12 @@ const Ach = {
       }
     } catch(e){}
 
+    // Невидимый автосейв в облако (перезапись)
+    backupAutoSaveIfNeeded();
+
     return true;
   },
+  
   // Быстрая выдача “событийных”
   event(id){ this.unlock(id); },
 
@@ -4493,6 +4506,78 @@ async function backupImportFromCloud() {
     NotificationSystem.error('Не удалось восстановить из облака');
   }
 }
+async function backupImportFromCloud() {
+  // ...
+    NotificationSystem.success('Восстановление из облака выполнено');
+  } catch (e) {
+    console.error(e);
+    NotificationSystem.error('Не удалось восстановить из облака');
+  }
+}
+
+/**
+ * Невидимый автосейв с перезаписью (overwrite) в облаке.
+ * Троттлинг: не чаще 60 сек; дубли по одному и тому же checksum не отправляются.
+ * Успех => скрываем кнопки, ужимаем блок, ставим CLOUD_SAVED_OK=1.
+ */
+const CLOUD_SAVED_OK_KEY  = 'CLOUD_SAVED_OK';
+const CLOUD_SAVED_CRC_KEY = 'CLOUD_SAVED_CRC';
+const CLOUD_SAVED_AT_KEY  = 'CLOUD_SAVED_AT';
+
+async function backupSaveToCloudOverwriteSilent() {
+  try {
+    if (!GLOBAL_STATS_URL) return;              // сервер не настроен
+    if (localStorage.getItem('tamper_detected') === '1') return; // не сохраняем при tamper
+    // троттлинг по времени
+    const lastAt = parseInt(localStorage.getItem(CLOUD_SAVED_AT_KEY)||'0',10) || 0;
+    if (Date.now() - lastAt < 60_000) return;
+
+    const file = await buildBackupFile();
+    const lastCrc = localStorage.getItem(CLOUD_SAVED_CRC_KEY);
+    if (lastCrc && lastCrc === file.checksum) {
+      // состояние не менялось — только отметим UI, если ранее было ок
+      if (localStorage.getItem(CLOUD_SAVED_OK_KEY) === '1') {
+        setCloudSavedUI(true);
+      }
+      return;
+    }
+
+    const res = await fetch(`${GLOBAL_STATS_URL}/backup?overwrite=1`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Device-Hash': getDeviceHash(),
+        'X-Backup-Mode': 'overwrite'  // для совместимости
+      },
+      mode: 'cors',
+      body: JSON.stringify(file)
+    });
+
+    const data = await res.json().catch(()=> ({}));
+    if (res.ok && data?.ok) {
+      localStorage.setItem(CLOUD_SAVED_OK_KEY, '1');
+      localStorage.setItem(CLOUD_SAVED_CRC_KEY, file.checksum);
+      localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now()));
+      // Компактный UI
+      setCloudSavedUI(true);
+    } else {
+      // не сбиваем UI, просто попробуем позже
+      localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now())); // чтобы не спамить
+    }
+  } catch (e) {
+    // молча игнорируем; повторим позже
+    localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now()));
+  }
+}
+
+/**
+ * Вызывается после каждого открытия достижения.
+ * Можно расширить условия (например, автосейв только после Tier>=3).
+ */
+function backupAutoSaveIfNeeded() {
+  // Пример условия: любые достижения
+  backupSaveToCloudOverwriteSilent();
+}
 
 async function backupImportFromFile(file) {
   if (!file) return;
@@ -4650,6 +4735,17 @@ function showTamperBanner() {
 function hideTamperBanner() {
   const el = document.getElementById('tamper-banner');
   if (el) el.classList.add('hidden');
+}
+
+// === Cloud autosave UI helpers ===
+function setCloudSavedUI(saved) {
+  const root = document.getElementById('ach-progress-root');
+  if (!root) return;
+  if (saved) {
+    root.classList.add('cloud-saved');
+  } else {
+    root.classList.remove('cloud-saved');
+  }
 }
   
 // Сколько видимых ачивок выполнено (без скрытых)
@@ -4850,6 +4946,9 @@ function initializeMainUi() {
       hideTamperBanner();
     }
   });
+  // Восстановим компактный вид, если автосейв уже был подтверждён
+  setCloudSavedUI(localStorage.getItem('CLOUD_SAVED_OK') === '1');
+
   // Моя статистика
   MyStats.init();
   // Глобальная статистика
