@@ -2455,7 +2455,7 @@ const BUILD_INFO = {
 // ==== Глобальная статистика (настройка URL вашего Cloudflare Worker) ====
 // Поставьте URL вашего endpoint (пример: 'https://vr-stats.example.workers.dev')
 // Если оставить пустым '', отправка отключится автоматически.
-const GLOBAL_STATS_URL = ''; // TODO: Вставьте ваш URL, например: 'https://vr-stats.yourdomain.workers.dev'
+const GLOBAL_STATS_URL = 'https://vr-backend.apel-s-in.workers.dev'; // TODO: Вставьте ваш URL
 
 // Логирование версии при загрузке
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`, 'color: #E80100; font-size: 16px; font-weight: bold;');
@@ -2469,6 +2469,12 @@ const FeatureFlags = {
   globalStatsSend:  (localStorage.getItem('ff_global_stats_send') ?? '0') === '1', // по умолчанию выкл, вкл когда поставите URL
   globalStatsUI:    (localStorage.getItem('ff_global_stats_ui') ?? '1') === '1'
 };
+<script>
+// ... после блока FeatureFlags
+if (GLOBAL_STATS_URL && localStorage.getItem('ff_global_stats_send') === null) {
+  localStorage.setItem('ff_global_stats_send', '1'); // включаем один раз
+}
+</script>
 
 // Кэшированные DOM элементы
 const DOM = {};
