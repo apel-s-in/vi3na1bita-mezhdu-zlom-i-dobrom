@@ -58,13 +58,11 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      // Очищаем все сохраненные позиции при активации новой версии
+      // Очищаем все сохраненные позиции и сообщаем об обновлении кэша
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
-          client.postMessage({
-            type: 'CLEAR_ALL_POSITIONS',
-            version: VERSION
-          });
+          client.postMessage({ type: 'CLEAR_ALL_POSITIONS', version: VERSION });
+          client.postMessage({ type: 'CACHE_UPDATED', version: VERSION }); // добавлено
         });
       });
       self.clients.claim();
