@@ -2523,21 +2523,38 @@ let filesToDownload = [];
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js').then(async reg => {
     console.log('Service Worker registered', reg);
-    
+
     await navigator.serviceWorker.ready;
     syncOfflineState();
-    
+
+    // Проверяем обновления сразу и затем раз в час
+    try { reg.update(); } catch(e) {}
+    setInterval(async () => {
+      try {
+        const r = await navigator.serviceWorker.getRegistration();
+        if (r) r.update();
+      } catch(e) {}
+    }, 60 * 60 * 1000);
+
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'activated') {
-          syncOfflineState();
           NotificationSystem.info('Приложение обновлено');
         }
       });
     });
   });
-  
+
+  // Одноразовая перезагрузка, когда новый SW берёт управление
+  let __swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (__swReloaded) return;
+    __swReloaded = true;
+    try { NotificationSystem.info('Обновление применено, перезагрузка...'); } catch(e){}
+    setTimeout(() => location.reload(), 300);
+  });
+
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data.type === 'CACHE_UPDATED') {
       console.log('Cache updated to version:', event.data.version);
@@ -2546,7 +2563,6 @@ if ('serviceWorker' in navigator) {
       syncOfflineState();
     }
     if (event.data.type === 'CLEAR_ALL_POSITIONS') {
-      // НОВОЕ: Очищаем все позиции при обновлении
       PositionManager.clearAll();
     }
   });
@@ -5449,7 +5465,7 @@ function renderLyricsBlock() {
   audioEl.addEventListener('seeked', onAudioSeeked);
   audioEl.addEventListener('ended', onAudioEnded);
   audioEl.addEventListener('volumechange', onVolumeChange);
-  audioEl.('play', () => {
+  audioEl.addEventListener('play', () => {
     if (bitEnabled && audioContext && audioContext.state === 'suspended') {
       audioContext.resume();
     }
@@ -5457,7 +5473,7 @@ function renderLyricsBlock() {
     Session.onStart({ trackIndex: currentTrack, ts: Date.now() });
     updatePlayPauseIcon();
   });
-  audioEl.('pause', () => {
+  audioEl.addEventListener('pause', () => {
     Stats.onPauseOrStop({ ended: false });
     updatePlayPauseIcon();
   });
