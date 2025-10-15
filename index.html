@@ -4454,8 +4454,7 @@ async function backupImportFromCloud() {
       }
       return;
     }
-    // Проверим checksum и deviceHash локально ещё раз (доп. страховка)
-    const serverFile = data.backup; // { kind, checksum, payload }
+    const serverFile = data.backup;
     if (serverFile?.kind !== 'vr_backup_v1' || !serverFile?.payload) {
       NotificationSystem.error('Формат облачного бэкапа некорректен');
       return;
@@ -4470,7 +4469,6 @@ async function backupImportFromCloud() {
       return;
     }
 
-    // Применяем (как в backupImportFromFile)
     const incoming = serverFile.payload;
     const currentDone = Object.keys(StatsStore.s.achievements||{}).length;
     const incomingDone = Object.keys(incoming.stats?.achievements||{}).length;
@@ -4481,7 +4479,6 @@ async function backupImportFromCloud() {
     }
 
     StatsStore.s = incoming.stats;
-    // миграции
     if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
     if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
     if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
@@ -4496,18 +4493,9 @@ async function backupImportFromCloud() {
 
     StatsStore.save();
     AchProgress.updateFromStats();
-    // Снимаем tamper и скрываем баннер
     localStorage.removeItem('tamper_detected');
     hideTamperBanner();
 
-    NotificationSystem.success('Восстановление из облака выполнено');
-  } catch (e) {
-    console.error(e);
-    NotificationSystem.error('Не удалось восстановить из облака');
-  }
-}
-async function backupImportFromCloud() {
-  // ...
     NotificationSystem.success('Восстановление из облака выполнено');
   } catch (e) {
     console.error(e);
