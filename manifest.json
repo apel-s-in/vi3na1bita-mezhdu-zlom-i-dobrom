@@ -2,7 +2,7 @@
   "name": "Витрина Разбита - Между Злом и Добром",
   "short_name": "Витрина",
   "description": "Официальный альбом 2025. Работает офлайн как приложение.",
-  "version": "6.3.1",
+  "version": "6.6",
   "start_url": "./index.html?utm_source=pwa",
   "id": "/?homescreen=1",
   "display": "standalone",
