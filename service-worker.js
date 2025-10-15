@@ -74,47 +74,57 @@ self.addEventListener('activate', event => {
 
 // Обработка fetch запросов
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  
-  // Не кэшируем локальные данные
+  const req = event.request;
+  const url = new URL(req.url);
+  const accept = req.headers.get('accept') || '';
+
+  // Не кэшируем локальные данные (как раньше)
   if (SKIP_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
-    return event.respondWith(fetch(event.request));
+    event.respondWith(fetch(req));
+    return;
   }
-  
-  // Обработка Range запросов для аудио
-  if (event.request.headers.get('range')) {
-    return event.respondWith(handleRangeRequest(event.request));
+
+  // Обработка Range-запросов для аудио (как раньше)
+  if (req.headers.get('range')) {
+    event.respondWith(handleRangeRequest(req));
+    return;
   }
-  
-  // Основная стратегия кэширования
+
+  // 1) HTML навигации и страницы — network-first
+  if (req.mode === 'navigate' || accept.includes('text/html')) {
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
+  // 2) Конфиг приложения — network-first
+  if (url.pathname.endsWith('/config.json') || url.pathname === '/config.json') {
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
+  // 3) Остальное — cache-first + докэширование (как и раньше)
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
-      if (offlineMode && !navigator.onLine) {
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+
+      // В offline-режиме без кэша — отдаём 503
+      if (offlineMode) {
         return new Response('Offline - resource not cached', {
-          status: 503,
-          statusText: 'Service Unavailable'
+          status: 503, statusText: 'Service Unavailable'
         });
       }
-      
-      return fetch(event.request).then(response => {
-        if (!response || response.status !== 200 || response.type === 'error') {
-          return response;
-        }
-        
-        const shouldCache = shouldCacheRequest(event.request);
-        
+
+      return fetch(req).then(resp => {
+        if (!resp || resp.status !== 200 || resp.type === 'error') return resp;
+
+        const shouldCache = shouldCacheRequest(req);
         if (shouldCache) {
-          const responseToCache = response.clone();
-          caches.open(offlineMode ? OFFLINE_CACHE : CACHE_NAME).then(cache => {
-            cache.put(event.request, responseToCache);
-          });
+          const copy = resp.clone();
+          caches.open(offlineMode ? OFFLINE_CACHE : CACHE_NAME)
+                .then(cache => cache.put(req, copy));
         }
-        
-        return response;
+
+        return resp;
       }).catch(error => {
         console.error('[SW] Fetch failed:', error);
         return new Response('Network error', {
@@ -125,6 +135,22 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+// Универсальная стратегия: сначала сеть, при ошибке — кэш
+async function networkFirst(req) {
+  try {
+    const net = await fetch(req);
+    if (net && net.ok) {
+      const copy = net.clone();
+      caches.open(CACHE_NAME).then(c => c.put(req, copy));
+    }
+    return net;
+  } catch (e) {
+    const cached = await caches.match(req);
+    if (cached) return cached;
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
 
 // Обработка Range запросов для аудио
 async function handleRangeRequest(request) {
