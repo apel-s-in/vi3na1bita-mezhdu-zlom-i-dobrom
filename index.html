@@ -1717,6 +1717,33 @@
     }
     .backup-btn:hover{ opacity:.9; }
 
+    /* Anti‑tamper баннер под прогрессом */
+    .tamper-banner{
+      margin-top:10px;
+      padding:10px 12px;
+      background:#3a2424;
+      border:1px solid #8a2a2a;
+      border-radius:10px;
+      color:#ffb3b3;
+    }
+    .tamper-banner .actions{
+      display:flex;
+      gap:8px;
+      margin-top:8px;
+      flex-wrap:wrap;
+    }
+    .tamper-banner button{
+      border:none;
+      border-radius:8px;
+      padding:8px 10px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    .tamper-banner .primary{ background:#E80100; color:#fff; }
+    .tamper-banner .secondary{
+      background:#2a2a2a; color:#fff; border:1px solid #555;
+    }
+
     /* bubble-подсказка — остаётся как было */
     .socials-under-cover{ margin: 14px auto 8px auto; }
     .ach-hint-bubble{
@@ -2006,6 +2033,18 @@
         <div class="ach-backup-controls" id="ach-backup-controls">
           <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
           <input type="file" id="backup-file-input" accept="application/json" hidden />
+        </div>
+
+        <!-- Anti‑tamper баннер (скрыт по умолчанию) -->
+        <div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive">
+          <div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div>
+          <div style="margin-top:6px; color:#ffd1d1;">
+            Для участия в призах импортируйте валидный бэкап, иначе прогресс может не подтверждаться.
+          </div>
+          <div class="actions">
+            <button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button>
+            <button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button>
+          </div>
         </div>
 
         <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
@@ -2707,10 +2746,13 @@ const Integrity = {
       const saved = localStorage.getItem(CRC_LS_KEY);
       const crc = await this.compute();
       if (saved && saved !== crc) {
+        localStorage.setItem('tamper_detected', '1');
         NotificationSystem.error('Обнаружены изменения данных. Для призов восстановите из бэкапа.');
         console.warn('Anti‑tamper: mismatch', { saved, crc });
         return false;
       }
+      // всё ок — снимаем флаг, если вдруг оставался ранее
+      localStorage.removeItem('tamper_detected');
       return true;
     } catch(e){ return true; }
   }
@@ -4154,6 +4196,10 @@ async function backupImportFromFile(file) {
 
     StatsStore.save();
     AchProgress.updateFromStats();
+    // Снятие флага tamper и скрытие баннера после валидного импорта
+    localStorage.removeItem('tamper_detected');
+    hideTamperBanner();
+
     NotificationSystem.success('Бэкап импортирован');
   } catch (e) {
     console.error(e);
@@ -4247,24 +4293,19 @@ function closeBackupPromptWithChoice() {
   try {
     const never = document.getElementById('backup-opt-never')?.checked;
     const plus5 = document.getElementById('backup-opt-5')?.checked;
-
-    // Если выбрано "не напоминать" — оно имеет приоритет
-    if (never) {
-      localStorage.setItem('backup_prompt_mode', 'never');
-      localStorage.removeItem('backup_prompt_next');
-    } else if (plus5) {
-      // напоминать через 5 достижений от текущего уровня
-      const cur = getVisibleAchievementsCount();
-      const next = cur + 5;
-      localStorage.removeItem('backup_prompt_mode');
-      localStorage.setItem('backup_prompt_next', String(next));
-    } else {
-      // Сброс явных настроек — будет работать дефолтная логика
-      localStorage.removeItem('backup_prompt_mode');
-      localStorage.removeItem('backup_prompt_next');
-    }
+    // ...
   } catch {}
   closeBackupPrompt();
+}
+
+// === Anti‑tamper banner helpers ===
+function showTamperBanner() {
+  const el = document.getElementById('tamper-banner');
+  if (el) el.classList.remove('hidden');
+}
+function hideTamperBanner() {
+  const el = document.getElementById('tamper-banner');
+  if (el) el.classList.add('hidden');
 }
   
 // Сколько видимых ачивок выполнено (без скрытых)
@@ -4457,8 +4498,14 @@ function initializeMainUi() {
   // ==== Этап 1: старт статы и прогресс‑панели ====
   StatsStore.init();
   AchProgress.init();
-  // Проверка целостности локальных данных
-  Integrity.verifyOnBoot();
+  // Проверка целостности локальных данных + отображение баннера
+  Integrity.verifyOnBoot().then(ok => {
+    if (!ok || localStorage.getItem('tamper_detected') === '1') {
+      showTamperBanner();
+    } else {
+      hideTamperBanner();
+    }
+  });
   // Моя статистика
   MyStats.init();
   // Глобальная статистика
