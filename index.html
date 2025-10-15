@@ -3176,55 +3176,240 @@ const Session = {
 // ==== Реестр ачивок (Этап 2) ====
 const ACH_META = {
   // Tier 1
-  play_first:{tier:1, core:true,  title:'Первое знакомство'},
-  unique_5_tracks:{tier:1, core:true, title:'Разный вкус'},
-  fav_3:{tier:1, core:false, title:'Первые любимчики'},
-  early_bird:{tier:1, core:false, title:'Ранняя пташка'},
-  night_listener:{tier:1, core:false, title:'Ночной слушатель'},
-  backup_first:{tier:1, core:true, title:'Бережёного бережёт'},
+  play_first:{
+    tier:1, core:true,  title:'Первое знакомство',
+    short:'Запустите любой трек.',
+    desc:'Первый валидный запуск любого трека в приложении.',
+    howTo:'Нажмите Play и дослушайте хотя бы 13 секунд (или до конца).'
+  },
+  unique_5_tracks:{
+    tier:1, core:true, title:'Разный вкус',
+    short:'Послушайте 5 разных треков.',
+    desc:'Засчитывается валидное прослушивание 5 уникальных треков.',
+    howTo:'Включайте разные треки и слушайте ≥13 сек каждый (или до конца).'
+  },
+  fav_3:{
+    tier:1, core:false, title:'Первые любимчики',
+    short:'Добавьте 3 трека в избранные.',
+    desc:'Чем больше избранных — тем богаче персональная статистика.',
+    howTo:'Нажимайте на звёздочку справа от трека, пока их не станет 3.'
+  },
+  early_bird:{
+    tier:1, core:false, title:'Ранняя пташка',
+    short:'Слушайте утром.',
+    desc:'Валидное прослушивание в окне 05:00–07:00 (по вашему времени).',
+    howTo:'Запланируйте утреннее прослушивание и включите любой трек.'
+  },
+  night_listener:{
+    tier:1, core:false, title:'Ночной слушатель',
+    short:'Слушайте ночью.',
+    desc:'Валидное прослушивание в окне 02:00–04:30.',
+    howTo:'Включите трек поздно ночью и слушайте ≥13 сек.'
+  },
+  backup_first:{
+    tier:1, core:true, title:'Бережёного бережёт',
+    short:'Сохраните бэкап достижений.',
+    desc:'Первое сохранение файла резервной копии.',
+    howTo:'Нажмите «Сохранение достижений» и сохраните JSON на устройство.'
+  },
 
   // Tier 2
-  time_listened_1h:{tier:2, core:true, title:'Час в наушниках'},
-  play_25_total:{tier:2, core:true, title:'На повторе'},
-  full_play_first:{tier:2, core:true, title:'До последней ноты'},
-  streak_3:{tier:2, core:true, title:'3 дня подряд'},
-  fav_5:{tier:2, core:true, title:'Мой плейлист'},
-  use_shuffle_5:{tier:2, core:false, title:'В случайном порядке'},
+  time_listened_1h:{
+    tier:2, core:true, title:'Час в наушниках',
+    short:'Накопите 60 минут прослушивания.',
+    desc:'Суммарное валидное время прослушивания — 3600 секунд.',
+    howTo:'Слушайте альбом, время учитывается при валидных остановках.'
+  },
+  play_25_total:{
+    tier:2, core:true, title:'На повторе',
+    short:'Соберите 25 валидных прослушиваний.',
+    desc:'Любые треки, главное — валидные прослушивания.',
+    howTo:'Не прокликивайте быстро. Засчитывается ≥13 сек или конец трека.'
+  },
+  full_play_first:{
+    tier:2, core:true, title:'До последней ноты',
+    short:'Дослушайте трек до конца.',
+    desc:'Первое полное прослушивание (или ≥90% длительности).',
+    howTo:'Включите трек и дослушайте до конца — будет засчитано.'
+  },
+  streak_3:{
+    tier:2, core:true, title:'3 дня подряд',
+    short:'Слушайте каждый день 3 дня подряд.',
+    desc:'Хотя бы одно валидное прослушивание в сутки, 3 дня подряд.',
+    howTo:'Открывайте приложение и слушайте по одному треку в день.'
+  },
+  fav_5:{
+    tier:2, core:true, title:'Мой плейлист',
+    short:'Добавьте 5 треков в избранные.',
+    desc:'Избранные помогают открывать «только избранное» челленджи.',
+    howTo:'Отметьте звёздочкой ещё треки до 5 штук минимум.'
+  },
+  use_shuffle_5:{
+    tier:2, core:false, title:'В случайном порядке',
+    short:'5 валидных прослушиваний в режиме Shuffle.',
+    desc:'Слушайте с включённым случайным порядком.',
+    howTo:'Нажмите «U» или кнопку Shuffle и слушайте треки.'
+  },
 
   // Tier 3
-  unique_10_tracks:{tier:3, core:true, title:'Половина альбома'},
-  full_10_total:{tier:3, core:true, title:'Верное ухо'},
-  streak_7:{tier:3, core:true, title:'Недельный стрик'},
-  favorites_order_5_full:{tier:3, core:true, title:'Только избранное — по порядку'},
-  favorites_shuffle_5_full:{tier:3, core:true, title:'Только избранное — вперемешку'},
-  weekend_warrior:{tier:3, core:false, title:'Выходные с музыкой'},
+  unique_10_tracks:{
+    tier:3, core:true, title:'Половина альбома',
+    short:'Послушайте 10 разных треков.',
+    desc:'10 уникальных треков с валидным прослушиванием.',
+    howTo:'Откройте и слушайте разные треки, не повторяясь.'
+  },
+  full_10_total:{
+    tier:3, core:true, title:'Верное ухо',
+    short:'10 полных прослушиваний любых треков.',
+    desc:'Полное прослушивание — до конца или ≥90% длительности.',
+    howTo:'Сохраняйте концентрацию и дослушивайте треки.'
+  },
+  streak_7:{
+    tier:3, core:true, title:'Недельный стрик',
+    short:'Слушайте 7 дней подряд.',
+    desc:'Каждый день — хотя бы одно валидное прослушивание.',
+    howTo:'Ежедневно включайте хотя бы один трек.'
+  },
+  favorites_order_5_full:{
+    tier:3, core:true, title:'Только избранное — по порядку',
+    short:'5 избранных подряд, каждый полностью, без пропусков.',
+    desc:'Включен режим «только избранные», без Shuffle.',
+    howTo:'Отметьте ≥5 треков звёздочкой, включите «только избранные» и слушайте 5 подряд в альбомном порядке.'
+  },
+  favorites_shuffle_5_full:{
+    tier:3, core:true, title:'Только избранное — вперемешку',
+    short:'5 уникальных избранных полностью за 2 часа.',
+    desc:'Режим «только избранные» + Shuffle. Без обычных треков в окне.',
+    howTo:'Включите «только избранные» и Shuffle. Слушайте 5 разных избранных полностью в течение 2 часов.'
+  },
+  weekend_warrior:{
+    tier:3, core:false, title:'Выходные с музыкой',
+    short:'Валидно послушайте в субботу и воскресенье одной недели.',
+    desc:'В окне одной ISO‑недели добиться activity в оба выходных.',
+    howTo:'Слушайте в субботу и в воскресенье. Любые треки.'
+  },
 
   // Tier 4
-  album_any_order_7d:{tier:4, core:true, title:'Весь альбом'},
-  album_in_order_session:{tier:4, core:true, title:'От первой до последней'},
-  time_listened_5h:{tier:4, core:false, title:'5 часов музыки'},
-  play_100_total:{tier:4, core:false, title:'В потоке'},
-  fav_8:{tier:4, core:false, title:'Коллекционер'},
-  socials_all_visited:{tier:4, core:false, title:'Подписчик всего'},
-  sleep_timer_5:{tier:4, core:false, title:'Бережный сон'},
-  pwa_installed:{tier:4, core:false, title:'На моём устройстве'},
+  album_any_order_7d:{
+    tier:4, core:true, title:'Весь альбом',
+    short:'Все 16 треков за 7 дней (любой порядок).',
+    desc:'Активность копится в скользящем окне 7×24ч.',
+    howTo:'За неделю послушайте валидно каждый трек хотя бы раз.'
+  },
+  album_in_order_session:{
+    tier:4, core:true, title:'От первой до последней',
+    short:'Все 16 по порядку, в одной сессии, каждый ≥60%.',
+    desc:'Общая длительность последовательности ≤4 часа.',
+    howTo:'Начните с 1 трека и двигайтесь по порядку. Не делайте большие паузы.'
+  },
+  time_listened_5h:{
+    tier:4, core:false, title:'5 часов музыки',
+    short:'Накопите 5 часов валидного прослушивания.',
+    desc:'Сумма секунд по всем трекам.',
+    howTo:'Слушайте регулярно, не переключая слишком быстро.'
+  },
+  play_100_total:{
+    tier:4, core:false, title:'В потоке',
+    short:'100 валидных прослушиваний.',
+    desc:'Любые треки — главное валидное время.',
+    howTo:'Играйте плейлист, можно с Shuffle.'
+  },
+  fav_8:{
+    tier:4, core:false, title:'Коллекционер',
+    short:'Отметьте 8 избранных.',
+    desc:'Широкий пул избранных открывает больше челленджей.',
+    howTo:'Поставьте звёздочку на 8 треках.'
+  },
+  socials_all_visited:{
+    tier:4, core:false, title:'Подписчик всего',
+    short:'Откройте все соцсети из шапки.',
+    desc:'Однажды кликните по каждому из ссылок социальных сетей.',
+    howTo:'Перейдите по всем ссылкам в блоке под обложкой.'
+  },
+  sleep_timer_5:{
+    tier:4, core:false, title:'Бережный сон',
+    short:'Таймер сна сработал 5 раз.',
+    desc:'Учитываются успешные срабатывания sleep‑таймера.',
+    howTo:'Задайте таймер в контролах плеера и дождитесь остановки.'
+  },
+  pwa_installed:{
+    tier:4, core:false, title:'На моём устройстве',
+    short:'Установите приложение как PWA.',
+    desc:'Срабатывает при событии appinstalled.',
+    howTo:'Нажмите “Установить как приложение” и подтвердите установку.'
+  },
 
   // Tier 5
-  full_50_total:{tier:5, core:false, title:'Уважение к деталям'},
-  play_500_total:{tier:5, core:false, title:'Полтысячи'},
-  one_track_full_25:{tier:5, core:false, title:'Любимейший'},
-  one_track_full_100:{tier:5, core:false, title:'Абсолютный фаворит'},
-  streak_14:{tier:5, core:false, title:'Две недели подряд'},
-  streak_30:{tier:5, core:false, title:'Месяц без пропусков'},
+  full_50_total:{
+    tier:5, core:false, title:'Уважение к деталям',
+    short:'50 полных прослушиваний.',
+    desc:'Любые треки, дослушанные до конца.',
+    howTo:'Дослушивайте треки полностью — это зачтётся.'
+  },
+  play_500_total:{
+    tier:5, core:false, title:'Полтысячи',
+    short:'500 валидных прослушиваний.',
+    desc:'Долгий путь — но выполнимый!',
+    howTo:'Слушайте регулярно, используйте Shuffle.'
+  },
+  one_track_full_25:{
+    tier:5, core:false, title:'Любимейший',
+    short:'Один трек 25 раз полностью.',
+    desc:'Подчёркивает «супер‑любимого».',
+    howTo:'Выберите любимый трек и включайте его до конца 25 раз.'
+  },
+  one_track_full_100:{
+    tier:5, core:false, title:'Абсолютный фаворит',
+    short:'Один трек 100 раз полностью.',
+    desc:'Высшая преданность одному треку.',
+    howTo:'То же, что выше, но до 100.'
+  },
+  streak_14:{
+    tier:5, core:false, title:'Две недели подряд',
+    short:'14 подряд дней с активностью.',
+    desc:'Каждый день — слушайте хотя бы по одному треку.',
+    howTo:'Не прерывайте ежедневный ритм.'
+  },
+  streak_30:{
+    tier:5, core:false, title:'Месяц без пропусков',
+    short:'30 подряд дней.',
+    desc:'Максимальный «стрик» из типовых.',
+    howTo:'Ежедневно включайте хотя бы один трек.'
+  },
 
   // Tier 6 (секретные)
-  exact_time_11_11:{tier:6, core:false, hidden:true, title:'11:11'},
-  midnight_triple:{tier:6, core:false, hidden:true, title:'Полночный цикл'},
-  weekend_album:{tier:6, core:false, hidden:true, title:'Выходной марафон'},
+  exact_time_11_11:{
+    tier:6, core:false, hidden:true, title:'11:11',
+    short:'Запустите в 11:11.',
+    desc:'Секретная отсылка.',
+    howTo:'Включите трек в промежутке 11:11:00–11:11:30.'
+  },
+  midnight_triple:{
+    tier:6, core:false, hidden:true, title:'Полночный цикл',
+    short:'Один и тот же трек три раза подряд в 00:00–00:30.',
+    desc:'Сложный ночной челлендж.',
+    howTo:'Запускайте один трек три раза до конца в указанный промежуток.'
+  },
+  weekend_album:{
+    tier:6, core:false, hidden:true, title:'Выходной марафон',
+    short:'Все 16 за один выходной.',
+    desc:'Любой порядок, но один день: Сб или Вс.',
+    howTo:'В течение одного выходного дня валидно послушайте все треки.'
+  },
 
   // Backup
-  backup_3_days:{tier:4, core:false, title:'Запасливый'},
-  backup_after_major:{tier:4, core:false, title:'Сохранил после прогресса'}
+  backup_3_days:{
+    tier:4, core:false, title:'Запасливый',
+    short:'Сохраните бэкап в 3 разные даты.',
+    desc:'Даты хранятся локально, учитывается уникальность дня.',
+    howTo:'Периодически создавайте файл бэкапа.'
+  },
+  backup_after_major:{
+    tier:4, core:false, title:'Сохранил после прогресса',
+    short:'Создайте бэкап в течение суток после «большой» ачивки (Tier≥3).',
+    desc:'Фиксируется автоматически.',
+    howTo:'Откройте крупную ачивку и сохраните бэкап в этот же день.'
+  }
 };
 
 // ==== Движок ачивок (Этап 2) ====
@@ -3529,10 +3714,10 @@ function buildAchievementsList(activeFilter='all') {
     const done = doneSet.has(id);
     const unlockedAt = done ? (s.achievements[id]?.unlockedAt || 0) : 0;
     const core = !!meta.core;
-    return { id, title: meta.title || id, hidden, done, unlockedAt, core, tier: meta.tier||0 };
+    const tier = meta.tier || 0;
+    return { id, title: meta.title || id, hidden, done, unlockedAt, core, tier, meta };
   });
 
-  // Фильтрация по запросу
   const filterFn = {
     all:       (a)=>true,
     available: (a)=> !a.done && !a.hidden,
@@ -3540,19 +3725,14 @@ function buildAchievementsList(activeFilter='all') {
     secret:    (a)=> a.hidden && !a.done
   }[activeFilter] || ((a)=>true);
 
-  // Группы: Core / Остальные / Секретные
   const groupCore  = all.filter(a=>!a.hidden && a.core).filter(filterFn);
   const groupOther = all.filter(a=>!a.hidden && !a.core).filter(filterFn);
   const groupSecret= all.filter(a=> a.hidden).filter(filterFn);
 
-  // Сортировка: выполненные вниз внутри группы? Пусть: невыполненные сверху, затем выполненные по дате
   const byStatus = (a,b)=> (Number(a.done)-Number(b.done)) || (a.tier - b.tier) || a.title.localeCompare(b.title,'ru');
   groupCore.sort(byStatus);
   groupOther.sort(byStatus);
   groupSecret.sort((a,b)=> a.title.localeCompare(b.title,'ru'));
-
-  // Рендер
-  let html = '';
 
   function renderGroup(title, arr) {
     if (!arr.length) return '';
@@ -3569,7 +3749,20 @@ function buildAchievementsList(activeFilter='all') {
       const sub = a.done
         ? `Открыто: ${a.unlockedAt ? new Date(a.unlockedAt).toLocaleString() : ''}`
         : (a.hidden ? `Откроется при особых условиях` 
-                    : (progress ? `${progress.text}` : `Доступно для выполнения`));
+                    : (progress ? `${progress.text}` : (a.meta.short || 'Доступно для выполнения')));
+
+      // Детали (скрытые по умолчанию)
+      const details = (!a.hidden) ? `
+        <div class="ach-details" style="display:none; grid-column: 1 / -1; padding:8px; border-top:1px dashed rgba(255,255,255,0.1); margin-top:6px;">
+          <div style="color:#cfe3ff; font-weight:700; margin-bottom:6px;">Как выполнить</div>
+          <div style="color:#eaeffb; margin-bottom:6px;">${a.meta.howTo || 'Выполните условия достижения.'}</div>
+          ${a.meta.desc ? `<div style="color:#9aa8c4; font-size:.9em;">${a.meta.desc}</div>` : ''}
+          ${(!a.done && !a.hidden && progress) ? `
+            <div style="margin-top:8px;">
+              <div class="ach-mini-bar" style="width:100%"><div class="ach-mini-fill" style="width:${progress.pct}%"></div></div>
+              <div style="color:#9aa8c4; font-size:.86em; margin-top:4px;">${progress.text}</div>
+            </div>` : ''}
+        </div>` : '';
 
       out += `
       <div class="ach-item${doneClass}" data-ach="${a.id}">
@@ -3578,12 +3771,17 @@ function buildAchievementsList(activeFilter='all') {
           <div class="ach-title">${a.title}</div>
           <div class="ach-sub">${sub}</div>
         </div>
-        <div class="ach-right">${right||''}</div>
+        <div class="ach-right">
+          ${right||''}
+          ${!a.hidden ? `<button class="backup-btn secondary ach-more" type="button" style="padding:4px 8px;">Подробнее</button>` : ''}
+        </div>
+        ${details}
       </div>`;
     });
     return out;
   }
 
+  let html = '';
   html += renderGroup('Core', groupCore);
   html += renderGroup('Остальные', groupOther);
   html += renderGroup('Секретные', groupSecret);
@@ -3599,6 +3797,26 @@ function buildAchievementsList(activeFilter='all') {
       btn.classList.add('active');
       buildAchievementsList(btn.dataset.filter);
     };
+  });
+
+  // Переключатели "Подробнее"
+  container.querySelectorAll('.ach-item').forEach(item=>{
+    const moreBtn = item.querySelector('.ach-more');
+    const details = item.querySelector('.ach-details');
+    if (moreBtn && details) {
+      moreBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const vis = details.style.display !== 'none';
+        details.style.display = vis ? 'none' : '';
+        moreBtn.textContent = vis ? 'Подробнее' : 'Свернуть';
+      });
+      // Клик по основной части карточки тоже разворачивает
+      item.querySelector('.ach-main')?.addEventListener('click', ()=>{
+        const vis = details.style.display !== 'none';
+        details.style.display = vis ? 'none' : '';
+        moreBtn.textContent = vis ? 'Подробнее' : 'Свернуть';
+      });
+    }
   });
 }
 
@@ -5541,7 +5759,9 @@ function renderLyricsBlock() {
   const tr = config.tracks[currentTrack];
   const audioEl = document.getElementById('audio');
   audioEl.src = tr.audio;
-  
+  // Prefetch следующего трека
+  prefetchNextTrackAssets();
+
   loadLyrics(tr.lyrics);
   setupMediaSession();
   restorePlayerButtonsState();
@@ -5665,6 +5885,9 @@ function onAudioMetadataLoaded() {
   
   // Доступность
   audio.setAttribute('aria-label', `Трек ${currentTrack + 1}, длительность ${formatTime(duration)}`);
+  
+  // подстраховка — можно префетчить и здесь
+  try { prefetchNextTrackAssets(); } catch(e){}
 }
 
 function onAudioTimeUpdate() {
@@ -6575,7 +6798,65 @@ function createShuffledPlaylist() {
   
   shuffleIndex = 0;
 }
+// ==== Prefetch следующего трека ====
+function computeNextTrackIndexCandidate() {
+  // Пытаемся предсказать ровно как nextTrack()
+  if (!config || !Array.isArray(config.tracks) || config.tracks.length === 0) return -1;
 
+  updateAvailableTracks();
+
+  if (shuffleMode) {
+    // Если плейлиста нет — создадим
+    if (!Array.isArray(shuffledPlaylist) || shuffledPlaylist.length === 0) {
+      createShuffledPlaylist();
+    }
+    // Следующий элемент в текущем shuffledPlaylist
+    const nextIdxInShuffled = Math.min(shuffleIndex + 1, Math.max(0, shuffledPlaylist.length - 1));
+    const cand = shuffledPlaylist[nextIdxInShuffled];
+    return (typeof cand === 'number') ? cand : -1;
+  }
+
+  if (favoritesOnlyMode) {
+    if (!Array.isArray(availableTracks) || availableTracks.length === 0) return -1;
+    const curPos = availableTracks.indexOf(currentTrack);
+    if (curPos === -1) {
+      // если текущего нет (могли убрать из избранного) — берём первый
+      return availableTracks[0] ?? -1;
+    }
+    const nextPos = (curPos + 1) % availableTracks.length;
+    return availableTracks[nextPos] ?? -1;
+  }
+
+  // Обычный режим — по порядку
+  return (currentTrack >= 0) ? ((currentTrack + 1) % config.tracks.length) : 0;
+}
+
+function prefetchAudioLink(url, asType='audio') {
+  if (!url) return;
+  try {
+    // <link rel="prefetch">
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.as = asType;
+    link.href = url;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+    // fallback: гарантированно довести до SW-кэша
+    fetch(url).catch(()=>{});
+  } catch(e) {}
+}
+
+function prefetchNextTrackAssets() {
+  const cand = computeNextTrackIndexCandidate();
+  if (cand < 0 || !config?.tracks?.[cand]) return;
+  const t = config.tracks[cand];
+  // MP3
+  prefetchAudioLink(t.audio, 'audio');
+  // Лирика (json)
+  if (t.lyrics) prefetchAudioLink(t.lyrics, 'fetch');
+  // Полный текст (txt)
+  if (t.fulltext) prefetchAudioLink(t.fulltext, 'fetch');
+}
 function restorePlayerButtonsState() {
   if (shuffleMode) {
     document.getElementById('shuffle-btn')?.classList.add('active');
