@@ -5449,7 +5449,7 @@ function renderLyricsBlock() {
   audioEl.addEventListener('seeked', onAudioSeeked);
   audioEl.addEventListener('ended', onAudioEnded);
   audioEl.addEventListener('volumechange', onVolumeChange);
-  audioEl.addEventListener('play', () => {
+  audioEl.('play', () => {
     if (bitEnabled && audioContext && audioContext.state === 'suspended') {
       audioContext.resume();
     }
@@ -5457,7 +5457,7 @@ function renderLyricsBlock() {
     Session.onStart({ trackIndex: currentTrack, ts: Date.now() });
     updatePlayPauseIcon();
   });
-  audioEl.addEventListener('pause', () => {
+  audioEl.('pause', () => {
     Stats.onPauseOrStop({ ended: false });
     updatePlayPauseIcon();
   });
