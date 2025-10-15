@@ -2469,12 +2469,10 @@ const FeatureFlags = {
   globalStatsSend:  (localStorage.getItem('ff_global_stats_send') ?? '0') === '1', // по умолчанию выкл, вкл когда поставите URL
   globalStatsUI:    (localStorage.getItem('ff_global_stats_ui') ?? '1') === '1'
 };
-<script>
 // ... после блока FeatureFlags
 if (GLOBAL_STATS_URL && localStorage.getItem('ff_global_stats_send') === null) {
   localStorage.setItem('ff_global_stats_send', '1'); // включаем один раз
 }
-</script>
 
 // Кэшированные DOM элементы
 const DOM = {};
