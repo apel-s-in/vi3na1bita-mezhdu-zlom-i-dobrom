@@ -2543,6 +2543,8 @@ if ('serviceWorker' in navigator) {
 
     await navigator.serviceWorker.ready;
     syncOfflineState();
+    // запросим у SW текущее состояние offline-режима
+    try { reg.active && reg.active.postMessage({ type: 'REQUEST_OFFLINE_STATE' }); } catch(e){}
 
     // Проверяем обновления сразу и затем раз в час
     try { reg.update(); } catch(e) {}
@@ -2573,13 +2575,15 @@ if ('serviceWorker' in navigator) {
   });
 
   navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data.type === 'CACHE_UPDATED') {
-      console.log('Cache updated to version:', event.data.version);
+    const msg = event.data || {};
+    if (msg.type === 'CACHE_UPDATED') {
+      console.log('Cache updated to version:', msg.version);
     }
-    if (event.data.type === 'REQUEST_OFFLINE_STATE') {
-      syncOfflineState();
+    if (msg.type === 'OFFLINE_STATE') {
+      offlineMode = !!msg.value;
+      setOfflineUIState(offlineMode ? 'offline' : 'online');
     }
-    if (event.data.type === 'CLEAR_ALL_POSITIONS') {
+    if (msg.type === 'CLEAR_ALL_POSITIONS') {
       PositionManager.clearAll();
     }
   });
@@ -3195,7 +3199,20 @@ const Ach = {
     NotificationSystem.success(`🏆 Достижение: ${meta.title||id}`);
     // обновим шкалы и подсказку
     AchProgress.updateFromStats();
-
+    // мини‑виджет "последняя награда" под прогрессом
+    try {
+      const el = document.getElementById('ach-last-earn');
+      if (el) {
+        el.setAttribute('aria-hidden', 'false');
+        const when = new Date().toLocaleTimeString();
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>🏆</span>
+            <span><b>${meta.title||id}</b></span>
+            <span style="color:#9aa8c4;font-size:.86em;">${when}</span>
+          </div>`;
+      }
+    } catch(e){}
     // автоподсказка бэкапа:
     // первый раз — на 10‑м; далее — на каждом >=13, с учётом настроек пользователя;
     // перед последним достижением — всегда показать.
@@ -3771,6 +3788,9 @@ const GlobalStats = {
   period: 'today',
   sending: false,
   errorOnce: false,
+  // backoff для повторов при ошибках отправки
+  _retryAt: 0,
+  _failCount: 0,
 
   init() {
     if (!FeatureFlags.globalStatsUI) return;
@@ -3830,6 +3850,9 @@ const GlobalStats = {
     if (!GLOBAL_STATS_URL) return;
     if (this.sending) return;
 
+    // Backoff: ждём до _retryAt, чтобы не спамить при ошибках
+    if (Date.now() < this._retryAt) return;
+
     const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
     if (!q.length) return;
 
@@ -3845,7 +3868,7 @@ const GlobalStats = {
       // Получаем одноразовый токен Turnstile
       const __tsToken = await getTurnstileToken('send_event');
 
-      await fetch(`${GLOBAL_STATS_URL}/event`, {
+      const res = await fetch(`${GLOBAL_STATS_URL}/event`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3855,9 +3878,24 @@ const GlobalStats = {
         body: JSON.stringify(payload)
       });
 
+      // Очищаем очередь только при 2xx
+      if (!res.ok) {
+        throw new Error(`event_send_failed_${res.status}`);
+      }
+
       localStorage.setItem(GS_Q_KEY, JSON.stringify([]));
+      // сброс бэкоффа после успеха
+      this._failCount = 0;
+      this._retryAt = 0;
     } catch (e) {
-      // оставим в очереди до следующего раза
+      // оставим события в очереди; поднимем бэкофф
+      this._failCount = Math.min(this._failCount + 1, 10);
+      const delay = Math.min(5 * 60 * 1000, Math.pow(2, this._failCount) * 1000);
+      this._retryAt = Date.now() + delay;
+      if (!this.errorOnce) {
+        this.errorOnce = true;
+        NotificationSystem.warning('Глобальная статистика недоступна, повторим позже');
+      }
     } finally {
       this.sending = false;
     }
