@@ -2288,10 +2288,14 @@
       <div class="download-modal-title">Сохранение достижений</div>
       <button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupExportWithLevel()">Сохранить на устройство</button>
       <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupShare()">Отправить</button>
-      <button class="offline-btn" style="width:98%;" onclick="closeBackupActions();document.getElementById('backup-file-input').click()">Импорт</button>
+      <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();document.getElementById('backup-file-input').click()">Импорт</button>
+      <!-- Новые кнопки облака -->
+      <hr style="border-color:#333;margin:12px 0;">
+      <button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupSaveToCloud()">Сохранить в облако</button>
+      <button class="offline-btn" style="width:98%;" onclick="closeBackupActions();backupImportFromCloud()">Восстановить из облака</button>
     </div>
   </div>
-
+  
   <div class="modal-bg" id="sizeConfirmModal">
     <div class="modal-feedback" style="max-width: 350px;">
       <h3 style="text-align: center;">Подтверждение загрузки</h3>
@@ -4365,6 +4369,128 @@ async function backupShare() {
     }
   } catch(e) {
     NotificationSystem.error('Не удалось отправить бэкап');
+  }
+}
+// === Общий конструктор payload/файла для бэкапа ===
+async function buildBackupFile() {
+  const payload = {
+    appVersion: VERSION,
+    buildDate: BUILD_DATE,
+    exportedAt: new Date().toISOString(),
+    deviceHash: getDeviceHash(),
+    stats: StatsStore.s,
+    statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
+  };
+  const checksum = await sha256String(JSON.stringify(payload));
+  const file = { kind: 'vr_backup_v1', checksum, payload };
+  return file;
+}
+// Сохранение в облако (POST /backup)
+async function backupSaveToCloud() {
+  try {
+    if (!GLOBAL_STATS_URL) {
+      NotificationSystem.warning('Сервер облачного бэкапа не настроен');
+      return;
+    }
+    const file = await buildBackupFile();
+
+    const res = await fetch(`${GLOBAL_STATS_URL}/backup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Device-Hash': getDeviceHash()
+      },
+      mode: 'cors',
+      body: JSON.stringify(file)
+    });
+
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) {
+      const err = data?.error || `HTTP_${res.status}`;
+      // Варианты: bad_checksum, device_mismatch, BACKUP_KV not bound, bad_backup_payload
+      NotificationSystem.error(`Не удалось сохранить в облако: ${err}`);
+      return;
+    }
+
+    NotificationSystem.success('Бэкап сохранён в облаке');
+  } catch (e) {
+    console.error(e);
+    NotificationSystem.error('Ошибка сохранения в облако');
+  }
+}
+
+// Восстановление из облака (GET /backup/latest)
+async function backupImportFromCloud() {
+  try {
+    if (!GLOBAL_STATS_URL) {
+      NotificationSystem.warning('Сервер облачного бэкапа не настроен');
+      return;
+    }
+    const dev = getDeviceHash();
+    const res = await fetch(`${GLOBAL_STATS_URL}/backup/latest?device=${encodeURIComponent(dev)}`, {
+      method: 'GET',
+      mode: 'cors'
+    });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok || !data?.backup) {
+      const err = data?.error || `HTTP_${res.status}`;
+      if (res.status === 404 || err === 'not_found') {
+        NotificationSystem.warning('Облачный бэкап не найден');
+      } else {
+        NotificationSystem.error(`Ошибка загрузки из облака: ${err}`);
+      }
+      return;
+    }
+    // Проверим checksum и deviceHash локально ещё раз (доп. страховка)
+    const serverFile = data.backup; // { kind, checksum, payload }
+    if (serverFile?.kind !== 'vr_backup_v1' || !serverFile?.payload) {
+      NotificationSystem.error('Формат облачного бэкапа некорректен');
+      return;
+    }
+    const calc = await sha256String(JSON.stringify(serverFile.payload));
+    if (calc !== serverFile.checksum) {
+      NotificationSystem.error('Облачный файл повреждён (checksum mismatch)');
+      return;
+    }
+    if (serverFile.payload.deviceHash !== dev) {
+      NotificationSystem.error('Облачный бэкап от другого устройства');
+      return;
+    }
+
+    // Применяем (как в backupImportFromFile)
+    const incoming = serverFile.payload;
+    const currentDone = Object.keys(StatsStore.s.achievements||{}).length;
+    const incomingDone = Object.keys(incoming.stats?.achievements||{}).length;
+    if (incomingDone < currentDone) {
+      if (!confirm('В облачном бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) {
+        return;
+      }
+    }
+
+    StatsStore.s = incoming.stats;
+    // миграции
+    if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
+    if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
+    if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
+    if (Array.isArray(StatsStore.s.perTrack)) {
+      for (let i = 0; i < StatsStore.s.perTrack.length; i++) {
+        const pt = StatsStore.s.perTrack[i] || {};
+        if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
+        if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0);
+        StatsStore.s.perTrack[i] = pt;
+      }
+    }
+
+    StatsStore.save();
+    AchProgress.updateFromStats();
+    // Снимаем tamper и скрываем баннер
+    localStorage.removeItem('tamper_detected');
+    hideTamperBanner();
+
+    NotificationSystem.success('Восстановление из облака выполнено');
+  } catch (e) {
+    console.error(e);
+    NotificationSystem.error('Не удалось восстановить из облака');
   }
 }
 
