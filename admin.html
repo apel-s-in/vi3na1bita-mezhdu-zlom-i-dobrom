@@ -41,20 +41,31 @@
     <div class="tabs">
       <button class="tab active" id="tab-claims">Заявки</button>
       <button class="tab" id="tab-fb">Обратная связь</button>
+      <button class="tab" id="tab-logout" title="Выйти">Logout</button>
     </div>
   </header>
 
   <main id="view-claims">
     <div class="card">
-      <div class="search">
-        <select id="claims-status">
+      <div class="search" style="flex-wrap:wrap">
+        <select id="claims-status" title="Статус">
           <option value="">Все статусы</option>
           <option value="pending">pending</option>
           <option value="approved">approved</option>
           <option value="rejected">rejected</option>
           <option value="shipped">shipped</option>
         </select>
-        <button class="btn" onclick="loadClaims()">Обновить</button>
+        <label class="muted">с</label>
+        <input type="date" id="claims-from" />
+        <label class="muted">по</label>
+        <input type="date" id="claims-to" />
+        <button class="btn" onclick="resetPaging();loadClaims()">Применить</button>
+        <button class="btn" onclick="exportClaimsCSV()">Экспорт CSV</button>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+          <button class="btn" onclick="prevPage()">◀</button>
+          <span class="muted" id="claims-page-label">1</span>
+          <button class="btn" onclick="nextPage()">▶</button>
+        </div>
       </div>
       <div class="list" id="claims-list"></div>
     </div>
@@ -168,21 +179,63 @@ function switchTab(tab) {
 }
 document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
+document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
 
 // Claims
 let currentClaim = null;
+let pageSize = 50;
+let currentOffset = 0;
+
+function resetPaging() {
+  currentOffset = 0;
+  document.getElementById('claims-page-label').textContent = '1';
+}
+function nextPage() {
+  currentOffset += pageSize;
+  loadClaims();
+}
+function prevPage() {
+  currentOffset = Math.max(0, currentOffset - pageSize);
+  const curPage = Math.floor(currentOffset / pageSize) + 1;
+  document.getElementById('claims-page-label').textContent = String(curPage);
+  loadClaims();
+}
+
+function readDateInput(id) {
+  const v = document.getElementById(id)?.value;
+  if (!v) return null;
+  try {
+    // to 00:00/23:59 диапазон: для "to" добавим 23:59:59.999
+    const dt = new Date(v);
+    if (id === 'claims-to') dt.setHours(23,59,59,999);
+    return dt.toISOString();
+  } catch { return null; }
+}
+
 async function loadClaims() {
   if (needLogin()) return;
-  const st = document.getElementById('claims-status').value;
+  const st  = document.getElementById('claims-status').value;
+  const from= readDateInput('claims-from');
+  const to  = readDateInput('claims-to');
+
   const url = new URL(API + '/admin/claims');
   if (st) url.searchParams.set('status', st);
-  url.searchParams.set('limit','100');
+  if (from) url.searchParams.set('from', from);
+  if (to) url.searchParams.set('to', to);
+  url.searchParams.set('limit', String(pageSize));
+  url.searchParams.set('offset', String(currentOffset));
+
   const res = await fetch(url, { headers: { ...authHeader() }});
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   const list = document.getElementById('claims-list');
   if (!data?.ok) { list.textContent = 'Ошибка загрузки'; return; }
-  list.innerHTML = (data.items||[]).map(c=>{
+
+  const items = data.items || [];
+  const curPage = Math.floor(currentOffset / pageSize) + 1;
+  document.getElementById('claims-page-label').textContent = String(curPage);
+
+  list.innerHTML = items.map(c=>{
     const dt = new Date(c.created_at).toLocaleString();
     return `<div class="row" onclick="selectClaim('${c.id}')">
       <div>
@@ -192,17 +245,24 @@ async function loadClaims() {
       <div class="muted">${dt}</div>
     </div>`;
   }).join('');
+
+  if (items.length === 0 && currentOffset > 0) {
+    // вернемся на страницу назад если вышли за предел
+    prevPage();
+  }
+
   document.getElementById('claim-details').textContent = 'Ничего не выбрано';
   document.getElementById('claim-actions').style.display = 'none';
   currentClaim = null;
 }
+
 async function selectClaim(id) {
-  const row = (await fetch(new URL(API+'/admin/claims?limit=1&offset=0&id='+id))).status; // no-op для видимости
   const el = document.getElementById('claim-details');
   el.innerHTML = `Заявка <b>#${id}</b><br><span class="muted">Статус меняется кнопками ниже</span>`;
   currentClaim = id;
   document.getElementById('claim-actions').style.display = '';
 }
+
 async function updateClaim(next) {
   if (!currentClaim) return;
   const reason = document.getElementById('claim-reason').value.trim();
@@ -218,38 +278,30 @@ async function updateClaim(next) {
   loadClaims();
 }
 
-// Feedback
-let currentThread = null;
-async function loadThreads() {
+async function exportClaimsCSV() {
   if (needLogin()) return;
-  const q = document.getElementById('fb-q').value.trim();
-  const url = new URL(API + '/admin/feedback/threads');
-  if (q) url.searchParams.set('q', q);
-  url.searchParams.set('limit','100');
-  const res = await fetch(url, { headers:{ ...authHeader() }});
+  const st  = document.getElementById('claims-status').value;
+  const from= readDateInput('claims-from');
+  const to  = readDateInput('claims-to');
+
+  const url = new URL(API + '/admin/claims/export');
+  if (st) url.searchParams.set('status', st);
+  if (from) url.searchParams.set('from', from);
+  if (to) url.searchParams.set('to', to);
+
+  const res = await fetch(url, { headers: { ...authHeader() }});
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('thread-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(t=>{
-    const dt = new Date(t.last_message_at).toLocaleString();
-    return `<div class="row" onclick="openThread('${t.id}','${t.code}')">
-      <div>
-        <div><b>#${t.code}</b> · ${t.user_name||'Пользователь'}</div>
-        <div class="muted">dev:${(t.device_hash||'').slice(0,8)} · ${new Date(t.created_at).toLocaleDateString()}</div>
-      </div>
-      <div class="muted">${dt}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('thread-head').textContent = 'Выберите тред слева';
-  document.getElementById('msg-list').innerHTML = '';
-  currentThread = null;
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `claims-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
+
+// Feedback
 async function openThread(id, code) {
-  currentThread = { id, code };
-  document.getElementById('thread-head').innerHTML = `Диалог <b>#${code}</b>`;
-  await loadMessages();
-}
 async function loadMessages() {
   if (!currentThread) return;
   const url = new URL(API + '/admin/feedback/messages');
@@ -284,7 +336,6 @@ async function sendReply() {
   inp.value = '';
   loadMessages();
 }
-
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 window.addEventListener('load', () => {
   // Если нет токена — прячем интерфейс, показываем модалку
