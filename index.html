@@ -5387,6 +5387,17 @@ function initializeMainUi() {
   document.getElementById('modal-feedback').onclick = function(e) {
     if (e.target === this) closeFeedbackModal();
   };
+  // Обработчик Enter в поле чата + авто‑фокус после открытия
+  const fbInp = document.getElementById('fb-input');
+  if (fbInp) {
+    fbInp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!fbInp.disabled) fbSend();
+      }
+    });
+  }
+
   
   document.getElementById('cover-gallery-arrow-left').onclick = function() {
     setCoverImage(coverGalleryIdx - 1);
@@ -8697,6 +8708,8 @@ function openFeedbackModal(){
   if (!el) return;
   el.classList.add('active');
   fbLoadHistory();
+  // авто‑фокус на инпут
+  setTimeout(() => { try { document.getElementById('fb-input')?.focus(); } catch(e){} }, 30);
   if (fbPollTimer) clearInterval(fbPollTimer);
   fbPollTimer = setInterval(fbLoadHistory, 8000);
 }
@@ -8739,12 +8752,17 @@ async function fbLoadHistory(){
   }
 }
 
+let fbSending = false;
 async function fbSend(){
+  if (fbSending) return;
   const inp = document.getElementById('fb-input');
   if (!inp) return;
   const text = (inp.value||'').trim();
   if (!text) return;
-  inp.value = ''; inp.disabled = true;
+  fbSending = true;
+  inp.disabled = true;
+  const prev = inp.value;
+  inp.value = '';
   try{
     const dev = (typeof getDeviceHash === 'function') ? getDeviceHash() : '';
     if (!dev || !window.GLOBAL_STATS_URL) throw new Error('not_configured');
@@ -8756,16 +8774,20 @@ async function fbSend(){
     });
     const data = await res.json().catch(()=> ({}));
     if (!res.ok || !data?.ok) {
+      // вернем текст обратно, если ошибка
+      inp.value = prev;
       if (window.NotificationSystem?.error) NotificationSystem.error(`Не отправлено: ${data?.error||res.status}`);
       else alert(`Не отправлено: ${data?.error||res.status}`);
     } else {
       if (window.NotificationSystem?.success) NotificationSystem.success('Отправлено');
+      fbLoadHistory();
     }
-    fbLoadHistory();
   }catch(e){
+    inp.value = prev;
     if (window.NotificationSystem?.error) NotificationSystem.error('Сеть недоступна');
     else alert('Сеть недоступна');
   } finally {
+    fbSending = false;
     inp.disabled = false; inp.focus();
   }
 }
