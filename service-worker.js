@@ -157,7 +157,8 @@ async function handleRangeRequest(request) {
     const cachedResponse = await cache.match(request, { ignoreVary: true });
     
     if (!cachedResponse) {
-      if (!navigator.onLine && offlineMode) {
+      // В офлайн‑режиме без кэша просто возвращаем 503
+      if (offlineMode) {
         return new Response('Offline - audio not cached', {
           status: 503,
           statusText: 'Service Unavailable'
