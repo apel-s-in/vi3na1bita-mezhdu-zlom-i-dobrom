@@ -4174,6 +4174,9 @@ const Prize = {
         <h4>Мои заявки</h4>
         <ul id="claim-list"></ul>
         <div class="prize-note">Статусы: pending = на модерации, approved = принято, shipped = отправлено, rejected = отклонено</div>
+        <div style="text-align:center; margin-top:10px;">
+          <button class="prize-btn" onclick="Prize.deleteAccount()" style="background:#8a2a2a;">Удалить аккаунт</button>
+        </div>
       </div>
     `;
 
@@ -4447,6 +4450,28 @@ const Prize = {
       NotificationSystem.error('Не удалось создать заявку');
     } finally {
       this.setBusy(false);
+    }
+  },
+  async deleteAccount() {
+    if (!GLOBAL_STATS_URL) return;
+    if (!confirm('Удалить аккаунт и отвязать устройства? Это действие необратимо.')) return;
+    try {
+      const res = await fetch(`${GLOBAL_STATS_URL}/account/delete`, {
+        method:'POST',
+        mode:'cors',
+        credentials:'include'
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        NotificationSystem.error('Не удалось удалить аккаунт');
+        return;
+      }
+      NotificationSystem.success('Аккаунт удалён');
+      // Обновим состояние интерфейса
+      this.state.authed = false; this.state.user = null;
+      this.mountTelegramLogin(); this.paintChecklist(); this.fetchStatus();
+    } catch {
+      NotificationSystem.error('Ошибка удаления аккаунта');
     }
   }
 };
