@@ -1864,6 +1864,56 @@
       position: sticky; top: 0; background: var(--modal-bg); padding-top: 10px; z-index: 1;
     }
 
+    /* === ПРИЗЫ (панель) === */
+    .prize-root{
+      width:100%;
+      max-width:395px;
+      margin:8px auto 0 auto;
+      background: rgba(0,0,0,0.30);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .prize-header{
+      width: 100%;
+      background: #1f2533;
+      color: #e9f0ff;
+      border: none;
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-size: .98em;
+      padding: 10px 12px;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+    }
+    .prize-body{ padding: 10px 12px 12px 12px; }
+    .prize-row{ display:flex; gap:8px; align-items:center; margin:6px 0; }
+    .prize-row .ok{ color:#27b34c; }
+    .prize-row .warn{ color:#ff9800; }
+    .prize-row .err{ color:#E80100; }
+    .prize-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
+    .prize-btn{
+      color:#fff; background: var(--secondary-color); border:none; border-radius:8px; font-weight:700;
+      letter-spacing:.02em; padding:8px 12px; cursor:pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .prize-btn.primary{ background: var(--primary-color); }
+    .prize-btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .tg-holder{ display:flex; justify-content:center; margin:10px 0; }
+    .prize-status{
+      margin-top:10px; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);
+      border-radius:10px; padding:10px;
+    }
+    .prize-status h4{ margin:0 0 8px 0; font-size: .98em; color:#9fc3ff; text-transform:uppercase; }
+    .prize-status ul{ list-style:none; padding:0; margin:0; }
+    .prize-status li{ display:flex; justify-content:space-between; gap:10px; padding:6px 0;
+      border-bottom: 1px dashed rgba(255,255,255,0.08); font-size:.96em; }
+    .prize-status li:last-child{ border-bottom:none; }
+    .prize-note{ font-size:.88em; color:#9aa8c4; margin-top:8px; text-align:center; }
+    .prize-ready{ text-align:center; font-weight:800; color:#27b34c; margin-top:6px; }
+    .prize-not-ready{ text-align:center; font-weight:800; color:#E80100; margin-top:6px; }
+
     /* === МОЯ СТАТИСТИКА === */
     .my-stats-root {
       width: 100%;
@@ -1986,6 +2036,7 @@
     @media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
   </style>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 </head>
 <body>
   <div id="promocode-block">
@@ -2086,6 +2137,15 @@
           <!-- Сюда отрисовывается контент -->
         </div>
       </div>
+
+      <!-- ПРИЗЫ -->
+      <div id="prize-root" class="prize-root">
+        <div class="prize-header">ПРИЗЫ</div>
+        <div class="prize-body" id="prize-body">
+          <!-- Здесь отрисуется панель: вход, чек-лист, заявка, статусы -->
+        </div>
+      </div>
+
       <!-- ГЛОБАЛЬНАЯ СТАТИСТИКА -->
       <div id="global-stats-root" class="my-stats-root" style="margin-top:8px;">
         <button class="my-stats-header" id="global-stats-toggle" type="button" aria-expanded="false">
@@ -2510,8 +2570,14 @@ const BUILD_INFO = {
 // Если оставить пустым '', отправка отключится автоматически.
 const GLOBAL_STATS_URL = 'https://vr-backend.apel-s-in.workers.dev'; // TODO: Вставьте ваш URL
 
-// Cloudflare Turnstile (публичный site key — можно хранить в фронтенде)
+// Cloudflare Turnstile ...
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
+
+// Telegram bot username для Login Widget — ВСТАВЬТЕ имя бота
+const TG_BOT_USERNAME = 'VitrinaRazbitaPrizesBot'; // ← замените на ваш @username без @
+
+// Информационный порог для чек-листа на фронте (сервер проверяет сам env.MIN_CLAIM_LEVEL)
+const FRONT_MIN_CLAIM_LEVEL = 10;
 
 // Хелпер: получить одноразовый токен Turnstile (невидимый, без UI)
 async function getTurnstileToken(action = 'send_event') {
@@ -3472,6 +3538,7 @@ const Ach = {
 
     // Невидимый автосейв в облако (перезапись)
     backupAutoSaveIfNeeded();
+    try { Prize.updateLocalReadiness(); } catch(e){}
 
     return true;
   },
@@ -4058,6 +4125,337 @@ const MyStats = {
     }
   }
 };
+// ==== ПРИЗЫ: вход, чек‑лист, заявки ====
+const Prize = {
+  root: null, body: null,
+  state: {
+    authed: false,
+    user: null,
+    claims: [],
+    busy: false,
+    readiness: { achCount: 0, need: FRONT_MIN_CLAIM_LEVEL, cloud: false, tamper: false }
+  },
+
+  init() {
+    this.root = document.getElementById('prize-root');
+    this.body = document.getElementById('prize-body');
+    if (!this.root || !this.body) return;
+    this.renderSkeleton();
+
+    // При старте — вычислим локальный чек-лист и спросим /me и статусы
+    this.updateLocalReadiness();
+    this.fetchMe().then(()=> this.fetchStatus());
+
+    // Периодическое обновление статусов
+    setInterval(()=> this.fetchStatus(), 30000);
+  },
+
+  renderSkeleton() {
+    this.body.innerHTML = `
+      <div id="prize-auth-block">
+        <div class="tg-holder" id="tg-holder"></div>
+        <div class="prize-actions" id="dev-auth-holder" style="display:none;">
+          <button class="prize-btn" id="dev-auth-btn" type="button">DEV-вход (тест)</button>
+        </div>
+      </div>
+
+      <div id="prize-checklist" style="margin-top:8px;">
+        <div class="prize-row" id="row-ach"><span>🏆</span><span>Достижения: <b id="ach-count">0</b> / минимум <b id="ach-need">${FRONT_MIN_CLAIM_LEVEL}</b></span></div>
+        <div class="prize-row" id="row-cloud"><span>☁️</span><span>Облачный бэкап: <b id="cloud-state">нет</b></span></div>
+        <div class="prize-row" id="row-tamper"><span>🛡️</span><span>Честность данных: <b id="tamper-state">проверка…</b></span></div>
+        <div id="prize-ready-flag" class="prize-not-ready">Недостаточно условий для заявки</div>
+      </div>
+
+      <div class="prize-actions" style="margin-top:10px;">
+        <button class="prize-btn primary" id="claim-btn" type="button" disabled>ПОЛУЧИТЬ ПРИЗ</button>
+      </div>
+
+      <div class="prize-status" id="prize-status" style="margin-top:10px;">
+        <h4>Мои заявки</h4>
+        <ul id="claim-list"></ul>
+        <div class="prize-note">Статусы: pending = на модерации, approved = принято, shipped = отправлено, rejected = отклонено</div>
+      </div>
+    `;
+
+    // DEV-кнопка (покажем, если сервер разрешил /auth/dev)
+    this.probeDevAuth().then(enabled=>{
+      const devHolder = document.getElementById('dev-auth-holder');
+      if (devHolder) devHolder.style.display = enabled ? '' : 'none';
+      if (enabled) {
+        const btn = document.getElementById('dev-auth-btn');
+        btn.onclick = ()=> this.devAuth();
+      }
+    });
+
+    // Рисуем Telegram виджет
+    this.mountTelegramLogin();
+
+    // Кнопка заявки
+    const claimBtn = document.getElementById('claim-btn');
+    if (claimBtn) claimBtn.onclick = ()=> this.createClaim();
+  },
+
+  updateLocalReadiness() {
+    // Счётчик ачивок (видимых, без hidden)
+    const achCount = getVisibleAchievementsCount();
+    const cloud = localStorage.getItem('CLOUD_SAVED_OK') === '1';
+    const tamper = localStorage.getItem('tamper_detected') === '1';
+
+    this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper };
+    this.paintChecklist();
+  },
+
+  paintChecklist() {
+    const { achCount, need, cloud, tamper } = this.state.readiness;
+    const achEl = document.getElementById('ach-count');
+    const cloudEl = document.getElementById('cloud-state');
+    const tamperEl = document.getElementById('tamper-state');
+    const rowAch = document.getElementById('row-ach');
+    const rowCloud = document.getElementById('row-cloud');
+    const rowTamper = document.getElementById('row-tamper');
+    const flag = document.getElementById('prize-ready-flag');
+    const claimBtn = document.getElementById('claim-btn');
+
+    if (achEl) achEl.textContent = String(achCount);
+    if (cloudEl) cloudEl.textContent = cloud ? 'есть' : 'нет';
+    if (tamperEl) tamperEl.textContent = tamper ? 'обнаружена подмена' : 'OK';
+
+    // Подсветки
+    rowAch.classList.remove('ok','warn','err');
+    rowCloud.classList.remove('ok','warn','err');
+    rowTamper.classList.remove('ok','warn','err');
+
+    rowAch.classList.add(achCount >= need ? 'ok' : 'warn');
+    rowCloud.classList.add(cloud ? 'ok' : 'warn');
+    rowTamper.classList.add(tamper ? 'err' : 'ok');
+
+    const ready = (!tamper) && cloud && (achCount >= need);
+    if (flag) {
+      flag.className = ready ? 'prize-ready' : 'prize-not-ready';
+      flag.textContent = ready ? 'Готово: можно подать заявку' : 'Недостаточно условий для заявки';
+    }
+    if (claimBtn) {
+      claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
+    }
+  },
+
+  setBusy(v) {
+    this.state.busy = !!v;
+    const claimBtn = document.getElementById('claim-btn');
+    if (claimBtn) claimBtn.disabled = !(this.state.authed && !this.state.busy && !localStorage.getItem('tamper_detected') && (getVisibleAchievementsCount() >= FRONT_MIN_CLAIM_LEVEL) && (localStorage.getItem('CLOUD_SAVED_OK')==='1'));
+  },
+
+  mountTelegramLogin() {
+    const holder = document.getElementById('tg-holder');
+    if (!holder) return;
+    holder.innerHTML = '';
+    // Если уже авторизованы — показывать имя вместо кнопки
+    if (this.state.authed && this.state.user) {
+      holder.innerHTML = `<div style="text-align:center;">Вошли как <b>${this.state.user.display_name || 'Пользователь'}</b></div>`;
+      return;
+    }
+    // Рисуем виджет Telegram (если задан username)
+    if (!TG_BOT_USERNAME || TG_BOT_USERNAME.toLowerCase().includes('bot') === false) {
+      holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME в коде, чтобы включить вход через Telegram</div>`;
+      return;
+    }
+    // Встраиваем скрипт‑виджет динамически
+    const scr = document.createElement('script');
+    scr.src = 'https://telegram.org/js/telegram-widget.js?22';
+    scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
+    scr.setAttribute('data-size', 'large');
+    scr.setAttribute('data-userpic', 'false');
+    scr.setAttribute('data-onauth', 'onTelegramAuth');
+    scr.setAttribute('data-request-access', 'write');
+    holder.appendChild(scr);
+  },
+
+  async onTelegramAuth(user) {
+    try {
+      if (!GLOBAL_STATS_URL) {
+        NotificationSystem.warning('Сервер призов не настроен');
+        return;
+      }
+      this.setBusy(true);
+      const body = { tg: user, deviceHash: getDeviceHash() };
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        NotificationSystem.error(`Ошибка входа Telegram: ${data?.error || res.status}`);
+        return;
+      }
+      await this.fetchMe(true);
+      NotificationSystem.success('Вход выполнен (Telegram)');
+      this.mountTelegramLogin();
+      this.paintChecklist();
+    } catch (e) {
+      NotificationSystem.error('Не удалось войти (Telegram)');
+    } finally {
+      this.setBusy(false);
+    }
+  },
+
+  async probeDevAuth() {
+    try {
+      if (!GLOBAL_STATS_URL) return false;
+      // Попробуем вызвать /auth/dev без тела с методом OPTIONS/POST? Смысл: нам нужно знать, включён ли DEBUG_DEV_AUTH на сервере.
+      // Упростим: отправим пустой dev-login и посмотрим код. Сервер вернёт 403 disabled.
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/dev`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        body: JSON.stringify({ name:'', deviceHash:'probe_only' })
+      });
+      // Если это реально создаст пользователя — плохо. Поэтому проверим: сервер вернёт dev:true только если включено.
+      const data = await res.json().catch(()=> ({}));
+      if (res.ok && data?.dev) {
+        // Сразу выходим из dev-сессии невозможно (нет logout). Но это тестовый путь — не использовать.
+        // Чтобы не оставлять “мусорную” сессию, просто сообщим.
+        NotificationSystem.warning('DEV-вход включён на сервере. Для теста используйте кнопку ниже.');
+        return true;
+      }
+      // Если disabled — будет 403 с {error:'disabled'}
+      return (res.status === 200 || res.status === 403);
+    } catch {
+      return false;
+    }
+  },
+
+  async devAuth() {
+    try {
+      if (!GLOBAL_STATS_URL) return;
+      this.setBusy(true);
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/dev`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify({ name: 'Tester', deviceHash: getDeviceHash() })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        NotificationSystem.error(`DEV-вход недоступен: ${data?.error || res.status}`);
+        return;
+      }
+      await this.fetchMe(true);
+      NotificationSystem.success('DEV-вход выполнен');
+      this.mountTelegramLogin();
+      this.paintChecklist();
+    } catch (e) {
+      NotificationSystem.error('Ошибка DEV-входа');
+    } finally {
+      this.setBusy(false);
+    }
+  },
+
+  async fetchMe(silent=false) {
+    try {
+      if (!GLOBAL_STATS_URL) return;
+      const res = await fetch(`${GLOBAL_STATS_URL}/me`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'include'
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (res.ok && data?.ok && data?.auth) {
+        this.state.authed = true;
+        this.state.user = data.user;
+        // Показываем приветствие
+        if (!silent) NotificationSystem.info(`Вы вошли как ${data.user?.display_name || 'Пользователь'}`);
+      } else {
+        this.state.authed = false;
+        this.state.user = null;
+      }
+      this.mountTelegramLogin();
+      this.paintChecklist();
+    } catch (e) {
+      if (!silent) NotificationSystem.warning('Сервер недоступен (/me)');
+    }
+  },
+
+  async fetchStatus() {
+    try {
+      if (!GLOBAL_STATS_URL) return;
+      const res = await fetch(`${GLOBAL_STATS_URL}/claim/status`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'include'
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        this.renderClaims([]);
+        return;
+      }
+      this.renderClaims(data.claims || []);
+    } catch {
+      this.renderClaims([]);
+    }
+  },
+
+  renderClaims(claims) {
+    this.state.claims = claims;
+    const ul = document.getElementById('claim-list');
+    if (!ul) return;
+    if (!claims.length) {
+      ul.innerHTML = `<li><span>—</span><span>нет</span></li>`;
+      return;
+    }
+    const fmtDate = (ms)=> new Date(ms).toLocaleString();
+    ul.innerHTML = claims.map(c=>{
+      return `<li><span>#${c.id.slice(0,8)}</span><span>${c.status}${c.reason ? ' · '+c.reason : ''}</span></li>`;
+    }).join('');
+  },
+
+  async createClaim() {
+    try {
+      if (!GLOBAL_STATS_URL) return;
+      this.setBusy(true);
+
+      // Обновляем чек‑лист перед отправкой
+      this.updateLocalReadiness();
+      const { achCount, need, cloud, tamper } = this.state.readiness;
+      if (tamper) { NotificationSystem.error('Исправьте данные (восстановите из бэкапа)'); return;}
+      if (!cloud) { NotificationSystem.error('Сделайте облачный бэкап'); return;}
+      if (achCount < need) { NotificationSystem.error(`Нужно достижений: минимум ${need}`); return;}
+      if (!this.state.authed) { NotificationSystem.error('Сначала войдите через Telegram'); return;}
+
+      const res = await fetch(`${GLOBAL_STATS_URL}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify({ deviceHash: getDeviceHash(), cycle: 1 })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        const err = data?.error || `HTTP_${res.status}`;
+        if (err === 'no_cloud_backup') NotificationSystem.error('На сервере нет вашего облачного бэкапа. Подождите минуту после автосейва и повторите.');
+        else if (err === 'level_too_low') NotificationSystem.error(`Недостаточно ачивок (есть ${data.level}, нужно ${data.need})`);
+        else if (err === 'duplicate') NotificationSystem.warning('Заявка на этот цикл уже создана');
+        else NotificationSystem.error(`Ошибка заявки: ${err}`);
+        return;
+      }
+      NotificationSystem.success('Заявка создана');
+      this.fetchStatus();
+    } catch (e) {
+      NotificationSystem.error('Не удалось создать заявку');
+    } finally {
+      this.setBusy(false);
+    }
+  }
+};
+
+// Глобальный callback для Telegram Login Widget
+window.onTelegramAuth = (user) => {
+  try { Prize.onTelegramAuth(user); } catch(e){ console.error(e); }
+};
+
 // ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ====
 const GS_Q_KEY = 'vr_gs_queue_v1';
 
@@ -4497,6 +4895,7 @@ async function backupImportFromCloud() {
     hideTamperBanner();
 
     NotificationSystem.success('Восстановление из облака выполнено');
+    try { Prize.updateLocalReadiness(); } catch(e){}
   } catch (e) {
     console.error(e);
     NotificationSystem.error('Не удалось восстановить из облака');
@@ -4548,6 +4947,7 @@ async function backupSaveToCloudOverwriteSilent() {
       localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now()));
       // Компактный UI
       setCloudSavedUI(true);
+      try { Prize.updateLocalReadiness(); } catch(e){}
     } else {
       // не сбиваем UI, просто попробуем позже
       localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now())); // чтобы не спамить
@@ -4939,6 +5339,8 @@ function initializeMainUi() {
 
   // Моя статистика
   MyStats.init();
+  // Призы
+  Prize.init();
   // Глобальная статистика
   GlobalStats.init();
   // Открытие списка достижений по тапу на bubble
