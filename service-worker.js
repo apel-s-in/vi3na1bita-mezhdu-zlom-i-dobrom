@@ -19,6 +19,7 @@ const SKIP_CACHE_PATTERNS = [
 const STATIC_CACHE_URLS = [
   './',
   './index.html',
+  './admin.html',
   './manifest.json',
   './config.json',
   './img/logo.png',
