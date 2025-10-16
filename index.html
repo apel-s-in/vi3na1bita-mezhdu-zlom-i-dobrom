@@ -2567,7 +2567,8 @@ const BUILD_INFO = {
 // ==== Глобальная статистика (настройка URL вашего Cloudflare Worker) ====
 // Поставьте URL вашего endpoint (пример: 'https://vr-stats.example.workers.dev')
 // Если оставить пустым '', отправка отключится автоматически.
-const GLOBAL_STATS_URL = 'https://vr-backend.apel-s-in.workers.dev'; // TODO: Вставьте ваш URL
+const GLOBAL_STATS_URL = 'https://vr-backend.apel-s-in.workers.dev';
+window.GLOBAL_STATS_URL = GLOBAL_STATS_URL; // добавьте эту строку
 
 // Cloudflare Turnstile ...
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
