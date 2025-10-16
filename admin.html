@@ -113,11 +113,29 @@ function authHeader() {
   const tok = sessionStorage.getItem(authKey);
   return tok ? { 'Authorization': tok } : {};
 }
-function needLogin(show=true) {
+
+// Показываем/прячем весь интерфейс админки в зависимости от наличия токена
+function guardApp() {
+  const authed = !!sessionStorage.getItem(authKey);
+  // Прячем/показываем шапку, оба main и футер
+  document.querySelectorAll('header, main, .footer').forEach(el => {
+    if (!el) return;
+    el.style.display = authed ? '' : 'none';
+  });
+  const login = document.getElementById('login');
+  if (login) login.style.display = authed ? 'none' : '';
+  return authed;
+}
+
+function needLogin(show = true) {
   const has = !!sessionStorage.getItem(authKey);
-  if (!has && show) document.getElementById('login').style.display = '';
+  if (!has && show) {
+    // сразу прячем приложение и открываем модалку
+    guardApp();
+  }
   return !has;
 }
+
 function adminLogin() {
   const u = document.getElementById('adm-user').value.trim();
   const p = document.getElementById('adm-pass').value.trim();
@@ -127,10 +145,20 @@ function adminLogin() {
   }
   const token = 'Basic ' + btoa(u + ':' + p);
   sessionStorage.setItem(authKey, token);
-  document.getElementById('login').style.display = 'none';
-  // пробный запрос
-  loadClaims();
+  // Показать интерфейс и загрузить данные
+  if (guardApp()) {
+    loadClaims();
+  }
 }
+
+// Вход по Enter в полях
+document.addEventListener('keydown', (e) => {
+  const loginShown = document.getElementById('login')?.style.display !== 'none';
+  if (!loginShown) return;
+  if (e.key === 'Enter') {
+    adminLogin();
+  }
+});
 
 function switchTab(tab) {
   document.getElementById('tab-claims').classList.toggle('active', tab==='claims');
@@ -258,9 +286,14 @@ async function sendReply() {
 }
 
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-window.addEventListener('load', ()=>{
-  // автозапуск
-  if (!needLogin(false)) loadClaims();
+window.addEventListener('load', () => {
+  // Если нет токена — прячем интерфейс, показываем модалку
+  if (needLogin(true)) {
+    return; // ждём ввода логина/пароля
+  }
+  // Если токен уже есть (например, из этой вкладки) — показать интерфейс и загрузить данные
+  guardApp();
+  loadClaims();
 });
 </script>
 </body>
