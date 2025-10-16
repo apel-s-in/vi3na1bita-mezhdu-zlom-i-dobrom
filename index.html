@@ -2195,21 +2195,20 @@
   </div>
   <!-- Модальные окна -->
   <div class="modal-bg" id="modal-feedback">
-    <div class="modal-feedback">
+    <div class="modal-feedback" style="max-width:420px;">
       <button class="bigclose" onclick="closeFeedbackModal()" title="Закрыть">
         <svg viewBox="0 0 48 48">
           <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
           <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
         </svg>
       </button>
-      <div id="feedback-step">
-        <div class="fake-textarea" onclick="showRealTextarea()">
-          Опишите здесь проблему или своё пожелание для улучшения,<br>можете просто оставить свой отзыв...
-        </div>
+      <div class="download-modal-title">Обратная связь</div>
+      <div id="fb-list" style="height:260px;overflow:auto;background:rgba(0,0,0,.2);border:1px solid #333;border-radius:8px;padding:8px;"></div>
+      <div id="fb-code" style="margin:6px 0;color:#9aa8c4;font-size:.9em;"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <input id="fb-input" type="text" placeholder="Ваш вопрос..." style="flex:1;padding:8px;border-radius:8px;border:1px solid #444;background:#111;color:#fff;">
+        <button class="offline-btn online" onclick="fbSend()" style="white-space:nowrap;">Отправить</button>
       </div>
-      <div id="modal-feedback-error" class="err-msg"></div>
-      <div id="modal-feedback-success" class="success-msg"></div>
-      <button onclick="sendFeedbackMsg()" id="send-feedback-btn">Отправить</button>
     </div>
   </div>
   
@@ -8689,62 +8688,98 @@ document.getElementById('install-modal').onclick = function(e) {
 window.addEventListener('appinstalled', () => {
   Ach.unlock('pwa_installed');
 });
-// ==================== ОБРАТНАЯ СВЯЗЬ ====================
-let isRealTextarea = false;
+// ==================== ОБРАТНАЯ СВЯЗЬ (чат) ====================
+let fbPollTimer = null;
 
-function openFeedbackModal() {
-  document.getElementById('modal-feedback').classList.add('active');
-  isRealTextarea = false;
-  document.getElementById('feedback-step').innerHTML = `
-    <div class="fake-textarea" id="fake-textarea" onclick="showRealTextarea()">
-      Опишите здесь проблему или своё пожелание для улучшения,<br>можете просто оставить свой отзыв...
-    </div>`;
-  document.getElementById('modal-feedback-error').innerText = "";
-  document.getElementById('modal-feedback-success').innerText = "";
-  document.getElementById('send-feedback-btn').disabled = false;
+function openFeedbackModal(){
+  const el = document.getElementById('modal-feedback');
+  if (!el) return;
+  el.classList.add('active');
+  fbLoadHistory();
+  if (fbPollTimer) clearInterval(fbPollTimer);
+  fbPollTimer = setInterval(fbLoadHistory, 8000);
 }
 
-function closeFeedbackModal() {
-  document.getElementById('modal-feedback').classList.remove('active');
+function closeFeedbackModal(){
+  const el = document.getElementById('modal-feedback');
+  if (el) el.classList.remove('active');
+  if (fbPollTimer) { clearInterval(fbPollTimer); fbPollTimer=null; }
 }
 
-function showRealTextarea() {
-  if (isRealTextarea) return;
-  isRealTextarea = true;
-  document.getElementById('feedback-step').innerHTML = 
-    `<textarea class="real-textarea" id="feedback-text" maxlength="200" autofocus></textarea>`;
-  
-  setTimeout(() => {
-    const ta = document.getElementById('feedback-text');
-    ta.focus();
-    ta.addEventListener('input', function() {
-      if (this.value.length > 200) this.value = this.value.substr(0, 200);
-    });
-  }, 20);
-}
+async function fbLoadHistory(){
+  try{
+    const dev = (typeof getDeviceHash === 'function') ? getDeviceHash() : '';
+    if (!dev || !window.GLOBAL_STATS_URL) return;
+    const res = await fetch(`${GLOBAL_STATS_URL}/feedback/history?device=${encodeURIComponent(dev)}`, { credentials:'include' });
+    const data = await res.json().catch(()=> ({}));
+    const list = document.getElementById('fb-list');
+    const codeEl = document.getElementById('fb-code');
+    if (!list || !codeEl) return;
 
-function sendFeedbackMsg() {
-  let msg = "";
-  if (isRealTextarea) {
-    const ta = document.getElementById('feedback-text');
-    msg = ta.value.trim();
-  } else return;
-  
-  const errorDiv = document.getElementById('modal-feedback-error');
-  const successDiv = document.getElementById('modal-feedback-success');
-  
-  errorDiv.innerText = "";
-  successDiv.innerText = "";
-  
-  if (msg.length < 5) {
-    errorDiv.innerText = "Напишите хотя бы пару слов!";
-    return;
+    if (data?.ok){
+      codeEl.textContent = data.code ? `Код диалога: #${data.code}` : '';
+      const msgs = data.messages || [];
+      list.innerHTML = msgs.map(m=>{
+        const when = new Date(m.created_at).toLocaleString();
+        const isAdmin = m.sender === 'admin';
+        const align = isAdmin ? 'flex-end' : 'flex-start';
+        const bg = isAdmin ? '#203020' : '#20283a';
+        return `<div style="display:flex;justify-content:${align};margin:6px 0;">
+          <div style="max-width:88%;background:${bg};padding:8px 10px;border-radius:10px;">
+            ${escapeHtml(m.text)}
+            <div style="color:#9aa8c4;font-size:.8em;margin-top:4px;">${when}</div>
+          </div>
+        </div>`;
+      }).join('');
+      list.scrollTop = list.scrollHeight;
+    }
+  }catch(e){
+    // тихо игнорируем, чтобы не спамить
   }
-  
-  document.getElementById('send-feedback-btn').disabled = true;
-  successDiv.innerText = "Спасибо! Ваш отзыв принят.";
-  setTimeout(closeFeedbackModal, 2100);
 }
+
+async function fbSend(){
+  const inp = document.getElementById('fb-input');
+  if (!inp) return;
+  const text = (inp.value||'').trim();
+  if (!text) return;
+  inp.value = ''; inp.disabled = true;
+  try{
+    const dev = (typeof getDeviceHash === 'function') ? getDeviceHash() : '';
+    if (!dev || !window.GLOBAL_STATS_URL) throw new Error('not_configured');
+    const res = await fetch(`${GLOBAL_STATS_URL}/feedback/send`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body: JSON.stringify({ text, deviceHash: dev })
+    });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) {
+      if (window.NotificationSystem?.error) NotificationSystem.error(`Не отправлено: ${data?.error||res.status}`);
+      else alert(`Не отправлено: ${data?.error||res.status}`);
+    } else {
+      if (window.NotificationSystem?.success) NotificationSystem.success('Отправлено');
+    }
+    fbLoadHistory();
+  }catch(e){
+    if (window.NotificationSystem?.error) NotificationSystem.error('Сеть недоступна');
+    else alert('Сеть недоступна');
+  } finally {
+    inp.disabled = false; inp.focus();
+  }
+}
+
+function escapeHtml(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// Закрытие по клику на фон оставляем как было: ниже в initializeMainUi уже есть
+// document.getElementById('modal-feedback').onclick = (e) => { if (e.target===this) closeFeedbackModal(); };
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ====================
 document.addEventListener('DOMContentLoaded', function() {
