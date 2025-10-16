@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>VR Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#0f1218;color:#e8eefc;margin:0}
+    header{padding:12px 16px;background:#171d29;border-bottom:1px solid #2b3955;display:flex;align-items:center;gap:10px}
+    h1{font-size:16px;margin:0;color:#9fc3ff}
+    .tabs{display:flex;gap:8px;margin-left:auto}
+    .tab{border:1px solid #2b3955;background:#1a2131;color:#cfe3ff;padding:6px 10px;border-radius:999px;cursor:pointer}
+    .tab.active{background:#4daaff;color:#fff;border-color:#4daaff}
+    main{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;align-items:start}
+    .card{background:#171d29;border:1px solid #2b3955;border-radius:10px;padding:10px}
+    .row{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.07)}
+    .row:last-child{border-bottom:none}
+    .muted{color:#9aa8c4}
+    .btn{border:none;border-radius:8px;background:#2a3550;color:#e8eefc;padding:6px 10px;cursor:pointer}
+    .btn.primary{background:#E80100}
+    .btn.warn{background:#8a2a2a}
+    .btn.ok{background:#27b34c}
+    input,textarea,select{background:#111826;color:#e8eefc;border:1px solid #2b3955;border-radius:8px;padding:7px}
+    .list{max-height:70vh;overflow:auto}
+    .pill{font-size:.9em;border:1px solid #2b3955;background:#1e2638;border-radius:999px;padding:2px 8px;color:#cfe3ff}
+    .flex{display:flex;gap:8px;align-items:center}
+    .w100{width:100%}
+    .split{display:grid;grid-template-columns:300px 1fr;gap:12px}
+    .msg{padding:8px 10px;border-radius:10px;margin:6px 0;max-width:88%}
+    .msg.user{background:#20283a}
+    .msg.admin{background:#203020;margin-left:auto}
+    .login-modal{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center}
+    .login-box{background:#171d29;border:1px solid #2b3955;border-radius:12px;padding:16px;min-width:280px}
+    .footer{padding:10px;text-align:center;color:#9aa8c4}
+    .search{display:flex;gap:8px;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VR Admin</h1>
+    <div class="tabs">
+      <button class="tab active" id="tab-claims">Заявки</button>
+      <button class="tab" id="tab-fb">Обратная связь</button>
+    </div>
+  </header>
+
+  <main id="view-claims">
+    <div class="card">
+      <div class="search">
+        <select id="claims-status">
+          <option value="">Все статусы</option>
+          <option value="pending">pending</option>
+          <option value="approved">approved</option>
+          <option value="rejected">rejected</option>
+          <option value="shipped">shipped</option>
+        </select>
+        <button class="btn" onclick="loadClaims()">Обновить</button>
+      </div>
+      <div class="list" id="claims-list"></div>
+    </div>
+    <div class="card">
+      <div class="muted">Клик по заявке слева — для действий</div>
+      <div id="claim-details" class="muted" style="margin-top:8px;">Ничего не выбрано</div>
+      <div style="margin-top:10px;display:none" id="claim-actions">
+        <div class="flex"><label class="muted">Причина (для rejected):</label><input class="w100" id="claim-reason" placeholder="Причина..."></div>
+        <div style="margin-top:8px;" class="flex">
+          <button class="btn ok" onclick="updateClaim('approved')">Одобрить</button>
+          <button class="btn warn" onclick="updateClaim('rejected')">Отклонить</button>
+          <button class="btn" onclick="updateClaim('shipped')">Отправлено</button>
+          <button class="btn" onclick="updateClaim('pending')">Вернуть в pending</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <main id="view-fb" style="display:none">
+    <div class="card">
+      <div class="search">
+        <input id="fb-q" placeholder="Поиск кода/устройства..." class="w100">
+        <button class="btn" onclick="loadThreads()">Искать</button>
+      </div>
+      <div class="list" id="thread-list"></div>
+    </div>
+    <div class="card">
+      <div id="thread-head" class="muted">Выберите тред слева</div>
+      <div class="list" id="msg-list" style="height:50vh;"></div>
+      <div class="flex" style="margin-top:8px;">
+        <input id="fb-reply" class="w100" placeholder="Ответить...">
+        <button class="btn primary" onclick="sendReply()">Отправить</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="footer">v1 • Basic Auth • Работает только по HTTPS</div>
+
+  <div id="login" class="login-modal" style="display:none;">
+    <div class="login-box">
+      <div style="font-weight:700;margin-bottom:8px;">Вход администратора</div>
+      <div class="flex" style="flex-direction:column;gap:6px;">
+        <input id="adm-user" placeholder="Логин">
+        <input id="adm-pass" placeholder="Пароль" type="password">
+        <button class="btn primary" onclick="adminLogin()">Войти</button>
+      </div>
+      <div id="login-err" class="muted" style="margin-top:8px;color:#ffb3b3;"></div>
+    </div>
+  </div>
+
+<script>
+const API = 'https://vr-backend.apel-s-in.workers.dev';
+const authKey = 'vr_admin_auth';
+
+function authHeader() {
+  const tok = sessionStorage.getItem(authKey);
+  return tok ? { 'Authorization': tok } : {};
+}
+function needLogin(show=true) {
+  const has = !!sessionStorage.getItem(authKey);
+  if (!has && show) document.getElementById('login').style.display = '';
+  return !has;
+}
+function adminLogin() {
+  const u = document.getElementById('adm-user').value.trim();
+  const p = document.getElementById('adm-pass').value.trim();
+  if (!u || !p) {
+    document.getElementById('login-err').textContent = 'Введите логин и пароль';
+    return;
+  }
+  const token = 'Basic ' + btoa(u + ':' + p);
+  sessionStorage.setItem(authKey, token);
+  document.getElementById('login').style.display = 'none';
+  // пробный запрос
+  loadClaims();
+}
+
+function switchTab(tab) {
+  document.getElementById('tab-claims').classList.toggle('active', tab==='claims');
+  document.getElementById('tab-fb').classList.toggle('active', tab==='fb');
+  document.getElementById('view-claims').style.display = (tab==='claims') ? '' : 'none';
+  document.getElementById('view-fb').style.display = (tab==='fb') ? '' : 'none';
+}
+document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
+document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
+
+// Claims
+let currentClaim = null;
+async function loadClaims() {
+  if (needLogin()) return;
+  const st = document.getElementById('claims-status').value;
+  const url = new URL(API + '/admin/claims');
+  if (st) url.searchParams.set('status', st);
+  url.searchParams.set('limit','100');
+  const res = await fetch(url, { headers: { ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('claims-list');
+  if (!data?.ok) { list.textContent = 'Ошибка загрузки'; return; }
+  list.innerHTML = (data.items||[]).map(c=>{
+    const dt = new Date(c.created_at).toLocaleString();
+    return `<div class="row" onclick="selectClaim('${c.id}')">
+      <div>
+        <div><span class="pill">${c.status}</span> <b>${c.user_name||'Пользователь'}</b></div>
+        <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)} · lvl:${c.level} · cyc:${c.cycle}</div>
+      </div>
+      <div class="muted">${dt}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('claim-details').textContent = 'Ничего не выбрано';
+  document.getElementById('claim-actions').style.display = 'none';
+  currentClaim = null;
+}
+async function selectClaim(id) {
+  const row = (await fetch(new URL(API+'/admin/claims?limit=1&offset=0&id='+id))).status; // no-op для видимости
+  const el = document.getElementById('claim-details');
+  el.innerHTML = `Заявка <b>#${id}</b><br><span class="muted">Статус меняется кнопками ниже</span>`;
+  currentClaim = id;
+  document.getElementById('claim-actions').style.display = '';
+}
+async function updateClaim(next) {
+  if (!currentClaim) return;
+  const reason = document.getElementById('claim-reason').value.trim();
+  const res = await fetch(API+'/admin/claim/update', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id: currentClaim, status: next, reason: (next==='rejected'?reason:null) })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
+  alert('Готово: '+next);
+  loadClaims();
+}
+
+// Feedback
+let currentThread = null;
+async function loadThreads() {
+  if (needLogin()) return;
+  const q = document.getElementById('fb-q').value.trim();
+  const url = new URL(API + '/admin/feedback/threads');
+  if (q) url.searchParams.set('q', q);
+  url.searchParams.set('limit','100');
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('thread-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(t=>{
+    const dt = new Date(t.last_message_at).toLocaleString();
+    return `<div class="row" onclick="openThread('${t.id}','${t.code}')">
+      <div>
+        <div><b>#${t.code}</b> · ${t.user_name||'Пользователь'}</div>
+        <div class="muted">dev:${(t.device_hash||'').slice(0,8)} · ${new Date(t.created_at).toLocaleDateString()}</div>
+      </div>
+      <div class="muted">${dt}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('thread-head').textContent = 'Выберите тред слева';
+  document.getElementById('msg-list').innerHTML = '';
+  currentThread = null;
+}
+async function openThread(id, code) {
+  currentThread = { id, code };
+  document.getElementById('thread-head').innerHTML = `Диалог <b>#${code}</b>`;
+  await loadMessages();
+}
+async function loadMessages() {
+  if (!currentThread) return;
+  const url = new URL(API + '/admin/feedback/messages');
+  url.searchParams.set('thread', currentThread.id);
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('msg-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(m=>{
+    const dt = new Date(m.created_at).toLocaleString();
+    const cls = m.sender==='admin'?'msg admin':'msg user';
+    return `<div class="${cls}">
+      <div>${escapeHtml(m.text)}</div>
+      <div class="muted" style="font-size:.8em;margin-top:4px">${dt}</div>
+    </div>`;
+  }).join('');
+  list.scrollTop = list.scrollHeight;
+}
+async function sendReply() {
+  const inp = document.getElementById('fb-reply');
+  const text = (inp.value||'').trim();
+  if (!text || !currentThread) return;
+  const res = await fetch(API+'/admin/feedback/reply', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ threadId: currentThread.id, text })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не отправлено: '+(data?.error||res.status)); return; }
+  inp.value = '';
+  loadMessages();
+}
+
+function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+window.addEventListener('load', ()=>{
+  // автозапуск
+  if (!needLogin(false)) loadClaims();
+});
+</script>
+</body>
+</html>
