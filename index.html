@@ -8710,7 +8710,7 @@ async function fbLoadHistory(){
   try{
     const dev = (typeof getDeviceHash === 'function') ? getDeviceHash() : '';
     if (!dev || !window.GLOBAL_STATS_URL) return;
-    const res = await fetch(`${GLOBAL_STATS_URL}/feedback/history?device=${encodeURIComponent(dev)}`, { credentials:'include' });
+    const res = await fetch(`${GLOBAL_STATS_URL}/feedback/history?device=${encodeURIComponent(dev)}`, { mode:'cors' });
     const data = await res.json().catch(()=> ({}));
     const list = document.getElementById('fb-list');
     const codeEl = document.getElementById('fb-code');
@@ -8750,7 +8750,7 @@ async function fbSend(){
     const res = await fetch(`${GLOBAL_STATS_URL}/feedback/send`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      credentials:'include',
+      mode:'cors',
       body: JSON.stringify({ text, deviceHash: dev })
     });
     const data = await res.json().catch(()=> ({}));
