@@ -2712,7 +2712,7 @@ window.GLOBAL_STATS_URL = GLOBAL_STATS_URL; // добавьте эту стро�
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
 
 // Telegram bot username для Login Widget — ВСТАВЬТЕ имя бота
-const TG_BOT_USERNAME = 'VitrinaRazbitaPrizesBot'; // ← замените на ваш @username без @
+const TG_BOT_USERNAME = 'vi3na1bita_feedback_bot'; // ← замените на ваш @username без @
 
 // Информационный порог для чек-листа на фронте (сервер проверяет сам env.MIN_CLAIM_LEVEL)
 const FRONT_MIN_CLAIM_LEVEL = 1;
@@ -4435,7 +4435,7 @@ const Prize = {
         // добавим в payload first_name если пусто, чтобы сервер его записал
         try { if (!user.first_name) user.first_name = name; } catch(e){}
       }
-      const body = { tg: user, deviceHash: getDeviceHash() };
+      const body = { tg: user, deviceHash: getDeviceHash(), displayName: name || null };
       const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
