@@ -4304,15 +4304,10 @@ const Prize = {
           <!-- Вид после входа -->
           <div class="prize-note" id="prize-name-view" style="display:none;text-align:center;font-weight:800;"></div>
 
-          <!-- Вид до входа -->
+          <!-- Вид до входа: ввод имени + КНОПКА от Telegram (виджет) -->
           <div class="prize-actions" id="tg-login-block" style="display:none;flex-direction:column;gap:8px;">
-            <input id="prize-name" placeholder="Ваше имя" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2b3955;background:#111;color:#fff;">
-            <button class="prize-btn" id="tg-login-btn" type="button" disabled>Авторизоваться через Telegram</button>
-            <div class="tg-holder" id="tg-holder" style="margin-top:4px;"></div>
-            <div class="prize-note" style="text-align:center;opacity:.8;">
-              Если кнопка не сработала, откройте бота: 
-              <a href="https://t.me/${TG_BOT_USERNAME}" target="_blank" rel="noopener" style="color:#9fc3ff;text-decoration:underline;">@${TG_BOT_USERNAME}</a>
-            </div>
+            <input id="prize-name" placeholder="Имя (как показывать под призами)" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2b3955;background:#111;color:#fff;">
+            <div class="tg-holder" id="tg-holder" style="margin-top:6px;"></div>
           </div>
         </div>
 
@@ -4341,14 +4336,8 @@ const Prize = {
     const claimBtn = document.getElementById('claim-btn');
     if (claimBtn) claimBtn.onclick = ()=> this.openPrizes();
 
-    const nameInp = document.getElementById('prize-name');
-    const tgLoginBtn = document.getElementById('tg-login-btn');
-    if (nameInp && tgLoginBtn) {
-      nameInp.addEventListener('input', () => {
-        tgLoginBtn.disabled = !(nameInp.value.trim().length > 0);
-      });
-      tgLoginBtn.addEventListener('click', () => this.showTelegramLogin());
-    }
+    // Монтируем Telegram Login Widget сразу (без лишних кнопок)
+    this.mountTelegramWidget();
   },
 
   toggleThumb(imgEl) {
@@ -4414,6 +4403,9 @@ const Prize = {
     }
 
     if (claimBtn) claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
+
+    // Если теперь условия готовы и пользователь не авторизован — смонтируем кнопку виджета
+    try { this.mountTelegramWidget(); } catch(e){}
   },
 
     setBusy(v) {
@@ -4426,40 +4418,51 @@ const Prize = {
       }
     },
 
-  // Показываем виджет Telegram только после ввода имени
-  showTelegramLogin() {
+  // Монтируем Telegram Login Widget (одна кнопка, без лишнего)
+  mountTelegramWidget() {
     const holder = document.getElementById('tg-holder');
-    if (!holder) return;
+    const block  = document.getElementById('tg-login-block');
+    if (!holder || !block) return;
+
+    // Показать блок входа, только если чек‑лист готов и ещё не авторизованы
+    const { achCount, need, cloud, tamper } = this.state.readiness;
+    const ready = (!tamper) && cloud && (achCount >= need);
+    block.style.display = (ready && !this.state.authed) ? '' : 'none';
+
+    // Если не нужно — не выводим повторно
+    if (!ready || this.state.authed) return;
+
     holder.innerHTML = '';
 
     if (!TG_BOT_USERNAME || TG_BOT_USERNAME.toLowerCase().includes('bot') === false) {
-      holder.innerHTML = `<div class="prize-note">Укажите корректный TG_BOT_USERNAME в коде</div>`;
+      holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME</div>`;
       return;
     }
 
-    // Рендерим кнопку Login Widget
     const scr = document.createElement('script');
     scr.src = 'https://telegram.org/js/telegram-widget.js?22';
-    scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
+    scr.setAttribute('data-telegram-login', TG_BOT_USERNAME); // без @
     scr.setAttribute('data-size', 'large');
     scr.setAttribute('data-userpic', 'false');
     scr.setAttribute('data-onauth', 'onTelegramAuth');
-    // request-access не обязателен для Login (нам не нужен чат-доступ), но не мешает
+    // request-access не обязателен; пусть остаётся
     scr.setAttribute('data-request-access', 'write');
     holder.appendChild(scr);
   },
 
+  // Минимальный обработчик входа + АВТОСЕЙВ в облако сразу после
   async onTelegramAuth(user) {
     try {
       if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
       this.setBusy(true);
 
-      // Сохраним tg_id/tg_username локально (на случай восстановления)
+      // Локально запомним tg_id/username (разовый сбор)
       try {
         if (user?.id) localStorage.setItem('tg_id', String(user.id));
         if (user?.username) localStorage.setItem('tg_username', String(user.username));
       } catch(e){}
 
+      // Отправим на сервер с вашим отображаемым именем
       const name = (document.getElementById('prize-name')?.value || '').trim();
       const body = { tg: user, deviceHash: getDeviceHash(), displayName: name || null };
 
@@ -4476,10 +4479,32 @@ const Prize = {
         return;
       }
 
+      // Сразу автосейв в облако (overwrite), чтобы «ПОЛУЧИТЬ ПРИЗ» активировалась
+      await backupSaveToCloudOverwriteSilent();
+
+      // Обновим профиль/сессию и чек‑лист
       await this.fetchMe(true);
-      NotificationSystem.success('Вход подтверждён через Telegram');
+      this.updateLocalReadiness(); // перечитать CLOUD_SAVED_OK
+      NotificationSystem.success('Вход через Telegram подтверждён');
+
+      // Скрываем блок входа и показываем имя
+      const block = document.getElementById('tg-login-block');
+      const holder = document.getElementById('tg-holder');
+      const inp = document.getElementById('prize-name');
+      const view = document.getElementById('prize-name-view');
+      if (holder) holder.innerHTML = '';
+      if (block) block.style.display = 'none';
+      if (inp) inp.style.display = 'none';
+      if (view) {
+        const shownName = this.state.user?.display_name || name || user?.first_name || user?.username || 'Пользователь';
+        view.style.display = '';
+        view.textContent = `Имя: ${shownName}`;
+      }
+
+      // На всякий случай ещё раз перерисовать кнопку
       this.paintChecklist();
     } catch (e) {
+      console.error(e);
       NotificationSystem.error('Не удалось войти (Telegram)');
     } finally {
       this.setBusy(false);
@@ -4645,6 +4670,10 @@ const Prize = {
 
     try {
       this.setBusy(true);
+
+      // Страховка: гарантируем облачный автосейв перед отправкой заявки
+      await ensureCloudBackupReady(3000); // подождём до 3 сек, если нужно
+
       const body = {
         deviceHash: getDeviceHash(),
         cycle: 1,
@@ -4663,15 +4692,22 @@ const Prize = {
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) {
         const err = data?.error || `HTTP_${res.status}`;
-        if (err === 'no_cloud_backup') NotificationSystem.error('Нет облачного бэкапа. Подождите минуту после автосейва и повторите.');
-        else if (err === 'level_too_low') NotificationSystem.error(`Нужно минимум ${data.need} достижений (сейчас ${data.level})`);
-        else if (err === 'duplicate') NotificationSystem.warning('Заявка уже создана');
-        else NotificationSystem.error(`Ошибка заявки: ${err}`);
+        if (err === 'no_cloud_backup') {
+          // ещё раз попробуем тихо сохранить, затем повторно покажем подсказку
+          await backupSaveToCloudOverwriteSilent();
+          NotificationSystem.error('Нет облачного бэкапа. Подождите пару секунд и повторите.');
+        } else if (err === 'level_too_low') {
+          NotificationSystem.error(`Нужно минимум ${data.need} достижений (сейчас ${data.level})`);
+        } else if (err === 'duplicate') {
+          NotificationSystem.warning('Заявка уже создана');
+        } else {
+          NotificationSystem.error(`Ошибка заявки: ${err}`);
+        }
         return;
       }
       NotificationSystem.success('Заявка отправлена');
       this.closeShipping();
-      await this.fetchStatus(); // блок “Мои заявки” появится
+      await this.fetchStatus();
     } catch (e) {
       NotificationSystem.error('Не удалось создать заявку');
     } finally {
@@ -5245,6 +5281,19 @@ async function backupSaveToCloudOverwriteSilent() {
     // молча игнорируем; повторим позже
     localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now()));
   }
+}
+// Гарантируем CLOUД_SAVED_OK: если нет — делаем тихий overwrite и ждём до timeoutMs
+async function ensureCloudBackupReady(timeoutMs = 2000) {
+  try {
+    if (localStorage.getItem('CLOUD_SAVED_OK') === '1') return true;
+    await backupSaveToCloudOverwriteSilent();
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      if (localStorage.getItem('CLOUD_SAVED_OK') === '1') return true;
+      await new Promise(r => setTimeout(r, 150));
+    }
+  } catch {}
+  return localStorage.getItem('CLOUD_SAVED_OK') === '1';
 }
 
 /**
