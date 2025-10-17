@@ -2211,7 +2211,94 @@
       </div>
     </div>
   </div>
-  
+  <!-- Модалка: Список призов -->
+  <div class="modal-bg" id="modal-prizes">
+    <div class="modal-feedback" style="max-width:420px;">
+      <button class="bigclose" onclick="Prize.closePrizesModal()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="download-modal-title">Выберите приз</div>
+      <div id="prize-list" class="prize-list-card"></div>
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="Prize.closePrizesModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: Детали приза -->
+  <div class="modal-bg" id="modal-prize-detail">
+    <div class="modal-feedback" style="max-width:420px;">
+      <button class="bigclose" onclick="Prize.closePrizeDetail()" title="Назад">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div id="prize-detail-body"></div>
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="Prize.backToPrizes()">Назад</button>
+        <button class="btn-primary" id="prize-detail-get-btn" onclick="Prize.openShipping()">Получить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: Способ доставки -->
+  <div class="modal-bg" id="modal-shipping">
+    <div class="modal-feedback" style="max-width:420px;">
+      <button class="bigclose" onclick="Prize.closeShipping()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="download-modal-title">Способ получения</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+        <button class="prize-btn" id="ship-btn-pickup" onclick="Prize.selectShipping('pickup')">ПВЗ СДЕК (без адреса)</button>
+        <button class="prize-btn" id="ship-btn-courier" onclick="Prize.selectShipping('courier')">Обычная доставка (адрес)</button>
+      </div>
+
+      <!-- Форма pickup -->
+      <div id="form-pickup" style="display:none;">
+        <div class="form-row">
+          <label>Город</label>
+          <input id="ship-city" placeholder="Например: Москва">
+        </div>
+        <div class="form-row">
+          <label>ПВЗ или код ПВЗ</label>
+          <input id="ship-pvz" placeholder="Например: ПВЗ CDEK-123 (улица/код)">
+        </div>
+        <div class="form-row">
+          <label>Комментарий (необязательно)</label>
+          <input id="ship-note" placeholder="Ваши пожелания по выдаче">
+        </div>
+      </div>
+
+      <!-- Форма courier -->
+      <div id="form-courier" style="display:none;">
+        <div class="form-row">
+          <label>ФИО</label>
+          <input id="ship-fio" placeholder="Как на посылке">
+        </div>
+        <div class="form-row">
+          <label>Полный адрес</label>
+          <textarea id="ship-address" class="real-textarea" placeholder="Город, улица, дом, квартира"></textarea>
+        </div>
+        <div class="form-row">
+          <label>Почтовый индекс</label>
+          <input id="ship-zip" placeholder="Индекс">
+        </div>
+      </div>
+
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="Prize.closeShipping()">Назад</button>
+        <button class="btn-primary" id="ship-submit" onclick="Prize.submitClaim()">Отправить</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-bg" id="modal-offline">
     <div class="modal-feedback" style="max-width:400px;">
       <button class="bigclose" onclick="closeOfflineModal()" title="Закрыть">
@@ -2577,7 +2664,7 @@ const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
 const TG_BOT_USERNAME = 'VitrinaRazbitaPrizesBot'; // ← замените на ваш @username без @
 
 // Информационный порог для чек-листа на фронте (сервер проверяет сам env.MIN_CLAIM_LEVEL)
-const FRONT_MIN_CLAIM_LEVEL = 10;
+const FRONT_MIN_CLAIM_LEVEL = 1;
 
 // Хелпер: получить одноразовый токен Turnstile (невидимый, без UI)
 async function getTurnstileToken(action = 'send_event') {
@@ -4125,7 +4212,7 @@ const MyStats = {
     }
   }
 };
-// ==== ПРИЗЫ: вход, чек‑лист, заявки ====
+// ==== ПРИЗЫ: вход, чек‑лист, заявки, призы, доставка ====
 const Prize = {
   root: null, body: null,
   state: {
@@ -4133,7 +4220,10 @@ const Prize = {
     user: null,
     claims: [],
     busy: false,
-    readiness: { achCount: 0, need: FRONT_MIN_CLAIM_LEVEL, cloud: false, tamper: false }
+    readiness: { achCount: 0, need: FRONT_MIN_CLAIM_LEVEL, cloud: false, tamper: false },
+    prizes: [],
+    selectedPrize: null,
+    shippingMethod: null
   },
 
   init() {
@@ -4142,9 +4232,8 @@ const Prize = {
     if (!this.root || !this.body) return;
     this.renderSkeleton();
 
-    // При старте — вычислим локальный чек-лист и спросим /me и статусы
     this.updateLocalReadiness();
-    this.fetchMe().then(()=> this.fetchStatus());
+    this.fetchMe(true).then(()=> this.fetchStatus());
 
     // Периодическое обновление статусов
     setInterval(()=> this.fetchStatus(), 30000);
@@ -4152,10 +4241,19 @@ const Prize = {
 
   renderSkeleton() {
     this.body.innerHTML = `
+      <!-- Галерея призов -->
+      <div class="prize-gallery" id="prize-gallery">
+        ${['prize-01.png','prize-02.png','prize-03.png','prize-04.png'].map(src=>`
+          <img class="prize-thumb" src="img/${src}" alt="Prize" onclick="Prize.toggleThumb(this)">
+        `).join('')}
+      </div>
+
+      <!-- Блок авторизации/чек-лист -->
       <div id="prize-auth-block">
-        <div class="tg-holder" id="tg-holder"></div>
-        <div class="prize-actions" id="dev-auth-holder" style="display:none;">
-          <button class="prize-btn" id="dev-auth-btn" type="button">DEV-вход (тест)</button>
+        <div class="prize-actions" id="tg-login-block" style="display:none;">
+          <input id="prize-name" placeholder="Ваше имя" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2b3955;background:#111;color:#fff;">
+          <div class="tg-holder" id="tg-holder" style="margin-top:8px;"></div>
+          <button class="prize-btn" id="tg-login-btn" type="button" disabled>Авторизоваться через Telegram</button>
         </div>
       </div>
 
@@ -4170,40 +4268,43 @@ const Prize = {
         <button class="prize-btn primary" id="claim-btn" type="button" disabled>ПОЛУЧИТЬ ПРИЗ</button>
       </div>
 
-      <div class="prize-status" id="prize-status" style="margin-top:10px;">
+      <div class="prize-status" id="prize-status" style="margin-top:10px; display:none;">
         <h4>Мои заявки</h4>
         <ul id="claim-list"></ul>
-        <div class="prize-note">Статусы: pending = на модерации, approved = принято, shipped = отправлено, rejected = отклонено</div>
-        <div style="text-align:center; margin-top:10px;">
-          <button class="prize-btn" onclick="Prize.deleteAccount()" style="background:#8a2a2a;">Удалить аккаунт</button>
-        </div>
+        <div class="prize-note">Статусы: pending = на модерации, approved = одобрено, shipped = отправлено, delivered = получено, rejected = отклонено</div>
+      </div>
+
+      <div style="text-align:center; margin-top:12px;">
+        <button class="prize-btn" onclick="Prize.deleteAccount()" style="background:#8a2a2a;">Удалить аккаунт</button>
       </div>
     `;
 
-    // DEV-кнопка (покажем, если сервер разрешил /auth/dev)
-    this.probeDevAuth().then(enabled=>{
-      const devHolder = document.getElementById('dev-auth-holder');
-      if (devHolder) devHolder.style.display = enabled ? '' : 'none';
-      if (enabled) {
-        const btn = document.getElementById('dev-auth-btn');
-        btn.onclick = ()=> this.devAuth();
-      }
-    });
-
-    // Рисуем Telegram виджет
-    this.mountTelegramLogin();
-
-    // Кнопка заявки
+    // Кнопки
     const claimBtn = document.getElementById('claim-btn');
-    if (claimBtn) claimBtn.onclick = ()=> this.createClaim();
+    if (claimBtn) claimBtn.onclick = ()=> this.openPrizes();
+
+    // Логика показа Telegram-гейта
+    const nameInp = document.getElementById('prize-name');
+    const tgLoginBtn = document.getElementById('tg-login-btn');
+    if (nameInp && tgLoginBtn) {
+      nameInp.addEventListener('input', () => {
+        tgLoginBtn.disabled = !(nameInp.value.trim().length > 0);
+      });
+      tgLoginBtn.addEventListener('click', () => this.showTelegramLogin());
+    }
+  },
+
+  toggleThumb(imgEl) {
+    // сворачиваем/разворачиваем картинку
+    const expanded = imgEl.classList.contains('expanded');
+    document.querySelectorAll('.prize-thumb').forEach(x => x.classList.remove('expanded'));
+    if (!expanded) imgEl.classList.add('expanded');
   },
 
   updateLocalReadiness() {
-    // Счётчик ачивок (видимых, без hidden)
     const achCount = getVisibleAchievementsCount();
     const cloud = localStorage.getItem('CLOUD_SAVED_OK') === '1';
     const tamper = localStorage.getItem('tamper_detected') === '1';
-
     this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper };
     this.paintChecklist();
   },
@@ -4223,46 +4324,46 @@ const Prize = {
     if (cloudEl) cloudEl.textContent = cloud ? 'есть' : 'нет';
     if (tamperEl) tamperEl.textContent = tamper ? 'обнаружена подмена' : 'OK';
 
-    // Подсветки
     rowAch.classList.remove('ok','warn','err');
     rowCloud.classList.remove('ok','warn','err');
     rowTamper.classList.remove('ok','warn','err');
-
     rowAch.classList.add(achCount >= need ? 'ok' : 'warn');
     rowCloud.classList.add(cloud ? 'ok' : 'warn');
     rowTamper.classList.add(tamper ? 'err' : 'ok');
 
     const ready = (!tamper) && cloud && (achCount >= need);
+
+    // Логика гейта: если ready && неавторизованы — показываем поле имени и кнопку TG
+    const tgBlock = document.getElementById('tg-login-block');
+    if (tgBlock) tgBlock.style.display = (ready && !this.state.authed) ? '' : 'none';
+
     if (flag) {
       flag.className = ready ? 'prize-ready' : 'prize-not-ready';
-      flag.textContent = ready ? 'Готово: можно подать заявку' : 'Недостаточно условий для заявки';
+      flag.textContent = ready ? (this.state.authed ? 'Готово: можно получить приз' : 'Готово: войдите через Telegram') :
+                                 'Недостаточно условий для заявки';
     }
-    if (claimBtn) {
-      claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
-    }
+    if (claimBtn) claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
   },
 
   setBusy(v) {
     this.state.busy = !!v;
     const claimBtn = document.getElementById('claim-btn');
-    if (claimBtn) claimBtn.disabled = !(this.state.authed && !this.state.busy && !localStorage.getItem('tamper_detected') && (getVisibleAchievementsCount() >= FRONT_MIN_CLAIM_LEVEL) && (localStorage.getItem('CLOUD_SAVED_OK')==='1'));
+    if (claimBtn) {
+      const { achCount, need, cloud, tamper } = this.state.readiness;
+      const ready = (!tamper) && cloud && (achCount >= need);
+      claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
+    }
   },
 
-  mountTelegramLogin() {
+  // Показываем виджет Telegram только после ввода имени
+  showTelegramLogin() {
     const holder = document.getElementById('tg-holder');
     if (!holder) return;
     holder.innerHTML = '';
-    // Если уже авторизованы — показывать имя вместо кнопки
-    if (this.state.authed && this.state.user) {
-      holder.innerHTML = `<div style="text-align:center;">Вошли как <b>${this.state.user.display_name || 'Пользователь'}</b></div>`;
-      return;
-    }
-    // Рисуем виджет Telegram (если задан username)
     if (!TG_BOT_USERNAME || TG_BOT_USERNAME.toLowerCase().includes('bot') === false) {
-      holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME в коде, чтобы включить вход через Telegram</div>`;
+      holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME в коде</div>`;
       return;
     }
-    // Встраиваем скрипт‑виджет динамически
     const scr = document.createElement('script');
     scr.src = 'https://telegram.org/js/telegram-widget.js?22';
     scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
@@ -4275,11 +4376,14 @@ const Prize = {
 
   async onTelegramAuth(user) {
     try {
-      if (!GLOBAL_STATS_URL) {
-        NotificationSystem.warning('Сервер призов не настроен');
-        return;
-      }
+      if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
       this.setBusy(true);
+      // Можно передавать введённое имя как display_name (мы храним его в users.display_name через сервер в d1UpsertUserTg)
+      const name = (document.getElementById('prize-name')?.value || '').trim();
+      if (name) {
+        // добавим в payload first_name если пусто, чтобы сервер его записал
+        try { if (!user.first_name) user.first_name = name; } catch(e){}
+      }
       const body = { tg: user, deviceHash: getDeviceHash() };
       const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
         method: 'POST',
@@ -4289,13 +4393,9 @@ const Prize = {
         body: JSON.stringify(body)
       });
       const data = await res.json().catch(()=> ({}));
-      if (!res.ok || !data?.ok) {
-        NotificationSystem.error(`Ошибка входа Telegram: ${data?.error || res.status}`);
-        return;
-      }
+      if (!res.ok || !data?.ok) { NotificationSystem.error(`Ошибка входа Telegram: ${data?.error || res.status}`); return; }
       await this.fetchMe(true);
       NotificationSystem.success('Вход выполнен (Telegram)');
-      this.mountTelegramLogin();
       this.paintChecklist();
     } catch (e) {
       NotificationSystem.error('Не удалось войти (Telegram)');
@@ -4304,177 +4404,248 @@ const Prize = {
     }
   },
 
-  async probeDevAuth() {
-    try {
-      if (!GLOBAL_STATS_URL) return false;
-      // Попробуем вызвать /auth/dev без тела с методом OPTIONS/POST? Смысл: нам нужно знать, включён ли DEBUG_DEV_AUTH на сервере.
-      // Упростим: отправим пустой dev-login и посмотрим код. Сервер вернёт 403 disabled.
-      const res = await fetch(`${GLOBAL_STATS_URL}/auth/dev`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        body: JSON.stringify({ name:'', deviceHash:'probe_only' })
-      });
-      // Если это реально создаст пользователя — плохо. Поэтому проверим: сервер вернёт dev:true только если включено.
-      const data = await res.json().catch(()=> ({}));
-      if (res.ok && data?.dev) {
-        // Сразу выходим из dev-сессии невозможно (нет logout). Но это тестовый путь — не использовать.
-        // Чтобы не оставлять “мусорную” сессию, просто сообщим.
-        NotificationSystem.warning('DEV-вход включён на сервере. Для теста используйте кнопку ниже.');
-        return true;
-      }
-      // Если disabled — будет 403 с {error:'disabled'}
-      return (res.status === 200 || res.status === 403);
-    } catch {
-      return false;
-    }
-  },
-
-  async devAuth() {
-    try {
-      if (!GLOBAL_STATS_URL) return;
-      this.setBusy(true);
-      const res = await fetch(`${GLOBAL_STATS_URL}/auth/dev`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        credentials: 'include',
-        body: JSON.stringify({ name: 'Tester', deviceHash: getDeviceHash() })
-      });
-      const data = await res.json().catch(()=> ({}));
-      if (!res.ok || !data?.ok) {
-        NotificationSystem.error(`DEV-вход недоступен: ${data?.error || res.status}`);
-        return;
-      }
-      await this.fetchMe(true);
-      NotificationSystem.success('DEV-вход выполнен');
-      this.mountTelegramLogin();
-      this.paintChecklist();
-    } catch (e) {
-      NotificationSystem.error('Ошибка DEV-входа');
-    } finally {
-      this.setBusy(false);
-    }
-  },
-
   async fetchMe(silent=false) {
     try {
       if (!GLOBAL_STATS_URL) return;
-      const res = await fetch(`${GLOBAL_STATS_URL}/me`, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'include'
-      });
+      const res = await fetch(`${GLOBAL_STATS_URL}/me`, { method:'GET', mode:'cors', credentials:'include' });
       const data = await res.json().catch(()=> ({}));
       if (res.ok && data?.ok && data?.auth) {
-        this.state.authed = true;
-        this.state.user = data.user;
-        // Показываем приветствие
+        this.state.authed = true; this.state.user = data.user;
         if (!silent) NotificationSystem.info(`Вы вошли как ${data.user?.display_name || 'Пользователь'}`);
       } else {
-        this.state.authed = false;
-        this.state.user = null;
+        this.state.authed = false; this.state.user = null;
       }
-      this.mountTelegramLogin();
       this.paintChecklist();
-    } catch (e) {
-      if (!silent) NotificationSystem.warning('Сервер недоступен (/me)');
-    }
+    } catch (e) { if (!silent) NotificationSystem.warning('Сервер недоступен (/me)'); }
   },
 
   async fetchStatus() {
     try {
       if (!GLOBAL_STATS_URL) return;
-      const res = await fetch(`${GLOBAL_STATS_URL}/claim/status`, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'include'
-      });
+      const res = await fetch(`${GLOBAL_STATS_URL}/claim/status`, { method:'GET', mode:'cors', credentials:'include' });
       const data = await res.json().catch(()=> ({}));
-      if (!res.ok || !data?.ok) {
-        this.renderClaims([]);
-        return;
-      }
+      if (!res.ok || !data?.ok) { this.renderClaims([]); return; }
       this.renderClaims(data.claims || []);
-    } catch {
-      this.renderClaims([]);
-    }
+    } catch { this.renderClaims([]); }
   },
 
   renderClaims(claims) {
     this.state.claims = claims;
+    const box = document.getElementById('prize-status');
     const ul = document.getElementById('claim-list');
-    if (!ul) return;
+    if (!box || !ul) return;
+
     if (!claims.length) {
-      ul.innerHTML = `<li><span>—</span><span>нет</span></li>`;
+      box.style.display = 'none';
+      ul.innerHTML = '';
       return;
     }
+    box.style.display = '';
+
     const fmtDate = (ms)=> new Date(ms).toLocaleString();
     ul.innerHTML = claims.map(c=>{
-      return `<li><span>#${c.id.slice(0,8)}</span><span>${c.status}${c.reason ? ' · '+c.reason : ''}</span></li>`;
+      const left = `<span>#${c.id.slice(0,8)} · ${c.prize_title || '—'}</span>`;
+      let right = c.status;
+      // Кнопки по статусам
+      if (['pending','approved'].includes(c.status)) {
+        right = `<button class="prize-btn" style="background:#8a2a2a;" onclick="Prize.cancelClaim('${c.id}')">Отмена</button>`;
+      } else if (c.status === 'shipped') {
+        const tr = c.tracking_code || '';
+        const copyBtn = tr ? `<button class="prize-btn" onclick="Prize.copyTracking('${tr}')">Скопировать</button>` : '';
+        const openBtn = tr ? `<button class="prize-btn" onclick="Prize.openTracking('${tr}')">Открыть</button>` : '';
+        right = `трек: ${tr||'—'} ${copyBtn} ${openBtn} <button class="prize-btn" onclick="Prize.markReceived('${c.id}')">Я получил</button>`;
+      }
+      } else if (c.status === 'rejected') {
+        right = `<button class="prize-btn" onclick="openFeedbackModal()">Обратная связь</button>`;
+      }
+      return `<li><span>${left}</span><span>${right}</span></li>`;
     }).join('');
   },
+  copyTracking(code) {
+    if (!code) return;
+    navigator.clipboard?.writeText(code).then(
+      ()=> NotificationSystem.success('Трек‑номер скопирован'),
+      ()=> NotificationSystem.error('Не удалось скопировать')
+    );
+  },
+  openTracking(code) {
+    if (!code) return;
+    // Простая эвристика: если 14 цифр — Почта, иначе универсальный трекер
+    const isPochta = /^[0-9]{14}$/.test(code);
+    const url = isPochta
+      ? `https://www.pochta.ru/tracking#${encodeURIComponent(code)}`
+      : `https://track24.ru/?code=${encodeURIComponent(code)}`;
+    window.open(url, '_blank');
+  },
+  // ——— Список призов / детали ———
+  openPrizes() {
+    // грузим с сервера список, рисуем модалку
+    this.loadPrizes().then(()=>{
+      const list = document.getElementById('prize-list');
+      if (list) {
+        list.innerHTML = (this.state.prizes || []).map(p => `
+          <div class="prize-card">
+            <img src="${p.img}" alt="">
+            <div><div class="title">${p.title}</div><div class="sub">${p.short}</div></div>
+            <button class="prize-btn choose" onclick="Prize.openPrizeDetail('${p.id}')">Выбрать</button>
+          </div>
+        `).join('');
+      }
+      document.getElementById('modal-prizes')?.classList.add('active');
+    }).catch(()=> NotificationSystem.error('Не удалось загрузить призы'));
+  },
+  closePrizesModal(){ document.getElementById('modal-prizes')?.classList.remove('active'); },
+  backToPrizes(){ document.getElementById('modal-prize-detail')?.classList.remove('active'); this.openPrizes(); },
 
-  async createClaim() {
+  async loadPrizes() {
+    if (!GLOBAL_STATS_URL) throw new Error('no api');
+    if (this.state.prizes.length) return;
+    const res = await fetch(`${GLOBAL_STATS_URL}/prizes`);
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) throw new Error('bad');
+    this.state.prizes = data.items || [];
+  },
+
+  openPrizeDetail(id) {
+    const p = (this.state.prizes || []).find(x => x.id === id);
+    if (!p) return;
+    this.state.selectedPrize = p;
+    const body = document.getElementById('prize-detail-body');
+    if (body) {
+      body.innerHTML = `
+        <img src="${p.img}" class="prize-detail-img" alt="">
+        <div style="font-weight:800; margin-bottom:6px;">${p.title}</div>
+        <div style="color:#cfe3ff;">${p.long}</div>
+      `;
+    }
+    this.closePrizesModal();
+    document.getElementById('modal-prize-detail')?.classList.add('active');
+  },
+  closePrizeDetail(){ document.getElementById('modal-prize-detail')?.classList.remove('active'); },
+
+  // ——— Способ доставки ———
+  openShipping() {
+    if (!this.state.selectedPrize) return;
+    document.getElementById('modal-prize-detail')?.classList.remove('active');
+    this.state.shippingMethod = null;
+    // скрыть формы
+    document.getElementById('form-pickup').style.display = 'none';
+    document.getElementById('form-courier').style.display = 'none';
+    document.getElementById('modal-shipping')?.classList.add('active');
+  },
+  closeShipping(){ document.getElementById('modal-shipping')?.classList.remove('active'); },
+
+  selectShipping(kind) {
+    this.state.shippingMethod = kind; // pickup|courier
+    document.getElementById('form-pickup').style.display = (kind==='pickup') ? '' : 'none';
+    document.getElementById('form-courier').style.display = (kind==='courier') ? '' : 'none';
+  },
+
+  async submitClaim() {
+    if (!GLOBAL_STATS_URL) return;
+    if (!this.state.selectedPrize) { NotificationSystem.warning('Выберите приз'); return; }
+    if (!this.state.shippingMethod) { NotificationSystem.warning('Выберите способ получения'); return; }
+
+    // валидация форм
+    let shipping = {};
+    if (this.state.shippingMethod === 'pickup') {
+      const city = document.getElementById('ship-city').value.trim();
+      const pvz  = document.getElementById('ship-pvz').value.trim();
+      const note = document.getElementById('ship-note').value.trim();
+      if (!city || !pvz) { NotificationSystem.warning('Укажите город и ПВЗ/код ПВЗ'); return; }
+      shipping = { city, pvz, note };
+    } else {
+      const fio = document.getElementById('ship-fio').value.trim();
+      const addr= document.getElementById('ship-address').value.trim();
+      const zip = document.getElementById('ship-zip').value.trim();
+      if (!fio || !addr || !zip) { NotificationSystem.warning('Заполните ФИО, адрес и индекс'); return; }
+      shipping = { fullName: fio, address: addr, zip };
+    }
+
     try {
-      if (!GLOBAL_STATS_URL) return;
       this.setBusy(true);
-
-      // Обновляем чек‑лист перед отправкой
-      this.updateLocalReadiness();
-      const { achCount, need, cloud, tamper } = this.state.readiness;
-      if (tamper) { NotificationSystem.error('Исправьте данные (восстановите из бэкапа)'); return;}
-      if (!cloud) { NotificationSystem.error('Сделайте облачный бэкап'); return;}
-      if (achCount < need) { NotificationSystem.error(`Нужно достижений: минимум ${need}`); return;}
-      if (!this.state.authed) { NotificationSystem.error('Сначала войдите через Telegram'); return;}
-
+      const body = {
+        deviceHash: getDeviceHash(),
+        cycle: 1,
+        prizeId: this.state.selectedPrize.id,
+        prizeTitle: this.state.selectedPrize.title,
+        shippingMethod: this.state.shippingMethod,
+        shipping
+      };
       const res = await fetch(`${GLOBAL_STATS_URL}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        credentials: 'include',
-        body: JSON.stringify({ deviceHash: getDeviceHash(), cycle: 1 })
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        mode:'cors',
+        credentials:'include',
+        body: JSON.stringify(body)
       });
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) {
         const err = data?.error || `HTTP_${res.status}`;
-        if (err === 'no_cloud_backup') NotificationSystem.error('На сервере нет вашего облачного бэкапа. Подождите минуту после автосейва и повторите.');
-        else if (err === 'level_too_low') NotificationSystem.error(`Недостаточно ачивок (есть ${data.level}, нужно ${data.need})`);
-        else if (err === 'duplicate') NotificationSystem.warning('Заявка на этот цикл уже создана');
+        if (err === 'no_cloud_backup') NotificationSystem.error('Нет облачного бэкапа. Подождите минуту после автосейва и повторите.');
+        else if (err === 'level_too_low') NotificationSystem.error(`Нужно минимум ${data.need} достижений (сейчас ${data.level})`);
+        else if (err === 'duplicate') NotificationSystem.warning('Заявка уже создана');
         else NotificationSystem.error(`Ошибка заявки: ${err}`);
         return;
       }
-      NotificationSystem.success('Заявка создана');
-      this.fetchStatus();
+      NotificationSystem.success('Заявка отправлена');
+      this.closeShipping();
+      await this.fetchStatus(); // блок “Мои заявки” появится
     } catch (e) {
       NotificationSystem.error('Не удалось создать заявку');
     } finally {
       this.setBusy(false);
     }
   },
+
+  async cancelClaim(id) {
+    if (!GLOBAL_STATS_URL) return;
+    if (!confirm('Отменить эту заявку?')) return;
+    try{
+      const res = await fetch(`${GLOBAL_STATS_URL}/claim/cancel`, {
+        method:'POST', mode:'cors', credentials:'include',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) { NotificationSystem.error(`Не удалось отменить (${data?.error||res.status})`); return; }
+      NotificationSystem.success('Заявка отменена');
+      this.fetchStatus();
+    } catch { NotificationSystem.error('Ошибка отмены'); }
+  },
+
+  async markReceived(id) {
+    if (!GLOBAL_STATS_URL) return;
+    if (!confirm('Подтвердить получение?')) return;
+    try{
+      const res = await fetch(`${GLOBAL_STATS_URL}/claim/received`, {
+        method:'POST', mode:'cors', credentials:'include',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) { NotificationSystem.error(`Не удалось подтвердить (${data?.error||res.status})`); return; }
+      NotificationSystem.success('Спасибо! Статус обновлён');
+      this.fetchStatus();
+    } catch { NotificationSystem.error('Ошибка подтверждения'); }
+  },
+
   async deleteAccount() {
     if (!GLOBAL_STATS_URL) return;
     if (!confirm('Удалить аккаунт и отвязать устройства? Это действие необратимо.')) return;
     try {
-      const res = await fetch(`${GLOBAL_STATS_URL}/account/delete`, {
-        method:'POST',
-        mode:'cors',
-        credentials:'include'
-      });
+      const res = await fetch(`${GLOBAL_STATS_URL}/account/delete`, { method:'POST', mode:'cors', credentials:'include' });
       const data = await res.json().catch(()=> ({}));
-      if (!res.ok || !data?.ok) {
-        NotificationSystem.error('Не удалось удалить аккаунт');
-        return;
-      }
+      if (!res.ok || !data?.ok) { NotificationSystem.error('Не удалось удалить аккаунт'); return; }
       NotificationSystem.success('Аккаунт удалён');
-      // Обновим состояние интерфейса
       this.state.authed = false; this.state.user = null;
-      this.mountTelegramLogin(); this.paintChecklist(); this.fetchStatus();
-    } catch {
-      NotificationSystem.error('Ошибка удаления аккаунта');
-    }
+      this.paintChecklist(); this.renderClaims([]);
+    } catch { NotificationSystem.error('Ошибка удаления аккаунта'); }
   }
 };
+
+// Глобальный callback для Telegram Login Widget
+window.onTelegramAuth = (user) => { try { Prize.onTelegramAuth(user); } catch(e){ console.error(e); } };
 
 // Глобальный callback для Telegram Login Widget
 window.onTelegramAuth = (user) => {
