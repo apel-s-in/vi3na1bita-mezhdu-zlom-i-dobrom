@@ -4454,7 +4454,6 @@ const Prize = {
         const copyBtn = tr ? `<button class="prize-btn" onclick="Prize.copyTracking('${tr}')">Скопировать</button>` : '';
         const openBtn = tr ? `<button class="prize-btn" onclick="Prize.openTracking('${tr}')">Открыть</button>` : '';
         right = `трек: ${tr||'—'} ${copyBtn} ${openBtn} <button class="prize-btn" onclick="Prize.markReceived('${c.id}')">Я получил</button>`;
-      }
       } else if (c.status === 'rejected') {
         right = `<button class="prize-btn" onclick="openFeedbackModal()">Обратная связь</button>`;
       }
@@ -4643,9 +4642,6 @@ const Prize = {
     } catch { NotificationSystem.error('Ошибка удаления аккаунта'); }
   }
 };
-
-// Глобальный callback для Telegram Login Widget
-window.onTelegramAuth = (user) => { try { Prize.onTelegramAuth(user); } catch(e){ console.error(e); } };
 
 // Глобальный callback для Telegram Login Widget
 window.onTelegramAuth = (user) => {
