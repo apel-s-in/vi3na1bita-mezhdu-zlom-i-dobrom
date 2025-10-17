@@ -41,6 +41,7 @@
     <div class="tabs">
       <button class="tab active" id="tab-claims">Заявки</button>
       <button class="tab" id="tab-fb">Обратная связь</button>
+      <button class="tab" id="tab-prizes">Призы</button>
       <button class="tab" id="tab-logout" title="Выйти">Logout</button>
     </div>
   </header>
@@ -77,8 +78,15 @@
         <div style="margin-top:8px;" class="flex">
           <button class="btn ok" onclick="updateClaim('approved')">Одобрить</button>
           <button class="btn warn" onclick="updateClaim('rejected')">Отклонить</button>
-          <button class="btn" onclick="updateClaim('shipped')">Отправлено</button>
           <button class="btn" onclick="updateClaim('pending')">Вернуть в pending</button>
+        </div>
+        <hr style="border-color:#2b3955;margin:10px 0;">
+        <div class="flex">
+          <input class="w100" id="claim-tracking" placeholder="Трек‑номер (для shipped)">
+          <button class="btn" onclick="setTracking()">Отправлено</button>
+        </div>
+        <div class="flex" style="margin-top:6px;">
+          <button class="btn" onclick="markDelivered()">Получено</button>
         </div>
       </div>
     </div>
@@ -101,7 +109,28 @@
       </div>
     </div>
   </main>
-
+  <main id="view-prizes" style="display:none">
+    <div class="card">
+      <div class="search">
+        <button class="btn" onclick="loadPrizesAdmin()">Обновить</button>
+      </div>
+      <div class="list" id="adm-prizes-list"></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:8px;">Редактор</div>
+      <div class="flex" style="flex-direction:column;gap:6px;">
+        <input id="adm-prize-id" placeholder="ID (пусто для нового)">
+        <input id="adm-prize-title" placeholder="Название">
+        <input id="adm-prize-short" placeholder="Коротко">
+        <textarea id="adm-prize-long" class="w100" placeholder="Описание"></textarea>
+        <input id="adm-prize-img" placeholder="URL картинки (img/...)">
+        <div class="flex">
+          <button class="btn ok" onclick="savePrize()">Сохранить</button>
+          <button class="btn warn" onclick="deletePrize()">Удалить</button>
+        </div>
+      </div>
+    </div>
+  </main>
   <div class="footer">v1 • Basic Auth • Работает только по HTTPS</div>
 
   <div id="login" class="login-modal" style="display:none;">
@@ -117,6 +146,70 @@
   </div>
 
 <script>
+async function loadPrizesAdmin() {
+  if (needLogin()) return;
+  const res = await fetch(API+'/admin/prizes', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('adm-prizes-list');
+  if (!data?.ok) { list.textContent='Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(p => `
+    <div class="row" onclick="fillPrizeForm('${p.id}')">
+      <div>
+        <div><b>${escapeHtml(p.title||p.id)}</b></div>
+        <div class="muted">${escapeHtml(p.short||'')}</div>
+      </div>
+      <div class="muted" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.img||'')}</div>
+    </div>
+  `).join('');
+  window.__admPrizes = data.items || [];
+}
+
+function fillPrizeForm(id) {
+  const p = (window.__admPrizes||[]).find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('adm-prize-id').value = p.id;
+  document.getElementById('adm-prize-title').value = p.title||'';
+  document.getElementById('adm-prize-short').value = p.short||'';
+  document.getElementById('adm-prize-long').value = p.long||'';
+  document.getElementById('adm-prize-img').value = p.img||'';
+}
+
+async function savePrize() {
+  if (needLogin()) return;
+  const id    = document.getElementById('adm-prize-id').value.trim();
+  const title = document.getElementById('adm-prize-title').value.trim();
+  const short = document.getElementById('adm-prize-short').value.trim();
+  const long  = document.getElementById('adm-prize-long').value.trim();
+  const img   = document.getElementById('adm-prize-img').value.trim();
+  if (!title || !img) { alert('Заполните название и картинку'); return; }
+  const res = await fetch(API+'/admin/prize/upsert', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id:id||undefined, title, short, long, img })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
+  alert('Сохранено'); loadPrizesAdmin();
+}
+
+async function deletePrize() {
+  if (needLogin()) return;
+  const id = document.getElementById('adm-prize-id').value.trim();
+  if (!id) { alert('Укажите ID'); return; }
+  if (!confirm('Удалить приз?')) return;
+  const res = await fetch(API+'/admin/prize/delete', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
+  alert('Удалено'); loadPrizesAdmin();
+}
+
 const API = 'https://vr-backend.apel-s-in.workers.dev';
 const authKey = 'vr_admin_auth';
 
@@ -174,11 +267,15 @@ document.addEventListener('keydown', (e) => {
 function switchTab(tab) {
   document.getElementById('tab-claims').classList.toggle('active', tab==='claims');
   document.getElementById('tab-fb').classList.toggle('active', tab==='fb');
+  document.getElementById('tab-prizes').classList.toggle('active', tab==='prizes');
   document.getElementById('view-claims').style.display = (tab==='claims') ? '' : 'none';
   document.getElementById('view-fb').style.display = (tab==='fb') ? '' : 'none';
+  document.getElementById('view-prizes').style.display = (tab==='prizes') ? '' : 'none';
+  if (tab==='prizes') loadPrizesAdmin();
 }
 document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
+document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
 document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
 
 // Claims
@@ -277,7 +374,35 @@ async function updateClaim(next) {
   alert('Готово: '+next);
   loadClaims();
 }
+async function setTracking() {
+  if (!currentClaim) return;
+  const tracking = document.getElementById('claim-tracking').value.trim();
+  if (!tracking) { alert('Введите трек‑номер'); return; }
+  const res = await fetch(API+'/admin/claim/tracking', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id: currentClaim, tracking })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
+  alert('Статус: shipped, трек установлен');
+  loadClaims();
+}
 
+async function markDelivered() {
+  if (!currentClaim) return;
+  const res = await fetch(API+'/admin/claim/delivered', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id: currentClaim })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
+  alert('Статус: delivered');
+  loadClaims();
+}
 async function exportClaimsCSV() {
   if (needLogin()) return;
   const st  = document.getElementById('claims-status').value;
@@ -301,7 +426,60 @@ async function exportClaimsCSV() {
 }
 
 // Feedback
-async function openThread(id, code) {
+let currentThread = null;
+
+async function loadThreads() {
+  if (needLogin()) return;
+  const q = document.getElementById('fb-q').value.trim();
+  const url = new URL(API + '/admin/feedback/threads');
+  if (q) url.searchParams.set('q', q);
+  url.searchParams.set('limit','100');
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('thread-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(t=>{
+    const dt = new Date(t.last_message_at).toLocaleString();
+    const st = t.status || 'open';
+    return `<div class="row" onclick="openThread('${t.id}','${t.code}','${st}')">
+      <div>
+        <div><b>#${t.code}</b> · ${t.user_name||'Пользователь'} · <span class="pill">${st}</span></div>
+        <div class="muted">dev:${(t.device_hash||'').slice(0,8)} · ${new Date(t.created_at).toLocaleDateString()}</div>
+      </div>
+      <div class="muted">${dt}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('thread-head').textContent = 'Выберите тред слева';
+  document.getElementById('msg-list').innerHTML = '';
+  currentThread = null;
+}
+
+async function openThread(id, code, status='open') {
+  currentThread = { id, code, status };
+  const head = document.getElementById('thread-head');
+  head.innerHTML = `Диалог <b>#${code}</b> · <span class="pill">${status}</span>
+    <button class="btn" style="margin-left:8px" onclick="toggleThreadStatus()">
+      ${status==='closed'?'Открыть':'Закрыть'}
+    </button>`;
+  await loadMessages();
+}
+
+async function toggleThreadStatus() {
+  if (!currentThread) return;
+  const next = currentThread.status === 'closed' ? 'open' : 'closed';
+  const res = await fetch(API + '/admin/feedback/close', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ threadId: currentThread.id, status: next })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
+  currentThread.status = next;
+  openThread(currentThread.id, currentThread.code, currentThread.status);
+}
+
 async function loadMessages() {
   if (!currentThread) return;
   const url = new URL(API + '/admin/feedback/messages');
@@ -321,6 +499,7 @@ async function loadMessages() {
   }).join('');
   list.scrollTop = list.scrollHeight;
 }
+
 async function sendReply() {
   const inp = document.getElementById('fb-reply');
   const text = (inp.value||'').trim();
