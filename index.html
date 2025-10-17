@@ -2712,7 +2712,7 @@ window.GLOBAL_STATS_URL = GLOBAL_STATS_URL; // добавьте эту стро�
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
 
 // Telegram bot username для Login Widget — ВСТАВЬТЕ имя бота
-const TG_BOT_USERNAME = 'vi3na1bita_feedback_bot'; // ← замените на ваш @username без @
+const TG_BOT_USERNAME = 'vi3na1bita_login_bot'; // ← замените на ваш @username без @
 
 // Информационный порог для чек-листа на фронте (сервер проверяет сам env.MIN_CLAIM_LEVEL)
 const FRONT_MIN_CLAIM_LEVEL = 1;
@@ -4292,49 +4292,55 @@ const Prize = {
 
   renderSkeleton() {
     this.body.innerHTML = `
-      <!-- Галерея призов -->
-      <div class="prize-gallery" id="prize-gallery">
-        ${['prize-01.png','prize-02.png','prize-03.png','prize-04.png'].map(src=>`
-          <img class="prize-thumb" src="img/${src}" alt="Prize" onclick="Prize.toggleThumb(this)">
-        `).join('')}
-      </div>
-
-      <!-- Блок авторизации/чек-лист -->
-      <div id="prize-auth-block">
-        <div class="prize-actions" id="tg-login-block" style="display:none;">
-          <input id="prize-name" placeholder="Ваше имя" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2b3955;background:#111;color:#fff;">
-          <div class="tg-holder" id="tg-holder" style="margin-top:8px;"></div>
-          <button class="prize-btn" id="tg-login-btn" type="button" disabled>Авторизоваться через Telegram</button>
+        <!-- Галерея призов -->
+        <div class="prize-gallery" id="prize-gallery">
+          ${['prize-01.png','prize-02.png','prize-03.png','prize-04.png'].map(src=>`
+            <img class="prize-thumb" src="img/${src}" alt="Prize" onclick="Prize.toggleThumb(this)">
+          `).join('')}
         </div>
-      </div>
 
-      <div id="prize-checklist" style="margin-top:8px;">
-        <div class="prize-row" id="row-ach"><span>🏆</span><span>Достижения: <b id="ach-count">0</b> / минимум <b id="ach-need">${FRONT_MIN_CLAIM_LEVEL}</b></span></div>
-        <div class="prize-row" id="row-cloud"><span>☁️</span><span>Облачный бэкап: <b id="cloud-state">нет</b></span></div>
-        <div class="prize-row" id="row-tamper"><span>🛡️</span><span>Честность данных: <b id="tamper-state">проверка…</b></span></div>
-        <div id="prize-ready-flag" class="prize-not-ready">Недостаточно условий для заявки</div>
-      </div>
+        <!-- Блок авторизации/чек-лист -->
+        <div id="prize-auth-block">
+          <!-- Вид после входа -->
+          <div class="prize-note" id="prize-name-view" style="display:none;text-align:center;font-weight:800;"></div>
 
-      <div class="prize-actions" style="margin-top:10px;">
-        <button class="prize-btn primary" id="claim-btn" type="button" disabled>ПОЛУЧИТЬ ПРИЗ</button>
-      </div>
+          <!-- Вид до входа -->
+          <div class="prize-actions" id="tg-login-block" style="display:none;flex-direction:column;gap:8px;">
+            <input id="prize-name" placeholder="Ваше имя" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2b3955;background:#111;color:#fff;">
+            <button class="prize-btn" id="tg-login-btn" type="button" disabled>Авторизоваться через Telegram</button>
+            <div class="tg-holder" id="tg-holder" style="margin-top:4px;"></div>
+            <div class="prize-note" style="text-align:center;opacity:.8;">
+              Если кнопка не сработала, откройте бота: 
+              <a href="https://t.me/${TG_BOT_USERNAME}" target="_blank" rel="noopener" style="color:#9fc3ff;text-decoration:underline;">@${TG_BOT_USERNAME}</a>
+            </div>
+          </div>
+        </div>
 
-      <div class="prize-status" id="prize-status" style="margin-top:10px; display:none;">
-        <h4>Мои заявки</h4>
-        <ul id="claim-list"></ul>
-        <div class="prize-note">Статусы: pending = на модерации, approved = одобрено, shipped = отправлено, delivered = получено, rejected = отклонено</div>
-      </div>
+        <div id="prize-checklist" style="margin-top:8px;">
+          <div class="prize-row" id="row-ach"><span>🏆</span><span>Достижения: <b id="ach-count">0</b> / минимум <b id="ach-need">${FRONT_MIN_CLAIM_LEVEL}</b></span></div>
+          <div class="prize-row" id="row-cloud"><span>☁️</span><span>Облачный бэкап: <b id="cloud-state">нет</b></span></div>
+          <div class="prize-row" id="row-tamper"><span>🛡️</span><span>Честность данных: <b id="tamper-state">проверка…</b></span></div>
+          <div id="prize-ready-flag" class="prize-not-ready">Недостаточно условий для заявки</div>
+        </div>
 
-      <div style="text-align:center; margin-top:12px;">
-        <button class="prize-btn" onclick="Prize.deleteAccount()" style="background:#8a2a2a;">Удалить аккаунт</button>
-      </div>
-    `;
+        <div class="prize-actions" style="margin-top:10px;">
+          <button class="prize-btn primary" id="claim-btn" type="button" disabled>ПОЛУЧИТЬ ПРИЗ</button>
+        </div>
 
-    // Кнопки
+        <div class="prize-status" id="prize-status" style="margin-top:10px; display:none;">
+          <h4>Мои заявки</h4>
+          <ul id="claim-list"></ul>
+          <div class="prize-note">Статусы: pending = на модерации, approved = одобрено, shipped = отправлено, delivered = получено, rejected = отклонено</div>
+        </div>
+
+        <div style="text-align:center; margin-top:12px;">
+          <button class="prize-btn" onclick="Prize.deleteAccount()" style="background:#8a2a2a;">Удалить аккаунт</button>
+        </div>
+      `;
+
     const claimBtn = document.getElementById('claim-btn');
     if (claimBtn) claimBtn.onclick = ()=> this.openPrizes();
 
-    // Логика показа Telegram-гейта
     const nameInp = document.getElementById('prize-name');
     const tgLoginBtn = document.getElementById('tg-login-btn');
     if (nameInp && tgLoginBtn) {
@@ -4370,6 +4376,8 @@ const Prize = {
     const rowTamper = document.getElementById('row-tamper');
     const flag = document.getElementById('prize-ready-flag');
     const claimBtn = document.getElementById('claim-btn');
+    const tgBlock = document.getElementById('tg-login-block');
+    const nameView = document.getElementById('prize-name-view');
 
     if (achEl) achEl.textContent = String(achCount);
     if (cloudEl) cloudEl.textContent = cloud ? 'есть' : 'нет';
@@ -4384,43 +4392,59 @@ const Prize = {
 
     const ready = (!tamper) && cloud && (achCount >= need);
 
-    // Логика гейта: если ready && неавторизованы — показываем поле имени и кнопку TG
-    const tgBlock = document.getElementById('tg-login-block');
+    // Если готово и не авторизован — показываем блок входа
     if (tgBlock) tgBlock.style.display = (ready && !this.state.authed) ? '' : 'none';
+
+    // Если авторизован — показываем имя, иначе скрываем
+    if (nameView) {
+      if (this.state.authed) {
+        const nm = this.state.user?.display_name || localStorage.getItem('tg_username') || 'Пользователь';
+        nameView.style.display = '';
+        nameView.textContent = `Имя: ${nm}`;
+      } else {
+        nameView.style.display = 'none';
+        nameView.textContent = '';
+      }
+    }
 
     if (flag) {
       flag.className = ready ? 'prize-ready' : 'prize-not-ready';
-      flag.textContent = ready ? (this.state.authed ? 'Готово: можно получить приз' : 'Готово: войдите через Telegram') :
+      flag.textContent = ready ? (this.state.authed ? 'Готово: можно подать заявку' : 'Готово: войдите через Telegram') :
                                  'Недостаточно условий для заявки';
     }
+
     if (claimBtn) claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
   },
 
-  setBusy(v) {
-    this.state.busy = !!v;
-    const claimBtn = document.getElementById('claim-btn');
-    if (claimBtn) {
-      const { achCount, need, cloud, tamper } = this.state.readiness;
-      const ready = (!tamper) && cloud && (achCount >= need);
-      claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
-    }
-  },
+    setBusy(v) {
+      this.state.busy = !!v;
+      const claimBtn = document.getElementById('claim-btn');
+      if (claimBtn) {
+        const { achCount, need, cloud, tamper } = this.state.readiness;
+        const ready = (!tamper) && cloud && (achCount >= need);
+        claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
+      }
+    },
 
   // Показываем виджет Telegram только после ввода имени
   showTelegramLogin() {
     const holder = document.getElementById('tg-holder');
     if (!holder) return;
     holder.innerHTML = '';
+
     if (!TG_BOT_USERNAME || TG_BOT_USERNAME.toLowerCase().includes('bot') === false) {
-      holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME в коде</div>`;
+      holder.innerHTML = `<div class="prize-note">Укажите корректный TG_BOT_USERNAME в коде</div>`;
       return;
     }
+
+    // Рендерим кнопку Login Widget
     const scr = document.createElement('script');
     scr.src = 'https://telegram.org/js/telegram-widget.js?22';
     scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
     scr.setAttribute('data-size', 'large');
     scr.setAttribute('data-userpic', 'false');
     scr.setAttribute('data-onauth', 'onTelegramAuth');
+    // request-access не обязателен для Login (нам не нужен чат-доступ), но не мешает
     scr.setAttribute('data-request-access', 'write');
     holder.appendChild(scr);
   },
@@ -4429,13 +4453,16 @@ const Prize = {
     try {
       if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
       this.setBusy(true);
-      // Можно передавать введённое имя как display_name (мы храним его в users.display_name через сервер в d1UpsertUserTg)
+
+      // Сохраним tg_id/tg_username локально (на случай восстановления)
+      try {
+        if (user?.id) localStorage.setItem('tg_id', String(user.id));
+        if (user?.username) localStorage.setItem('tg_username', String(user.username));
+      } catch(e){}
+
       const name = (document.getElementById('prize-name')?.value || '').trim();
-      if (name) {
-        // добавим в payload first_name если пусто, чтобы сервер его записал
-        try { if (!user.first_name) user.first_name = name; } catch(e){}
-      }
       const body = { tg: user, deviceHash: getDeviceHash(), displayName: name || null };
+
       const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4444,9 +4471,13 @@ const Prize = {
         body: JSON.stringify(body)
       });
       const data = await res.json().catch(()=> ({}));
-      if (!res.ok || !data?.ok) { NotificationSystem.error(`Ошибка входа Telegram: ${data?.error || res.status}`); return; }
+      if (!res.ok || !data?.ok) {
+        NotificationSystem.error(`Ошибка входа Telegram: ${data?.error || res.status}`);
+        return;
+      }
+
       await this.fetchMe(true);
-      NotificationSystem.success('Вход выполнен (Telegram)');
+      NotificationSystem.success('Вход подтверждён через Telegram');
       this.paintChecklist();
     } catch (e) {
       NotificationSystem.error('Не удалось войти (Telegram)');
@@ -5027,15 +5058,19 @@ async function backupShare() {
 }
 // === Общий конструктор payload/файла для бэкапа ===
 async function buildBackupFile() {
+  const u = Prize?.state?.user || {};
+  const lsTgId = localStorage.getItem('tg_id');
+  const lsTgUsername = localStorage.getItem('tg_username');
+
   const payload = {
     appVersion: VERSION,
     buildDate: BUILD_DATE,
     exportedAt: new Date().toISOString(),
     deviceHash: getDeviceHash(),
-    // Профиль: имя из /me и TG-id, если вошли
     profile: {
-      displayName: Prize?.state?.user?.display_name || null,
-      tgId: Prize?.state?.user?.tg_id || null
+      displayName: u?.display_name || null,
+      tgId: u?.tg_id || lsTgId || null,
+      tgUsername: lsTgUsername || null
     },
     stats: StatsStore.s,
     statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
