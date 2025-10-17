@@ -1914,6 +1914,57 @@
     .prize-ready{ text-align:center; font-weight:800; color:#27b34c; margin-top:6px; }
     .prize-not-ready{ text-align:center; font-weight:800; color:#E80100; margin-top:6px; }
 
+    /* === Галерея призов (4 иконки в ряд, расширение по клику) === */
+    .prize-gallery {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    @media (max-width: 360px) {
+      .prize-gallery { grid-template-columns: repeat(3, 1fr); }
+    }
+    .prize-thumb {
+      width: 100%;
+      aspect-ratio: 1/1;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: rgba(255,255,255,0.06);
+      object-fit: cover;
+      cursor: pointer;
+      transition: transform .15s ease;
+    }
+    .prize-thumb:hover { transform: scale(1.03); }
+    .prize-thumb.expanded {
+      grid-column: 1 / -1;
+      width: 100%;
+      max-width: 395px;     /* ширина как у плеера */
+      justify-self: center;
+    }
+
+    /* Список призов в модалке */
+    .prize-list-card { display: grid; gap: 8px; }
+    .prize-card {
+      display: grid; grid-template-columns: 72px 1fr auto; gap: 10px;
+      padding: 8px; border:1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; background: rgba(0,0,0,0.25);
+      align-items: center;
+    }
+    .prize-card img { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; }
+    .prize-card .title { font-weight: 800; color: #fff; }
+    .prize-card .sub   { font-size: .9em; color: #9aa8c4; }
+    .prize-card .choose { white-space: nowrap; }
+
+    /* Детали приза в модалке */
+    .prize-detail-img {
+      width: 100%; max-width: 395px; border-radius: 10px; margin-bottom: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* Поля форм доставки */
+    .form-row { display: grid; gap: 6px; margin: 8px 0; }
+    .form-row label { font-size: .9em; color:#9aa8c4; }
+
     /* === МОЯ СТАТИСТИКА === */
     .my-stats-root {
       width: 100%;
@@ -4981,6 +5032,11 @@ async function buildBackupFile() {
     buildDate: BUILD_DATE,
     exportedAt: new Date().toISOString(),
     deviceHash: getDeviceHash(),
+    // Профиль: имя из /me и TG-id, если вошли
+    profile: {
+      displayName: Prize?.state?.user?.display_name || null,
+      tgId: Prize?.state?.user?.tg_id || null
+    },
     stats: StatsStore.s,
     statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
   };
@@ -5010,10 +5066,16 @@ async function backupSaveToCloud() {
     const data = await res.json().catch(()=> ({}));
     if (!res.ok || !data?.ok) {
       const err = data?.error || `HTTP_${res.status}`;
-      // Варианты: bad_checksum, device_mismatch, BACKUP_KV not bound, bad_backup_payload
       NotificationSystem.error(`Не удалось сохранить в облако: ${err}`);
       return;
     }
+
+    // ВАЖНО: ставим локальный флаг и компактный UI как при автосейве
+    localStorage.setItem('CLOUD_SAVED_OK', '1');
+    localStorage.setItem('CLOUD_SAVED_CRC', file.checksum);
+    localStorage.setItem('CLOUD_SAVED_AT', String(Date.now()));
+    setCloudSavedUI(true);
+    try { Prize.updateLocalReadiness(); } catch(e){}
 
     NotificationSystem.success('Бэкап сохранён в облаке');
   } catch (e) {
