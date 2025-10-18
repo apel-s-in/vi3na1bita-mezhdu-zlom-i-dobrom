@@ -4581,78 +4581,6 @@ const Prize = {
     holder.appendChild(scr);
   },
 
-  async onTelegramAuthCompact(user) {
-    try {
-      if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
-      this.setBusy(true);
-
-      // Сохраняем Telegram-данные локально
-      localStorage.setItem('tg_id', String(user.id||''));
-      if (user.username)   localStorage.setItem('tg_username', user.username);
-      if (user.first_name) localStorage.setItem('tg_first_name', user.first_name);
-
-      const displayName = user.first_name || user.username || null;
-
-      // 1) Основной путь: /auth/tg
-      let ok = false, sid = null;
-      try {
-        const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          mode: 'cors',
-          credentials: 'include',
-          body: JSON.stringify({ tg: user, deviceHash: getDeviceHash(), displayName })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.ok) { ok = true; sid = data.sid || null; }
-      } catch(e){ /* игнор */ }
-
-      // 2) Фолбэк: если не удалось /auth/tg — делаем /auth/silent
-      if (!ok) {
-        try {
-          const res2 = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            mode: 'cors',
-            credentials: 'include',
-            body: JSON.stringify({ tgId: user.id, username: user.username || user.first_name || null, deviceHash: getDeviceHash() })
-          });
-          const data2 = await res2.json().catch(() => ({}));
-          if (res2.ok && data2?.ok) { ok = true; sid = data2.sid || null; }
-        } catch(e){ /* игнор */ }
-      }
-
-      if (!ok) {
-        NotificationSystem.error('Ошибка входа через Telegram. Проверьте подключение и попробуйте ещё раз.');
-        return;
-      }
-
-      if (sid) localStorage.setItem('vr_sid', sid);
-
-      // МГНОВЕННО включаем авторизацию в UI (без ожидания /me)
-      this.state.authed = true;
-      this.state.user = {
-        display_name: displayName || 'Пользователь',
-        tg_id: user.id,
-        tg_username: user.username || null
-      };
-      const lb = document.getElementById('tg-login-compact');
-      if (lb) lb.style.display = 'none';
-      this.paintChecklist();
-
-      // Тихий автосейв в облако и подтягиваем профиль фоном
-      await backupSaveToCloudOverwriteSilent();
-      await this.fetchMe(true);
-      this.updateLocalReadiness();
-
-      NotificationSystem.success('✅ Авторизация успешна!');
-    } catch (e) {
-      console.error('[Prize] onTelegramAuthCompact error:', e);
-      NotificationSystem.error('Не удалось войти');
-    } finally {
-      this.setBusy(false);
-    }
-  },
   hasProfileName() {
     return !!(this.state?.user?.display_name || localStorage.getItem('profile_name'));
   },
@@ -4757,8 +4685,14 @@ const Prize = {
         scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
         scr.setAttribute('data-size', 'large');
         scr.setAttribute('data-userpic', 'false');
+        // 1) callback-режим (как было)
         scr.setAttribute('data-onauth', 'onTelegramAuthCompact');
         scr.setAttribute('data-request-access', 'write');
+        // 2) ДОБАВЛЕНО: redirect-режим для iOS
+        try {
+          const authUrl = `${GLOBAL_STATS_URL}/auth/tg-redirect?device=${encodeURIComponent(getDeviceHash())}`;
+          scr.setAttribute('data-auth-url', authUrl);
+        } catch(e) {}
         holder.appendChild(scr);
       }
     } catch(e) {
@@ -4814,7 +4748,7 @@ const Prize = {
       if (sid) localStorage.setItem('vr_sid', sid);
       this.state.authed = true;
 
-      // Переходим к шагу ввода имени: не задаём имя автоматически — спрашиваем у пользователя
+      // Переходим к шагу ввода имени
       const auto = document.getElementById('idw-step-auto');
       const nm = document.getElementById('idw-step-name');
       if (auto) auto.style.display = 'none';
@@ -4828,6 +4762,29 @@ const Prize = {
       this.setBusy(false);
       NotificationSystem.error('Не удалось войти');
     }
+  },
+
+  // НОВОЕ: завершение авторизации через redirect (iOS лучший путь)
+  onTelegramAuthRedirectDone(data) {
+    try {
+      if (data?.sid) localStorage.setItem('vr_sid', data.sid);
+      if (data?.tgId) localStorage.setItem('tg_id', String(data.tgId));
+      if (data?.username) localStorage.setItem('tg_username', String(data.username));
+    } catch(e){}
+
+    this.state.authed = true;
+
+    // Если открыт мастер «Автоматическая привязка» — сразу на шаг имени
+    const auto = document.getElementById('idw-step-auto');
+    const nm = document.getElementById('idw-step-name');
+    if (auto) auto.style.display = 'none';
+    if (nm) nm.style.display = '';
+    const prefill = localStorage.getItem('profile_name') || (data?.username || 'Пользователь');
+    const inp = document.getElementById('idw-display-name');
+    if (inp) inp.value = prefill;
+
+    // Подтягиваем /me в фоне, обновляем готовность
+    this.fetchMe(true).then(()=> this.updateLocalReadiness());
   },
 
   async saveDisplayName() {
@@ -4951,6 +4908,12 @@ const Prize = {
         try {
           if (this.state.user?.display_name) {
             localStorage.setItem('profile_name', this.state.user.display_name);
+          }
+          if (this.state.user?.tg_id) {
+            localStorage.setItem('tg_id', String(this.state.user.tg_id));
+          }
+          if (this.state.user?.tg_username) {
+            localStorage.setItem('tg_username', String(this.state.user.tg_username));
           }
         } catch(e){}
       } else {
@@ -5262,6 +5225,23 @@ window.onTelegramAuthCompact = (user) => {
 window.onTelegramAuth = (user) => {
   try { Prize.onTelegramAuth(user); } catch(e){ console.error(e); }
 };
+
+// НОВОЕ: слушаем postMessage от /auth/tg-redirect (надёжно для iOS)
+window.addEventListener('message', (ev) => {
+  try {
+    const d = ev?.data || {};
+    if (d && d.type === 'TG_AUTH_OK' && d.sid) {
+      try {
+        localStorage.setItem('vr_sid', d.sid);
+        if (d.tgId) localStorage.setItem('tg_id', String(d.tgId));
+        if (d.username) localStorage.setItem('tg_username', String(d.username));
+      } catch(e) {}
+      if (window.Prize && typeof Prize.onTelegramAuthRedirectDone === 'function') {
+        Prize.onTelegramAuthRedirectDone(d);
+      }
+    }
+  } catch(e) {}
+});
 
 // ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ====
 const GS_Q_KEY = 'vr_gs_queue_v1';
