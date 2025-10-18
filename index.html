@@ -2404,6 +2404,86 @@
       <button class="offline-btn" style="width:98%;" onclick="closeDownloadModal()">Отмена</button>
     </div>
   </div>
+  <!-- Модалка: Создание имени и привязка Telegram -->
+  <div class="modal-bg" id="identity-modal">
+    <div class="modal-feedback" style="max-width:420px;">
+      <button class="bigclose" onclick="Prize.closeIdentityWizard()" title="Закрыть">
+        <svg viewBox="0 0 48 48">
+          <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <!-- Шаг 1: выбор способа -->
+      <div id="idw-step-choose">
+        <div class="download-modal-title">Создание имени в приложении</div>
+        <div style="color:#cfe3ff;margin-bottom:10px;">
+          Укажите, как привязать Telegram:
+        </div>
+        <div class="stat-card" style="margin-bottom:10px;">
+          <div style="font-weight:700;margin-bottom:6px;">Вручную (без входа в Telegram)</div>
+          <div style="font-size:.92em;color:#9aa8c4;margin-bottom:8px;">
+            Вам нужно один раз указать ваш @username и ваш Id из Telegram. Как узнать — у бота <b>@userinfobot</b> (напишите ему “/start”).
+          </div>
+          <button class="prize-btn" onclick="Prize.startManualIdentity()">Указать @ и Id</button>
+        </div>
+        <div class="stat-card">
+          <div style="font-weight:700;margin-bottom:6px;">Автоматически через Telegram</div>
+          <div style="font-size:.92em;color:#9aa8c4;margin-bottom:8px;">
+            Будет предложено разово ввести номер телефона для авторизации Telegram и открыть новый сеанс. После получения вашего имени в приложении этот сеанс можно завершить в Telegram.
+          </div>
+          <button class="prize-btn" onclick="Prize.startAutoIdentity()">Войти через Telegram</button>
+        </div>
+      </div>
+
+      <!-- Шаг 2: форма ручного ввода username/id -->
+      <div id="idw-step-manual" style="display:none;">
+        <div class="download-modal-title">Ручная привязка</div>
+        <div style="font-size:.92em;color:#9aa8c4;margin-bottom:10px;">
+          Откройте бота <b>@userinfobot</b>, нажмите “Start” и скопируйте:
+        </div>
+        <div class="form-row">
+          <label>@username (без пробелов)</label>
+          <input id="idw-man-username" placeholder="@ваш_ник">
+        </div>
+        <div class="form-row">
+          <label>Id (число)</label>
+          <input id="idw-man-id" placeholder="Например: 123456789" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <div class="modal-buttons">
+          <button class="btn-secondary" onclick="Prize.backToIdentityChoose()">Назад</button>
+          <button class="btn-primary" onclick="Prize.submitManualIdentity()">Далее</button>
+        </div>
+      </div>
+
+      <!-- Шаг 3: автоматический вход (виджет Telegram) -->
+      <div id="idw-step-auto" style="display:none;">
+        <div class="download-modal-title">Автоматическая привязка</div>
+        <div class="stat-card" style="margin-bottom:10px;">
+          <div style="font-size:.92em;color:#9aa8c4;">
+            Разово потребуется авторизация через Telegram. После присвоения имени в приложении, сессию можно завершить в Telegram.
+          </div>
+        </div>
+        <div id="idw-auto-holder" class="tg-holder" style="display:flex;justify-content:center;margin:8px 0;"></div>
+        <div class="modal-buttons">
+          <button class="btn-secondary" onclick="Prize.backToIdentityChoose()">Назад</button>
+        </div>
+      </div>
+
+      <!-- Шаг 4: ввод имени -->
+      <div id="idw-step-name" style="display:none;">
+        <div class="download-modal-title">Имя в приложении</div>
+        <div class="form-row">
+          <label>Как показывать вас под иконками призов</label>
+          <input id="idw-display-name" placeholder="Например: Василиса или @username">
+        </div>
+        <div class="modal-buttons">
+          <button class="btn-secondary" onclick="Prize.backToIdentityChoose()">Назад</button>
+          <button class="btn-primary" onclick="Prize.saveDisplayName()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
   
   <!-- Модальные окна для скачивания альбома -->
   <div class="modal-bg" id="albumDownloadModal">
@@ -4366,14 +4446,16 @@ const Prize = {
           `).join('')}
         </div>
 
-        <div id="prize-auth-block">
-          <div id="tg-login-compact" style="display:none; text-align:center; margin:10px 0;">
+        <div id="prize-auth-block" style="text-align:center; margin:10px 0;">
+          <!-- Кнопка запуска мастера создания имени (показывается только когда пора и имени нет) -->
+          <div id="create-name-block" style="display:none;">
             <div style="font-size:0.9em; color:#9aa8c4; margin-bottom:8px;">
-              Для получения приза войдите через Telegram
+              Для получения приза создайте имя в приложении и привяжите Telegram
             </div>
-            <div class="tg-holder" id="tg-holder-compact"></div>
+            <button class="prize-btn" onclick="Prize.openIdentityWizard()">Создать имя</button>
           </div>
-          
+
+          <!-- Просмотр имени, если уже есть -->
           <div class="prize-note" id="prize-name-view" style="display:none;text-align:center;font-weight:800;"></div>
         </div>
 
@@ -4404,7 +4486,7 @@ const Prize = {
   },
 
   paintChecklist() {
-    const { achCount, need, cloud, tamper } = this.state.readiness;
+    const { achCount, need, cloud, tamper, nameSet } = this.state.readiness;
     const achEl = document.getElementById('ach-count');
     const cloudEl = document.getElementById('cloud-state');
     const tamperEl = document.getElementById('tamper-state');
@@ -4413,8 +4495,8 @@ const Prize = {
     const rowTamper = document.getElementById('row-tamper');
     const flag = document.getElementById('prize-ready-flag');
     const claimBtn = document.getElementById('claim-btn');
-    const loginBlock = document.getElementById('tg-login-compact');
     const nameView = document.getElementById('prize-name-view');
+    const createNameBlock = document.getElementById('create-name-block');
 
     if (achEl) achEl.textContent = String(achCount);
     if (cloudEl) cloudEl.textContent = cloud ? 'есть' : 'нет';
@@ -4429,47 +4511,47 @@ const Prize = {
 
     const ready = (!tamper) && cloud && (achCount >= need);
 
-    if (loginBlock) {
-      const shouldShow = ready && !this.state.authed;
-      console.log('[Prize] paintChecklist - ready:', ready, 'authed:', this.state.authed, 'shouldShow:', shouldShow);
-      loginBlock.style.display = shouldShow ? '' : 'none';
-      if (shouldShow) this.mountCompactTelegramWidget();
-    }
+    // Имя под иконками — главный признак "реального пользователя" (после первой привязки Telegram)
+    const hasName = !!nameSet || this.hasProfileName();
 
     if (nameView) {
-      if (this.state.authed) {
-        const nm = this.state.user?.display_name || localStorage.getItem('tg_username') || 'Пользователь';
+      const nm = this.currentProfileName();
+      if (nm) {
         nameView.style.display = '';
-        nameView.textContent = `Авторизован: ${nm}`;
-        console.log('[Prize] Показываем имя:', nm);
+        nameView.textContent = `Имя: ${nm}`;
       } else {
         nameView.style.display = 'none';
       }
+    }
+
+    // Если уже выполнены условия и имени нет — предлагаем создать
+    if (createNameBlock) {
+      createNameBlock.style.display = (ready && !hasName) ? '' : 'none';
     }
 
     if (flag) {
       if (!ready) {
         flag.className = 'prize-not-ready';
         flag.textContent = 'Недостаточно условий для заявки';
-      } else if (!this.state.authed) {
+      } else if (!hasName) {
         flag.className = 'prize-not-ready';
-        flag.textContent = 'Войдите через Telegram';
+        flag.textContent = 'Создайте имя в приложении';
       } else {
         flag.className = 'prize-ready';
         flag.textContent = 'Готово: можно подать заявку';
       }
-      console.log('[Prize] Flag text:', flag.textContent, 'class:', flag.className);
     }
 
     if (claimBtn) {
-      const canClaim = ready && this.state.authed && !this.state.busy;
+      const canClaim = ready && hasName && !this.state.busy;
       claimBtn.disabled = !canClaim;
-      console.log('[Prize] Кнопка ПОЛУЧИТЬ ПРИЗ - disabled:', !canClaim, '(ready:', ready, 'authed:', this.state.authed, 'busy:', this.state.busy, ')');
     }
 
-    // Долгожданный автоворк: если всё готово, но авторизации нет — восстановим сессию в фоне
+    // Тихая сессия (без внешнего входа) — чтобы /profile/set-name и /claim работали без фрикций
     if (ready && !this.state.authed) {
-      this.ensureSessionActive().then(ok => { if (ok) this.paintChecklist(); });
+      this.ensureSessionActive().then(ok => {
+        if (ok) this.paintChecklist();
+      });
     }
   },
 
@@ -4571,7 +4653,237 @@ const Prize = {
       this.setBusy(false);
     }
   },
+  hasProfileName() {
+    return !!(this.state?.user?.display_name || localStorage.getItem('profile_name'));
+  },
+  currentProfileName() {
+    return this.state?.user?.display_name || localStorage.getItem('profile_name') || null;
+  },
 
+  openIdentityWizard() {
+    try {
+      // Сброс шагов
+      ['idw-step-choose','idw-step-manual','idw-step-auto','idw-step-name'].forEach(id=>{
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      const step = document.getElementById('idw-step-choose');
+      if (step) step.style.display = '';
+      document.getElementById('identity-modal')?.classList.add('active');
+    } catch(e) {
+      console.error('openIdentityWizard error:', e);
+    }
+  },
+  closeIdentityWizard() {
+    document.getElementById('identity-modal')?.classList.remove('active');
+  },
+  backToIdentityChoose() {
+    ['idw-step-manual','idw-step-auto','idw-step-name'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const choose = document.getElementById('idw-step-choose');
+    if (choose) choose.style.display = '';
+  },
+
+  startManualIdentity() {
+    const choose = document.getElementById('idw-step-choose');
+    const man = document.getElementById('idw-step-manual');
+    if (choose) choose.style.display = 'none';
+    if (man) man.style.display = '';
+    NotificationSystem.info('Укажите @username и Id из @userinfobot');
+  },
+
+  async submitManualIdentity() {
+    try {
+      const usernameRaw = (document.getElementById('idw-man-username')?.value || '').trim();
+      const idRaw = (document.getElementById('idw-man-id')?.value || '').trim();
+      const username = usernameRaw.replace(/^@+/, '');
+      const tgId = String(parseInt(idRaw, 10));
+      if (!username || !/^\d+$/.test(tgId)) {
+        NotificationSystem.warning('Проверьте @username и числовой Id');
+        return;
+      }
+
+      // Сохраняем локально — пригодится для /auth/silent и бэкапа
+      localStorage.setItem('tg_username', username);
+      localStorage.setItem('tg_id', tgId);
+
+      // Создадим/обновим сессию без внешней авторизации
+      this.setBusy(true);
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify({ tgId, username, deviceHash: getDeviceHash() })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        NotificationSystem.error('Не удалось привязать Telegram (ручной способ)');
+        this.setBusy(false);
+        return;
+      }
+      if (data?.sid) localStorage.setItem('vr_sid', data.sid);
+      this.state.authed = true;
+
+      // Переходим на шаг ввода имени
+      const man = document.getElementById('idw-step-manual');
+      const nm = document.getElementById('idw-step-name');
+      if (man) man.style.display = 'none';
+      if (nm) nm.style.display = '';
+      document.getElementById('idw-display-name').value = localStorage.getItem('profile_name') || `@${username}`;
+      this.setBusy(false);
+    } catch (e) {
+      console.error('submitManualIdentity error:', e);
+      this.setBusy(false);
+      NotificationSystem.error('Ошибка ручной привязки');
+    }
+  },
+
+  startAutoIdentity() {
+    try {
+      const choose = document.getElementById('idw-step-choose');
+      const auto = document.getElementById('idw-step-auto');
+      if (choose) choose.style.display = 'none';
+      if (auto) auto.style.display = '';
+
+      const holder = document.getElementById('idw-auto-holder');
+      if (holder) {
+        holder.innerHTML = '';
+        // Предупреждение уже показано — теперь рендерим Telegram widget
+        const scr = document.createElement('script');
+        scr.src = 'https://telegram.org/js/telegram-widget.js?22';
+        scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
+        scr.setAttribute('data-size', 'large');
+        scr.setAttribute('data-userpic', 'false');
+        scr.setAttribute('data-onauth', 'onTelegramAuthCompact');
+        scr.setAttribute('data-request-access', 'write');
+        holder.appendChild(scr);
+      }
+    } catch(e) {
+      console.error('startAutoIdentity error:', e);
+    }
+  },
+
+  async onTelegramAuthCompact(user) {
+    try {
+      if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
+      this.setBusy(true);
+
+      // Сохраняем Telegram-данные локально
+      localStorage.setItem('tg_id', String(user.id||''));
+      if (user.username)   localStorage.setItem('tg_username', user.username);
+      if (user.first_name) localStorage.setItem('tg_first_name', user.first_name);
+
+      // Пробуем нормальную авторизацию
+      let ok = false, sid = null;
+      try {
+        const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          mode: 'cors',
+          credentials: 'include',
+          body: JSON.stringify({ tg: user, deviceHash: getDeviceHash() })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) { ok = true; sid = data.sid || null; }
+      } catch(e){ /* игнор */ }
+
+      if (!ok) {
+        // Фолбэк
+        try {
+          const res2 = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors',
+            credentials: 'include',
+            body: JSON.stringify({ tgId: user.id, username: user.username || user.first_name || null, deviceHash: getDeviceHash() })
+          });
+          const data2 = await res2.json().catch(() => ({}));
+          if (res2.ok && data2?.ok) { ok = true; sid = data2.sid || null; }
+        } catch(e){ /* игнор */ }
+      }
+
+      if (!ok) {
+        NotificationSystem.error('Ошибка входа через Telegram. Попробуйте ещё раз.');
+        this.setBusy(false);
+        return;
+      }
+
+      if (sid) localStorage.setItem('vr_sid', sid);
+      this.state.authed = true;
+
+      // Переходим к шагу ввода имени: не задаём имя автоматически — спрашиваем у пользователя
+      const auto = document.getElementById('idw-step-auto');
+      const nm = document.getElementById('idw-step-name');
+      if (auto) auto.style.display = 'none';
+      if (nm) nm.style.display = '';
+      const prefill = localStorage.getItem('profile_name') || (user.first_name || (user.username ? `@${user.username}` : ''));
+      document.getElementById('idw-display-name').value = prefill;
+
+      this.setBusy(false);
+    } catch (e) {
+      console.error('[Prize] onTelegramAuthCompact error:', e);
+      this.setBusy(false);
+      NotificationSystem.error('Не удалось войти');
+    }
+  },
+
+  async saveDisplayName() {
+    try {
+      const name = (document.getElementById('idw-display-name')?.value || '').trim();
+      if (!name) { NotificationSystem.warning('Введите имя'); return; }
+
+      // Требуется активная сессия (берём через ensureSessionActive)
+      const okSess = await this.ensureSessionActive();
+      if (!okSess) {
+        NotificationSystem.error('Нет сессии. Повторите вход.');
+        return;
+      }
+
+      this.setBusy(true);
+      // 1) Сохраняем имя на сервере
+      const res = await fetch(`${GLOBAL_STATS_URL}/profile/set-name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...apiAuthHeaders() },
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify({ displayName: name })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) {
+        NotificationSystem.error('Не удалось сохранить имя');
+        this.setBusy(false);
+        return;
+      }
+
+      // 2) Локально сохраняем имя, обновляем UI
+      localStorage.setItem('profile_name', name);
+      this.state.user = this.state.user || {};
+      this.state.user.display_name = name;
+
+      // 3) Принудительный бэкап в облако (overwrite) и ждём его готовности
+      await backupSaveToCloudOverwriteSilent();
+      const ok = await ensureCloudBackupReady(4000);
+      if (!ok) {
+        NotificationSystem.warning('Имя сохранено, но облачный бэкап не подтвердился. Повторим позже.');
+      }
+
+      // Закрываем мастер и обновляем панель
+      this.closeIdentityWizard();
+      this.updateLocalReadiness();
+      this.paintChecklist();
+      NotificationSystem.success('Имя сохранено');
+
+    } catch (e) {
+      console.error('saveDisplayName error:', e);
+      NotificationSystem.error('Ошибка сохранения имени');
+    } finally {
+      this.setBusy(false);
+    }
+  },
+  
   setBusy(v) { 
     this.state.busy = !!v; 
     console.log('[Prize] setBusy:', v);
@@ -4588,8 +4900,8 @@ const Prize = {
     const achCount = getVisibleAchievementsCount();
     const cloud = localStorage.getItem('CLOUD_SAVED_OK') === '1';
     const tamper = localStorage.getItem('tamper_detected') === '1';
-    this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper };
-    console.log('[Prize] updateLocalReadiness:', this.state.readiness);
+    const nameSet = !!(this.state?.user?.display_name || localStorage.getItem('profile_name'));
+    this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper, nameSet };
     this.paintChecklist();
   },
   async ensureSessionActive() {
@@ -4636,7 +4948,13 @@ const Prize = {
       if (res.ok && data?.ok && data?.auth) {
         this.state.authed = true;
         this.state.user = data.user || this.state.user;
+        try {
+          if (this.state.user?.display_name) {
+            localStorage.setItem('profile_name', this.state.user.display_name);
+          }
+        } catch(e){}
       } else {
+
         // НЕ даунгрейдим, если есть локальный sid (липкая авторизация)
         if (localStorage.getItem('vr_sid')) {
           this.state.authed = true;
@@ -5276,6 +5594,7 @@ async function buildBackupFile() {
   const u = Prize?.state?.user || {};
   const lsTgId = localStorage.getItem('tg_id');
   const lsTgUsername = localStorage.getItem('tg_username');
+  const lsProfileName = localStorage.getItem('profile_name');
 
   const payload = {
     appVersion: VERSION,
@@ -5283,7 +5602,7 @@ async function buildBackupFile() {
     exportedAt: new Date().toISOString(),
     deviceHash: getDeviceHash(),
     profile: {
-      displayName: u?.display_name || null,
+      displayName: u?.display_name || lsProfileName || null,
       tgId: u?.tg_id || lsTgId || null,
       tgUsername: lsTgUsername || null
     },
