@@ -4291,17 +4291,29 @@ const Prize = {
     this.root = document.getElementById('prize-root');
     this.body = document.getElementById('prize-body');
     if (!this.root || !this.body) return;
-    
-    console.log('[Prize] Инициализация начата');
+
+    // 0) “Липкая” авторизация: если есть sid — считаем авторизованным
+    const lsSid = localStorage.getItem('vr_sid');
+    if (lsSid) {
+      const un = localStorage.getItem('tg_username');
+      const fn = localStorage.getItem('tg_first_name');
+      const tgId = localStorage.getItem('tg_id');
+      this.state.authed = true;
+      this.state.user = {
+        display_name: un || fn || 'Пользователь',
+        tg_id: tgId || null,
+        tg_username: un || null
+      };
+    }
+
     this.renderSkeleton();
     this.updateLocalReadiness();
-    
-    // Автоматическая тихая авторизация
+
+    // 1) Тихая авторизация (получим свежий sid), но UI не даунгрейдим
     this.attemptSilentAuth().then(() => {
-      console.log('[Prize] Silent auth завершён, проверяем статус');
       this.fetchStatus();
     });
-    
+
     setInterval(() => this.fetchStatus(), 30000);
   },
 
@@ -4465,21 +4477,22 @@ const Prize = {
   },
 
   mountCompactTelegramWidget() {
+  mountCompactTelegramWidget() {
     const holder = document.getElementById('tg-holder-compact');
-    if (!holder || this.state.authed) {
-      console.log('[Prize] mountCompactTelegramWidget пропущен - holder:', !!holder, 'authed:', this.state.authed);
+    const loginBlock = document.getElementById('tg-login-compact');
+    // Если уже есть sid — авторизованы, виджет не нужен
+    if (localStorage.getItem('vr_sid') || this.state.authed) {
+      if (loginBlock) loginBlock.style.display = 'none';
       return;
     }
+    if (!holder) return;
 
     holder.innerHTML = '';
-
     if (!TG_BOT_USERNAME || !TG_BOT_USERNAME.includes('bot')) {
       holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME в коде</div>`;
-      console.error('[Prize] TG_BOT_USERNAME не настроен!');
       return;
     }
 
-    console.log('[Prize] Монтируем Telegram Widget для бота:', TG_BOT_USERNAME);
     const scr = document.createElement('script');
     scr.src = 'https://telegram.org/js/telegram-widget.js?22';
     scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
@@ -4570,29 +4583,34 @@ const Prize = {
   async fetchMe(silent=false) {
     try {
       if (!GLOBAL_STATS_URL) return;
-      
-      console.log('[Prize] fetchMe - отправляем запрос /me');
       const res = await fetch(`${GLOBAL_STATS_URL}/me`, {
         method:'GET', mode:'cors', credentials:'include',
         headers: { ...apiAuthHeaders() }
       });
       const data = await res.json().catch(()=> ({}));
-      
-      console.log('[Prize] Ответ /me:', { ok: res.ok, status: res.status, auth: data?.auth, user: data?.user });
-      
+
       if (res.ok && data?.ok && data?.auth) {
         this.state.authed = true;
-        this.state.user = data.user;
-        console.log('[Prize] Пользователь авторизован:', data.user?.display_name);
+        this.state.user = data.user || this.state.user;
       } else {
-        this.state.authed = false;
-        this.state.user = null;
-        console.log('[Prize] Пользователь НЕ авторизован');
+        // НЕ даунгрейдим, если есть локальный sid (липкая авторизация)
+        if (localStorage.getItem('vr_sid')) {
+          this.state.authed = true;
+          // user могли не вернуть — оставим прежний
+        } else {
+          this.state.authed = false;
+          this.state.user = null;
+        }
       }
       this.paintChecklist();
     } catch (e) {
-      console.error('[Prize] fetchMe error:', e);
-      if (!silent) NotificationSystem.warning('Сервер недоступен');
+      // При сетевой ошибке — если есть sid, оставляем авторизацию включенной
+      if (localStorage.getItem('vr_sid')) {
+        this.state.authed = true;
+        this.paintChecklist();
+      } else if (!silent) {
+        NotificationSystem.warning('Сервер недоступен');
+      }
     }
   },
 
