@@ -4309,53 +4309,38 @@ const Prize = {
     try {
       const tgId = localStorage.getItem('tg_id');
       const username = localStorage.getItem('tg_username');
-      
-      console.log('[Prize] attemptSilentAuth - tgId:', tgId, 'username:', username);
-      
-      if (!tgId) {
-        console.log('[Prize] Нет данных Telegram, показываем кнопку входа');
-        this.state.authed = false;
-        this.paintChecklist();
-        return;
-      }
-      
-      console.log('[Prize] Пробуем тихую авторизацию...');
+      if (!tgId) { this.state.authed = false; this.paintChecklist(); return; }
+
       const res = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         mode: 'cors',
         credentials: 'include',
-        body: JSON.stringify({
-          tgId,
-          username,
-          deviceHash: getDeviceHash()
-        })
+        body: JSON.stringify({ tgId, username, deviceHash: getDeviceHash() })
       });
-      
       const data = await res.json().catch(() => ({}));
-      console.log('[Prize] Silent auth ответ:', { ok: res.ok, status: res.status, data });
-      
+
       if (res.ok && data?.ok) {
-        if (data?.sid) {
-          localStorage.setItem('vr_sid', data.sid);
-          console.log('[Prize] Session ID сохранён:', data.sid.slice(0, 8) + '...');
-        }
-        
-        // Автосейв в облако
+        if (data?.sid) localStorage.setItem('vr_sid', data.sid);
+
+        // МГНОВЕННО включаем авторизацию в UI
+        this.state.authed = true;
+        this.state.user = {
+          display_name: username || localStorage.getItem('tg_first_name') || 'Пользователь',
+          tg_id: tgId,
+          tg_username: username || null
+        };
+        this.paintChecklist();
+
+        // Сохраняем бэкап и подтягиваем профиль фоном
         await backupSaveToCloudOverwriteSilent();
-        
-        // КРИТИЧЕСКИ ВАЖНО: обновляем профиль и состояние
         await this.fetchMe(true);
         this.updateLocalReadiness();
-        
-        console.log('[Prize] Тихая авторизация успешна, authed:', this.state.authed);
       } else {
-        console.log('[Prize] Тихая авторизация не удалась, показываем кнопку');
         this.state.authed = false;
         this.paintChecklist();
       }
     } catch (e) {
-      console.error('[Prize] Silent auth error:', e);
       this.state.authed = false;
       this.paintChecklist();
     }
@@ -4507,29 +4492,20 @@ const Prize = {
 
   async onTelegramAuthCompact(user) {
     try {
-      console.log('[Prize] onTelegramAuthCompact вызван с user:', user);
-      
-      if (!GLOBAL_STATS_URL) {
-        NotificationSystem.warning('Сервер призов не настроен');
-        return;
-      }
-      
+      if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
       this.setBusy(true);
 
-      // Сохраняем данные локально
-      localStorage.setItem('tg_id', String(user.id));
-      if (user.username) localStorage.setItem('tg_username', user.username);
+      // 1) Сохраним Telegram-данные локально
+      localStorage.setItem('tg_id', String(user.id||''));
+      if (user.username)   localStorage.setItem('tg_username', user.username);
       if (user.first_name) localStorage.setItem('tg_first_name', user.first_name);
-      console.log('[Prize] Telegram данные сохранены в localStorage');
 
-      // Полная авторизация с проверкой подписи
+      // 2) Отправим /auth/tg (получим sid)
       const body = { 
         tg: user, 
         deviceHash: getDeviceHash(),
         displayName: user.first_name || user.username || null
       };
-
-      console.log('[Prize] Отправляем полную авторизацию на /auth/tg');
       const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4537,46 +4513,31 @@ const Prize = {
         credentials: 'include',
         body: JSON.stringify(body)
       });
-      
       const data = await res.json().catch(() => ({}));
-      console.log('[Prize] Ответ /auth/tg:', { ok: res.ok, status: res.status, data });
-      
       if (!res.ok || !data?.ok) {
         NotificationSystem.error(`Ошибка входа: ${data?.error || res.status}`);
-        this.setBusy(false);
         return;
       }
 
-      if (data?.sid) {
-        localStorage.setItem('vr_sid', data.sid);
-        console.log('[Prize] Session ID записан:', data.sid.slice(0, 8) + '...');
-      }
+      // 3) Сохраняем sid (iOS ITP фолбэк)
+      if (data?.sid) localStorage.setItem('vr_sid', data.sid);
 
-      // Автосейв в облако
-      console.log('[Prize] Запускаем автосейв в облако');
+      // 4) МГНОВЕННО включаем авторизацию в UI (без ожидания /me)
+      this.state.authed = true;
+      this.state.user = {
+        display_name: user.first_name || user.username || 'Пользователь',
+        tg_id: user.id,
+        tg_username: user.username || null
+      };
+      document.getElementById('tg-login-compact')?.style && (document.getElementById('tg-login-compact').style.display = 'none');
+      this.paintChecklist(); // кнопка "ПОЛУЧИТЬ ПРИЗ" станет активной, если чек‑лист пройден
+
+      // 5) Тихо сохраняем бэкап в облако (overwrite) и подгружаем /me
       await backupSaveToCloudOverwriteSilent();
-
-      // КРИТИЧЕСКИ ВАЖНО: обновляем профиль
-      console.log('[Prize] Обновляем профиль через fetchMe');
-      await this.fetchMe(true);
-      
-      // КРИТИЧЕСКИ ВАЖНО: обновляем readiness
+      await this.fetchMe(true);     // синхронизируем профиль с сервера (не блокирует UI)
       this.updateLocalReadiness();
-      
-      console.log('[Prize] Финальное состояние - authed:', this.state.authed, 'readiness:', this.state.readiness);
 
-      // Скрываем кнопку входа
-      const loginBlock = document.getElementById('tg-login-compact');
-      if (loginBlock) {
-        loginBlock.style.display = 'none';
-        console.log('[Prize] Кнопка входа скрыта');
-      }
-
-      // Перерисовываем чеклист
-      this.paintChecklist();
-      
       NotificationSystem.success('✅ Авторизация успешна!');
-      
     } catch (e) {
       console.error('[Prize] onTelegramAuthCompact error:', e);
       NotificationSystem.error('Не удалось войти');
