@@ -4273,7 +4273,7 @@ const MyStats = {
     }
   }
 };
-// ==== ПРИЗЫ: вход, чек‑лист, заявки, призы, доставка ====
+// ==== ПРИЗЫ: автоматическая авторизация ====
 const Prize = {
   root: null, body: null,
   state: {
@@ -4291,34 +4291,89 @@ const Prize = {
     this.root = document.getElementById('prize-root');
     this.body = document.getElementById('prize-body');
     if (!this.root || !this.body) return;
+    
     this.renderSkeleton();
-
     this.updateLocalReadiness();
-    this.fetchMe(true).then(()=> this.fetchStatus());
+    
+    // НОВОЕ: автоматическая тихая авторизация
+    this.attemptSilentAuth().then(() => {
+      this.fetchStatus();
+    });
+    
+    setInterval(() => this.fetchStatus(), 30000);
+  },
 
-    // Периодическое обновление статусов
-    setInterval(()=> this.fetchStatus(), 30000);
+  // НОВАЯ функция: попытка тихой авторизации
+  async attemptSilentAuth() {
+    try {
+      const tgId = localStorage.getItem('tg_id');
+      const username = localStorage.getItem('tg_username');
+      
+      if (!tgId) {
+        // Нет данных - оставляем кнопку входа видимой
+        this.state.authed = false;
+        this.paintChecklist();
+        return;
+      }
+      
+      // Есть данные - пробуем тихо авторизоваться
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify({
+          tgId,
+          username,
+          deviceHash: getDeviceHash()
+        })
+      });
+      
+      const data = await res.json().catch(() => ({}));
+      
+      if (res.ok && data?.ok) {
+        // Успех - сохраняем sid для iOS
+        if (data?.sid) {
+          localStorage.setItem('vr_sid', data.sid);
+        }
+        
+        // Автоматический облачный автосейв
+        await backupSaveToCloudOverwriteSilent();
+        
+        // Обновляем профиль
+        await this.fetchMe(true);
+        this.updateLocalReadiness();
+      } else {
+        // Ошибка - показываем кнопку входа
+        this.state.authed = false;
+        this.paintChecklist();
+      }
+    } catch (e) {
+      console.error('Silent auth error:', e);
+      this.state.authed = false;
+      this.paintChecklist();
+    }
   },
 
   renderSkeleton() {
     this.body.innerHTML = `
-        <!-- Галерея призов -->
         <div class="prize-gallery" id="prize-gallery">
           ${['prize-01.png','prize-02.png','prize-03.png','prize-04.png'].map(src=>`
             <img class="prize-thumb" src="img/${src}" alt="Prize" onclick="Prize.toggleThumb(this)">
           `).join('')}
         </div>
 
-        <!-- Блок авторизации/чек-лист -->
         <div id="prize-auth-block">
-          <!-- Вид после входа -->
-          <div class="prize-note" id="prize-name-view" style="display:none;text-align:center;font-weight:800;"></div>
-
-          <!-- Вид до входа: ввод имени + КНОПКА от Telegram (виджет) -->
-          <div class="prize-actions" id="tg-login-block" style="display:none;flex-direction:column;gap:8px;">
-            <input id="prize-name" placeholder="Имя (как показывать под призами)" style="width:100%;padding:8px;border-radius:8px;border:1px solid #2b3955;background:#111;color:#fff;">
-            <div class="tg-holder" id="tg-holder" style="margin-top:6px;"></div>
+          <!-- Компактная кнопка входа (показывается только если не авторизован) -->
+          <div id="tg-login-compact" style="display:none; text-align:center; margin:10px 0;">
+            <div style="font-size:0.9em; color:#9aa8c4; margin-bottom:8px;">
+              Для получения приза войдите через Telegram
+            </div>
+            <div class="tg-holder" id="tg-holder-compact"></div>
           </div>
+          
+          <!-- Имя после входа -->
+          <div class="prize-note" id="prize-name-view" style="display:none;text-align:center;font-weight:800;"></div>
         </div>
 
         <div id="prize-checklist" style="margin-top:8px;">
@@ -4344,25 +4399,7 @@ const Prize = {
       `;
 
     const claimBtn = document.getElementById('claim-btn');
-    if (claimBtn) claimBtn.onclick = ()=> this.openPrizes();
-
-    // Монтируем Telegram Login Widget сразу (без лишних кнопок)
-    this.mountTelegramWidget();
-  },
-
-  toggleThumb(imgEl) {
-    // сворачиваем/разворачиваем картинку
-    const expanded = imgEl.classList.contains('expanded');
-    document.querySelectorAll('.prize-thumb').forEach(x => x.classList.remove('expanded'));
-    if (!expanded) imgEl.classList.add('expanded');
-  },
-
-  updateLocalReadiness() {
-    const achCount = getVisibleAchievementsCount();
-    const cloud = localStorage.getItem('CLOUD_SAVED_OK') === '1';
-    const tamper = localStorage.getItem('tamper_detected') === '1';
-    this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper };
-    this.paintChecklist();
+    if (claimBtn) claimBtn.onclick = () => this.openPrizes();
   },
 
   paintChecklist() {
@@ -4375,7 +4412,7 @@ const Prize = {
     const rowTamper = document.getElementById('row-tamper');
     const flag = document.getElementById('prize-ready-flag');
     const claimBtn = document.getElementById('claim-btn');
-    const tgBlock = document.getElementById('tg-login-block');
+    const loginBlock = document.getElementById('tg-login-compact');
     const nameView = document.getElementById('prize-name-view');
 
     if (achEl) achEl.textContent = String(achCount);
@@ -4391,139 +4428,133 @@ const Prize = {
 
     const ready = (!tamper) && cloud && (achCount >= need);
 
-    // Если готово и не авторизован — показываем блок входа
-    if (tgBlock) tgBlock.style.display = (ready && !this.state.authed) ? '' : 'none';
+    // Показываем компактную кнопку входа ТОЛЬКО если не авторизован и условия выполнены
+    if (loginBlock) {
+      loginBlock.style.display = (ready && !this.state.authed) ? '' : 'none';
+      if (ready && !this.state.authed) {
+        this.mountCompactTelegramWidget();
+      }
+    }
 
-    // Если авторизован — показываем имя, иначе скрываем
     if (nameView) {
       if (this.state.authed) {
         const nm = this.state.user?.display_name || localStorage.getItem('tg_username') || 'Пользователь';
         nameView.style.display = '';
-        nameView.textContent = `Имя: ${nm}`;
+        nameView.textContent = `Авторизован: ${nm}`;
       } else {
         nameView.style.display = 'none';
-        nameView.textContent = '';
       }
     }
 
     if (flag) {
       flag.className = ready ? 'prize-ready' : 'prize-not-ready';
-      flag.textContent = ready ? (this.state.authed ? 'Готово: можно подать заявку' : 'Готово: войдите через Telegram') :
-                                 'Недостаточно условий для заявки';
+      flag.textContent = ready 
+        ? (this.state.authed ? 'Готово: можно подать заявку' : 'Войдите через Telegram для получения приза')
+        : 'Недостаточно условий для заявки';
     }
 
-    if (claimBtn) claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
-
-    // Если теперь условия готовы и пользователь не авторизован — смонтируем кнопку виджета
-    try { this.mountTelegramWidget(); } catch(e){}
+    if (claimBtn) {
+      claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
+    }
   },
 
-    setBusy(v) {
-      this.state.busy = !!v;
-      const claimBtn = document.getElementById('claim-btn');
-      if (claimBtn) {
-        const { achCount, need, cloud, tamper } = this.state.readiness;
-        const ready = (!tamper) && cloud && (achCount >= need);
-        claimBtn.disabled = !(ready && this.state.authed && !this.state.busy);
-      }
-    },
-
-  // Монтируем Telegram Login Widget (одна кнопка, без лишнего)
-  mountTelegramWidget() {
-    const holder = document.getElementById('tg-holder');
-    const block  = document.getElementById('tg-login-block');
-    if (!holder || !block) return;
-
-    // Показать блок входа, только если чек‑лист готов и ещё не авторизованы
-    const { achCount, need, cloud, tamper } = this.state.readiness;
-    const ready = (!tamper) && cloud && (achCount >= need);
-    block.style.display = (ready && !this.state.authed) ? '' : 'none';
-
-    // Если не нужно — не выводим повторно
-    if (!ready || this.state.authed) return;
+  // Компактный виджет Telegram (без лишних полей)
+  mountCompactTelegramWidget() {
+    const holder = document.getElementById('tg-holder-compact');
+    if (!holder || this.state.authed) return;
 
     holder.innerHTML = '';
 
-    if (!TG_BOT_USERNAME || TG_BOT_USERNAME.toLowerCase().includes('bot') === false) {
+    if (!TG_BOT_USERNAME || !TG_BOT_USERNAME.includes('bot')) {
       holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME</div>`;
       return;
     }
 
     const scr = document.createElement('script');
     scr.src = 'https://telegram.org/js/telegram-widget.js?22';
-    scr.setAttribute('data-telegram-login', TG_BOT_USERNAME); // без @
-    scr.setAttribute('data-size', 'large');
+    scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
+    scr.setAttribute('data-size', 'medium');
     scr.setAttribute('data-userpic', 'false');
-    scr.setAttribute('data-onauth', 'onTelegramAuth');
-    // request-access не обязателен; пусть остаётся
+    scr.setAttribute('data-onauth', 'onTelegramAuthCompact');
     scr.setAttribute('data-request-access', 'write');
     holder.appendChild(scr);
   },
 
-  // Минимальный обработчик входа + АВТОСЕЙВ в облако сразу после
-  async onTelegramAuth(user) {
+  // Обработчик входа через компактный виджет
+  async onTelegramAuthCompact(user) {
     try {
-      if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
+      if (!GLOBAL_STATS_URL) {
+        NotificationSystem.warning('Сервер призов не настроен');
+        return;
+      }
+      
       this.setBusy(true);
 
-      // Локально запомним tg_id/username (разовый сбор)
-      try {
-        if (user?.id) localStorage.setItem('tg_id', String(user.id));
-        if (user?.username) localStorage.setItem('tg_username', String(user.username));
-      } catch(e){}
+      // Сохраняем данные локально для последующих тихих входов
+      localStorage.setItem('tg_id', String(user.id));
+      if (user.username) localStorage.setItem('tg_username', user.username);
+      if (user.first_name) localStorage.setItem('tg_first_name', user.first_name);
 
-      // Отправим на сервер с вашим отображаемым именем
-      const name = (document.getElementById('prize-name')?.value || '').trim();
-      const body = { tg: user, deviceHash: getDeviceHash(), displayName: name || null };
+      // Отправляем полную авторизацию с проверкой подписи
+      const body = { 
+        tg: user, 
+        deviceHash: getDeviceHash(),
+        displayName: user.first_name || user.username || null
+      };
 
       const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         mode: 'cors',
-        credentials: 'include', // пусть остаётся — на десктопах кука сохранится
+        credentials: 'include',
         body: JSON.stringify(body)
       });
-      const data = await res.json().catch(()=> ({}));
+      
+      const data = await res.json().catch(() => ({}));
+      
       if (!res.ok || !data?.ok) {
-        NotificationSystem.error(`Ошибка входа Telegram: ${data?.error || res.status}`);
+        NotificationSystem.error(`Ошибка входа: ${data?.error || res.status}`);
         return;
       }
 
-      // Сохраним sid для iOS (ITP)
       if (data?.sid) {
-        try { localStorage.setItem('vr_sid', data.sid); } catch(e){}
+        localStorage.setItem('vr_sid', data.sid);
       }
 
-      // Сразу автосейв в облако (overwrite) — теперь payload содержит profile
+      // Автосейв в облако
       await backupSaveToCloudOverwriteSilent();
 
-      // Обновим профиль/сессию и чек‑лист
       await this.fetchMe(true);
-      this.updateLocalReadiness(); // перечитать CLOUD_SAVED_OK
-      NotificationSystem.success('Вход через Telegram подтверждён');
+      this.updateLocalReadiness();
 
-      // Скрываем блок входа и показываем имя
-      const block = document.getElementById('tg-login-block');
-      const holder = document.getElementById('tg-holder');
-      const inp = document.getElementById('prize-name');
-      const view = document.getElementById('prize-name-view');
-      if (holder) holder.innerHTML = '';
-      if (block) block.style.display = 'none';
-      if (inp) inp.style.display = 'none';
-      if (view) {
-        const shownName = this.state.user?.display_name || name || user?.first_name || user?.username || 'Пользователь';
-        view.style.display = '';
-        view.textContent = `Имя: ${shownName}`;
-      }
+      // Скрываем кнопку входа
+      const loginBlock = document.getElementById('tg-login-compact');
+      if (loginBlock) loginBlock.style.display = 'none';
 
-      // На всякий случай ещё раз перерисовать кнопку
       this.paintChecklist();
+      
     } catch (e) {
       console.error(e);
-      NotificationSystem.error('Не удалось войти (Telegram)');
+      NotificationSystem.error('Не удалось войти');
     } finally {
       this.setBusy(false);
     }
+  },
+
+  setBusy(v) { this.state.busy = !!v; this.paintChecklist(); },
+  
+  toggleThumb(imgEl) {
+    const expanded = imgEl.classList.contains('expanded');
+    document.querySelectorAll('.prize-thumb').forEach(x => x.classList.remove('expanded'));
+    if (!expanded) imgEl.classList.add('expanded');
+  },
+
+  updateLocalReadiness() {
+    const achCount = getVisibleAchievementsCount();
+    const cloud = localStorage.getItem('CLOUD_SAVED_OK') === '1';
+    const tamper = localStorage.getItem('tamper_detected') === '1';
+    this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper };
+    this.paintChecklist();
   },
 
   async fetchMe(silent=false) {
@@ -4535,13 +4566,16 @@ const Prize = {
       });
       const data = await res.json().catch(()=> ({}));
       if (res.ok && data?.ok && data?.auth) {
-        this.state.authed = true; this.state.user = data.user;
-        if (!silent) NotificationSystem.info(`Вы вошли как ${data.user?.display_name || 'Пользователь'}`);
+        this.state.authed = true;
+        this.state.user = data.user;
       } else {
-        this.state.authed = false; this.state.user = null;
+        this.state.authed = false;
+        this.state.user = null;
       }
       this.paintChecklist();
-    } catch (e) { if (!silent) NotificationSystem.warning('Сервер недоступен (/me)'); }
+    } catch (e) {
+      if (!silent) NotificationSystem.warning('Сервер недоступен');
+    }
   },
 
   async fetchStatus() {
@@ -4563,7 +4597,6 @@ const Prize = {
     const ul = document.getElementById('claim-list');
     if (!box || !ul) return;
 
-    // если список призов ещё не загружен — подтянем и перерисуем
     if ((!this.state.prizes || this.state.prizes.length === 0) && GLOBAL_STATS_URL) {
       this.loadPrizes().then(()=> this.renderClaims(claims)).catch(()=>{});
    }
@@ -4610,6 +4643,7 @@ const Prize = {
       return `<li><span>${left}</span><span>${right}</span></li>`;
     }).join('');
   },
+
   copyTracking(code) {
     if (!code) return;
     navigator.clipboard?.writeText(code).then(
@@ -4617,18 +4651,17 @@ const Prize = {
       ()=> NotificationSystem.error('Не удалось скопировать')
     );
   },
+
   openTracking(code) {
     if (!code) return;
-    // Простая эвристика: если 14 цифр — Почта, иначе универсальный трекер
     const isPochta = /^[0-9]{14}$/.test(code);
     const url = isPochta
       ? `https://www.pochta.ru/tracking#${encodeURIComponent(code)}`
       : `https://track24.ru/?code=${encodeURIComponent(code)}`;
     window.open(url, '_blank');
   },
-  // ——— Список призов / детали ———
+
   openPrizes() {
-    // грузим с сервера список, рисуем модалку
     this.loadPrizes().then(()=>{
       const list = document.getElementById('prize-list');
       if (list) {
@@ -4643,6 +4676,7 @@ const Prize = {
       document.getElementById('modal-prizes')?.classList.add('active');
     }).catch(()=> NotificationSystem.error('Не удалось загрузить призы'));
   },
+
   closePrizesModal(){ document.getElementById('modal-prizes')?.classList.remove('active'); },
   backToPrizes(){ document.getElementById('modal-prize-detail')?.classList.remove('active'); this.openPrizes(); },
 
@@ -4670,22 +4704,22 @@ const Prize = {
     this.closePrizesModal();
     document.getElementById('modal-prize-detail')?.classList.add('active');
   },
+
   closePrizeDetail(){ document.getElementById('modal-prize-detail')?.classList.remove('active'); },
 
-  // ——— Способ доставки ———
   openShipping() {
     if (!this.state.selectedPrize) return;
     document.getElementById('modal-prize-detail')?.classList.remove('active');
     this.state.shippingMethod = null;
-    // скрыть формы
     document.getElementById('form-pickup').style.display = 'none';
     document.getElementById('form-courier').style.display = 'none';
     document.getElementById('modal-shipping')?.classList.add('active');
   },
+
   closeShipping(){ document.getElementById('modal-shipping')?.classList.remove('active'); },
 
   selectShipping(kind) {
-    this.state.shippingMethod = kind; // pickup|courier
+    this.state.shippingMethod = kind;
     document.getElementById('form-pickup').style.display = (kind==='pickup') ? '' : 'none';
     document.getElementById('form-courier').style.display = (kind==='courier') ? '' : 'none';
   },
@@ -4695,7 +4729,6 @@ const Prize = {
     if (!this.state.selectedPrize) { NotificationSystem.warning('Выберите приз'); return; }
     if (!this.state.shippingMethod) { NotificationSystem.warning('Выберите способ получения'); return; }
 
-    // валидация форм
     let shipping = {};
     if (this.state.shippingMethod === 'pickup') {
       const city = document.getElementById('ship-city').value.trim();
@@ -4713,9 +4746,7 @@ const Prize = {
 
     try {
       this.setBusy(true);
-
-      // Страховка: гарантируем облачный автосейв перед отправкой заявки
-      await ensureCloudBackupReady(3000); // подождём до 3 сек, если нужно
+      await ensureCloudBackupReady(3000);
 
       const body = {
         deviceHash: getDeviceHash(),
@@ -4725,6 +4756,7 @@ const Prize = {
         shippingMethod: this.state.shippingMethod,
         shipping
       };
+
       const res = await fetch(`${GLOBAL_STATS_URL}/claim`, {
         method:'POST',
         headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() },
@@ -4732,11 +4764,11 @@ const Prize = {
         credentials:'include',
         body: JSON.stringify(body)
       });
+
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) {
         const err = data?.error || `HTTP_${res.status}`;
         if (err === 'no_cloud_backup') {
-          // ещё раз попробуем тихо сохранить, затем повторно покажем подсказку
           await backupSaveToCloudOverwriteSilent();
           NotificationSystem.error('Нет облачного бэкапа. Подождите пару секунд и повторите.');
         } else if (err === 'level_too_low') {
@@ -4748,6 +4780,7 @@ const Prize = {
         }
         return;
       }
+
       NotificationSystem.success('Заявка отправлена');
       this.closeShipping();
       await this.fetchStatus();
@@ -4802,6 +4835,11 @@ const Prize = {
       this.paintChecklist(); this.renderClaims([]);
     } catch { NotificationSystem.error('Ошибка удаления аккаунта'); }
   }
+};
+
+// Глобальный callback для компактного виджета
+window.onTelegramAuthCompact = (user) => {
+  try { Prize.onTelegramAuthCompact(user); } catch(e) { console.error(e); }
 };
 
 // Глобальный callback для Telegram Login Widget
