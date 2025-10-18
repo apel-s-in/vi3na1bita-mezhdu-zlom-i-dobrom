@@ -4429,17 +4429,13 @@ const Prize = {
 
     const ready = (!tamper) && cloud && (achCount >= need);
 
-    // ИСПРАВЛЕНО: кнопка входа только если НЕ авторизован
     if (loginBlock) {
       const shouldShow = ready && !this.state.authed;
       console.log('[Prize] paintChecklist - ready:', ready, 'authed:', this.state.authed, 'shouldShow:', shouldShow);
       loginBlock.style.display = shouldShow ? '' : 'none';
-      if (shouldShow) {
-        this.mountCompactTelegramWidget();
-      }
+      if (shouldShow) this.mountCompactTelegramWidget();
     }
 
-    // ИСПРАВЛЕНО: показываем имя только когда авторизован
     if (nameView) {
       if (this.state.authed) {
         const nm = this.state.user?.display_name || localStorage.getItem('tg_username') || 'Пользователь';
@@ -4451,36 +4447,31 @@ const Prize = {
       }
     }
 
-    // ИСПРАВЛЕНО: текст флага в зависимости от авторизации
     if (flag) {
-      flag.className = ready ? 'prize-ready' : 'prize-not-ready';
-      
       if (!ready) {
+        flag.className = 'prize-not-ready';
         flag.textContent = 'Недостаточно условий для заявки';
       } else if (!this.state.authed) {
-        flag.textContent = 'Войдите через Telegram';
         flag.className = 'prize-not-ready';
+        flag.textContent = 'Войдите через Telegram';
       } else {
-        flag.textContent = 'Готово: можно подать заявку';
         flag.className = 'prize-ready';
+        flag.textContent = 'Готово: можно подать заявку';
       }
-      
       console.log('[Prize] Flag text:', flag.textContent, 'class:', flag.className);
     }
 
-    // ИСПРАВЛЕНО: кнопка активна только когда все условия выполнены
     if (claimBtn) {
       const canClaim = ready && this.state.authed && !this.state.busy;
       claimBtn.disabled = !canClaim;
       console.log('[Prize] Кнопка ПОЛУЧИТЬ ПРИЗ - disabled:', !canClaim, '(ready:', ready, 'authed:', this.state.authed, 'busy:', this.state.busy, ')');
     }
-  }
-    // Если всё готово, но авторизации нет — предпримем попытку восстановить сессию в фоне
+
+    // Долгожданный автоворк: если всё готово, но авторизации нет — восстановим сессию в фоне
     if (ready && !this.state.authed) {
-      this.ensureSessionActive().then((ok) => {
-        if (ok) this.paintChecklist();
-      });
-    },
+      this.ensureSessionActive().then(ok => { if (ok) this.paintChecklist(); });
+    }
+  },
 
   mountCompactTelegramWidget() {
     const holder = document.getElementById('tg-holder-compact');
@@ -4508,7 +4499,6 @@ const Prize = {
     holder.appendChild(scr);
   },
 
-  async onTelegramAuthCompact(user) {
   async onTelegramAuthCompact(user) {
     try {
       if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
@@ -9467,15 +9457,6 @@ window.debugInfo = function() {
 
 console.log('Application initialized. Version:', VERSION);
 
-// Глобальный callback для компактного виджета Telegram
-window.onTelegramAuthCompact = (user) => {
-  console.log('[Global] onTelegramAuthCompact вызван:', user);
-  try { 
-    Prize.onTelegramAuthCompact(user); 
-  } catch(e) { 
-    console.error('[Global] Ошибка в Prize.onTelegramAuthCompact:', e); 
-  }
-};
 </script>
 
 <!-- Ленивая загрузка JSZip только при необходимости -->
