@@ -4474,7 +4474,13 @@ const Prize = {
       claimBtn.disabled = !canClaim;
       console.log('[Prize] Кнопка ПОЛУЧИТЬ ПРИЗ - disabled:', !canClaim, '(ready:', ready, 'authed:', this.state.authed, 'busy:', this.state.busy, ')');
     }
-  },
+  }
+    // Если всё готово, но авторизации нет — предпримем попытку восстановить сессию в фоне
+    if (ready && !this.state.authed) {
+      this.ensureSessionActive().then((ok) => {
+        if (ok) this.paintChecklist();
+      });
+    },
 
   mountCompactTelegramWidget() {
     const holder = document.getElementById('tg-holder-compact');
@@ -4503,50 +4509,68 @@ const Prize = {
   },
 
   async onTelegramAuthCompact(user) {
+  async onTelegramAuthCompact(user) {
     try {
       if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
       this.setBusy(true);
 
-      // 1) Сохраним Telegram-данные локально
+      // Сохраняем Telegram-данные локально
       localStorage.setItem('tg_id', String(user.id||''));
       if (user.username)   localStorage.setItem('tg_username', user.username);
       if (user.first_name) localStorage.setItem('tg_first_name', user.first_name);
 
-      // 2) Отправим /auth/tg (получим sid)
-      const body = { 
-        tg: user, 
-        deviceHash: getDeviceHash(),
-        displayName: user.first_name || user.username || null
-      };
-      const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        credentials: 'include',
-        body: JSON.stringify(body)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
-        NotificationSystem.error(`Ошибка входа: ${data?.error || res.status}`);
+      const displayName = user.first_name || user.username || null;
+
+      // 1) Основной путь: /auth/tg
+      let ok = false, sid = null;
+      try {
+        const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          mode: 'cors',
+          credentials: 'include',
+          body: JSON.stringify({ tg: user, deviceHash: getDeviceHash(), displayName })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.ok) { ok = true; sid = data.sid || null; }
+      } catch(e){ /* игнор */ }
+
+      // 2) Фолбэк: если не удалось /auth/tg — делаем /auth/silent
+      if (!ok) {
+        try {
+          const res2 = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            mode: 'cors',
+            credentials: 'include',
+            body: JSON.stringify({ tgId: user.id, username: user.username || user.first_name || null, deviceHash: getDeviceHash() })
+          });
+          const data2 = await res2.json().catch(() => ({}));
+          if (res2.ok && data2?.ok) { ok = true; sid = data2.sid || null; }
+        } catch(e){ /* игнор */ }
+      }
+
+      if (!ok) {
+        NotificationSystem.error('Ошибка входа через Telegram. Проверьте подключение и попробуйте ещё раз.');
         return;
       }
 
-      // 3) Сохраняем sid (iOS ITP фолбэк)
-      if (data?.sid) localStorage.setItem('vr_sid', data.sid);
+      if (sid) localStorage.setItem('vr_sid', sid);
 
-      // 4) МГНОВЕННО включаем авторизацию в UI (без ожидания /me)
+      // МГНОВЕННО включаем авторизацию в UI (без ожидания /me)
       this.state.authed = true;
       this.state.user = {
-        display_name: user.first_name || user.username || 'Пользователь',
+        display_name: displayName || 'Пользователь',
         tg_id: user.id,
         tg_username: user.username || null
       };
-      document.getElementById('tg-login-compact')?.style && (document.getElementById('tg-login-compact').style.display = 'none');
-      this.paintChecklist(); // кнопка "ПОЛУЧИТЬ ПРИЗ" станет активной, если чек‑лист пройден
+      const lb = document.getElementById('tg-login-compact');
+      if (lb) lb.style.display = 'none';
+      this.paintChecklist();
 
-      // 5) Тихо сохраняем бэкап в облако (overwrite) и подгружаем /me
+      // Тихий автосейв в облако и подтягиваем профиль фоном
       await backupSaveToCloudOverwriteSilent();
-      await this.fetchMe(true);     // синхронизируем профиль с сервера (не блокирует UI)
+      await this.fetchMe(true);
       this.updateLocalReadiness();
 
       NotificationSystem.success('✅ Авторизация успешна!');
@@ -4577,6 +4601,37 @@ const Prize = {
     this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper };
     console.log('[Prize] updateLocalReadiness:', this.state.readiness);
     this.paintChecklist();
+  },
+  async ensureSessionActive() {
+    try {
+      // Быстрый /me
+      const r = await fetch(`${GLOBAL_STATS_URL}/me`, {
+        method:'GET', mode:'cors', credentials:'include',
+        headers: { ...apiAuthHeaders() }
+      });
+      const d = await r.json().catch(()=> ({}));
+      if (r.ok && d?.ok && d?.auth) { this.state.authed = true; this.state.user = d.user || this.state.user; return true; }
+
+      // Фолбэк: /auth/silent из локального tg_id
+      const tgId = localStorage.getItem('tg_id');
+      const username = localStorage.getItem('tg_username') || localStorage.getItem('tg_first_name') || null;
+      if (!tgId) return false;
+
+      const r2 = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json' },
+        mode:'cors',
+        credentials:'include',
+        body: JSON.stringify({ tgId, username, deviceHash: getDeviceHash() })
+      });
+      const d2 = await r2.json().catch(()=> ({}));
+      if (r2.ok && d2?.ok) {
+        if (d2.sid) localStorage.setItem('vr_sid', d2.sid);
+        this.state.authed = true;
+        return true;
+      }
+      return false;
+    } catch { return false; }
   },
 
   async fetchMe(silent=false) {
@@ -4697,19 +4752,22 @@ const Prize = {
   },
 
   openPrizes() {
+    // Страхуемся: если по какой-то причине сессии нет — восстановим
+   this.ensureSessionActive().then(()=> {
     this.loadPrizes().then(()=>{
-      const list = document.getElementById('prize-list');
-      if (list) {
-        list.innerHTML = (this.state.prizes || []).map(p => `
-          <div class="prize-card">
-            <img src="${p.img}" alt="">
-            <div><div class="title">${p.title}</div><div class="sub">${p.short}</div></div>
-            <button class="prize-btn choose" onclick="Prize.openPrizeDetail('${p.id}')">Выбрать</button>
-          </div>
-        `).join('');
-      }
-      document.getElementById('modal-prizes')?.classList.add('active');
-    }).catch(()=> NotificationSystem.error('Не удалось загрузить призы'));
+        const list = document.getElementById('prize-list');
+        if (list) {
+          list.innerHTML = (this.state.prizes || []).map(p => `
+            <div class="prize-card">
+              <img src="${p.img}" alt="">
+              <div><div class="title">${p.title}</div><div class="sub">${p.short}</div></div>
+              <button class="prize-btn choose" onclick="Prize.openPrizeDetail('${p.id}')">Выбрать</button>
+            </div>
+          `).join('');
+        }
+        document.getElementById('modal-prizes')?.classList.add('active');
+      }).catch(()=> NotificationSystem.error('Не удалось загрузить призы'));
+    });
   },
 
   closePrizesModal(){ document.getElementById('modal-prizes')?.classList.remove('active'); },
@@ -4778,7 +4836,13 @@ const Prize = {
       if (!fio || !addr || !zip) { NotificationSystem.warning('Заполните ФИО, адрес и индекс'); return; }
       shipping = { fullName: fio, address: addr, zip };
     }
-
+    // Страхуемся: если сессии нет — тихо восстановим через /auth/silent
+    const okSess = await this.ensureSessionActive();
+    if (!okSess) {
+      NotificationSystem.error('Нужно войти через Telegram');
+      this.paintChecklist();
+      return;
+    }
     try {
       this.setBusy(true);
       await ensureCloudBackupReady(3000);
