@@ -1913,7 +1913,11 @@
     .prize-note{ font-size:.88em; color:#9aa8c4; margin-top:8px; text-align:center; }
     .prize-ready{ text-align:center; font-weight:800; color:#27b34c; margin-top:6px; }
     .prize-not-ready{ text-align:center; font-weight:800; color:#E80100; margin-top:6px; }
-
+    .pill{
+      display:inline-block; padding:2px 8px; border-radius:999px;
+      border:1px solid #2b3955; background:#1e2638; color:#cfe3ff;
+      font-size:.85em; margin-left:6px;
+    }
     /* === Галерея призов (4 иконки в ряд, расширение по клику) === */
     .prize-gallery {
       display: grid;
@@ -2707,6 +2711,12 @@ const BUILD_INFO = {
 // Если оставить пустым '', отправка отключится автоматически.
 const GLOBAL_STATS_URL = 'https://vr-backend.apel-s-in.workers.dev';
 window.GLOBAL_STATS_URL = GLOBAL_STATS_URL; // добавьте эту строку
+function apiAuthHeaders() {
+  const h = {};
+  const sid = localStorage.getItem('vr_sid');
+  if (sid) h['X-Session'] = sid;
+  return h;
+}
 
 // Cloudflare Turnstile ...
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
@@ -4470,7 +4480,7 @@ const Prize = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         mode: 'cors',
-        credentials: 'include',
+        credentials: 'include', // пусть остаётся — на десктопах кука сохранится
         body: JSON.stringify(body)
       });
       const data = await res.json().catch(()=> ({}));
@@ -4479,7 +4489,12 @@ const Prize = {
         return;
       }
 
-      // Сразу автосейв в облако (overwrite), чтобы «ПОЛУЧИТЬ ПРИЗ» активировалась
+      // Сохраним sid для iOS (ITP)
+      if (data?.sid) {
+        try { localStorage.setItem('vr_sid', data.sid); } catch(e){}
+      }
+
+      // Сразу автосейв в облако (overwrite) — теперь payload содержит profile
       await backupSaveToCloudOverwriteSilent();
 
       // Обновим профиль/сессию и чек‑лист
@@ -4514,7 +4529,10 @@ const Prize = {
   async fetchMe(silent=false) {
     try {
       if (!GLOBAL_STATS_URL) return;
-      const res = await fetch(`${GLOBAL_STATS_URL}/me`, { method:'GET', mode:'cors', credentials:'include' });
+      const res = await fetch(`${GLOBAL_STATS_URL}/me`, {
+        method:'GET', mode:'cors', credentials:'include',
+        headers: { ...apiAuthHeaders() }
+      });
       const data = await res.json().catch(()=> ({}));
       if (res.ok && data?.ok && data?.auth) {
         this.state.authed = true; this.state.user = data.user;
@@ -4529,7 +4547,10 @@ const Prize = {
   async fetchStatus() {
     try {
       if (!GLOBAL_STATS_URL) return;
-      const res = await fetch(`${GLOBAL_STATS_URL}/claim/status`, { method:'GET', mode:'cors', credentials:'include' });
+      const res = await fetch(`${GLOBAL_STATS_URL}/claim/status`, {
+        method:'GET', mode:'cors', credentials:'include',
+        headers: { ...apiAuthHeaders() }
+      });
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) { this.renderClaims([]); return; }
       this.renderClaims(data.claims || []);
@@ -4542,6 +4563,11 @@ const Prize = {
     const ul = document.getElementById('claim-list');
     if (!box || !ul) return;
 
+    // если список призов ещё не загружен — подтянем и перерисуем
+    if ((!this.state.prizes || this.state.prizes.length === 0) && GLOBAL_STATS_URL) {
+      this.loadPrizes().then(()=> this.renderClaims(claims)).catch(()=>{});
+   }
+
     if (!claims.length) {
       box.style.display = 'none';
       ul.innerHTML = '';
@@ -4549,11 +4575,26 @@ const Prize = {
     }
     box.style.display = '';
 
-    const fmtDate = (ms)=> new Date(ms).toLocaleString();
+    const ruStatus = (s) => ({
+      pending:   'на модерации',
+      approved:  'одобрено',
+      shipped:   'отправлено',
+      delivered: 'получено',
+      rejected:  'отклонено'
+    }[s] || s);
+
     ul.innerHTML = claims.map(c=>{
-      const left = `<span>#${c.id.slice(0,8)} · ${c.prize_title || '—'}</span>`;
-      let right = c.status;
-      // Кнопки по статусам
+      const p = (this.state.prizes || []).find(x => x.id === c.prize_id);
+      const icon = p ? `<img src="${p.img}" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:cover;border:1px solid rgba(255,255,255,0.12);margin-right:6px">` : '';
+      const statusPill = `<span class="pill">${ruStatus(c.status)}</span>`;
+      const left = `
+        <span style="display:flex;align-items:center;gap:6px;">
+          ${icon}
+          <span>#${c.id.slice(0,8)} · ${c.prize_title || '—'}</span>
+          ${statusPill}
+        </span>`;
+
+      let right = '';
       if (['pending','approved'].includes(c.status)) {
         right = `<button class="prize-btn" style="background:#8a2a2a;" onclick="Prize.cancelClaim('${c.id}')">Отмена</button>`;
       } else if (c.status === 'shipped') {
@@ -4563,6 +4604,8 @@ const Prize = {
         right = `трек: ${tr||'—'} ${copyBtn} ${openBtn} <button class="prize-btn" onclick="Prize.markReceived('${c.id}')">Я получил</button>`;
       } else if (c.status === 'rejected') {
         right = `<button class="prize-btn" onclick="openFeedbackModal()">Обратная связь</button>`;
+      } else if (c.status === 'delivered') {
+        right = 'спасибо!';
       }
       return `<li><span>${left}</span><span>${right}</span></li>`;
     }).join('');
@@ -4684,7 +4727,7 @@ const Prize = {
       };
       const res = await fetch(`${GLOBAL_STATS_URL}/claim`, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() },
         mode:'cors',
         credentials:'include',
         body: JSON.stringify(body)
@@ -4721,7 +4764,7 @@ const Prize = {
     try{
       const res = await fetch(`${GLOBAL_STATS_URL}/claim/cancel`, {
         method:'POST', mode:'cors', credentials:'include',
-        headers:{ 'Content-Type':'application/json' },
+        headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() },
         body: JSON.stringify({ id })
       });
       const data = await res.json().catch(()=> ({}));
@@ -4737,7 +4780,7 @@ const Prize = {
     try{
       const res = await fetch(`${GLOBAL_STATS_URL}/claim/received`, {
         method:'POST', mode:'cors', credentials:'include',
-        headers:{ 'Content-Type':'application/json' },
+        headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() },
         body: JSON.stringify({ id })
       });
       const data = await res.json().catch(()=> ({}));
@@ -9106,7 +9149,7 @@ async function fbSend(){
     if (!dev || !window.GLOBAL_STATS_URL) throw new Error('not_configured');
     const res = await fetch(`${GLOBAL_STATS_URL}/feedback/send`, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json', ...apiAuthHeaders()},
       mode:'cors',
       body: JSON.stringify({ text, deviceHash: dev })
     });
