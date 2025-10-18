@@ -2427,6 +2427,13 @@
           </div>
           <button class="prize-btn" onclick="Prize.startManualIdentity()">Указать @ и Id</button>
         </div>
+        <div class="stat-card" style="margin-bottom:10px;">
+          <div style="font-weight:700;margin-bottom:6px;">Через бота (рекомендуется)</div>
+          <div style="font-size:.92em;color:#9aa8c4;margin-bottom:8px;">
+            Нажмите — откроется наш Telegram‑бот. Подтвердите вход и вернитесь — продолжим со вводом имени.
+          </div>
+          <button class="prize-btn" onclick="Prize.startBotIdentity()">Подтвердить в боте</button>
+        </div>
         <div class="stat-card">
           <div style="font-weight:700;margin-bottom:6px;">Автоматически через Telegram</div>
           <div style="font-size:.92em;color:#9aa8c4;margin-bottom:8px;">
@@ -2468,6 +2475,25 @@
         <div class="modal-buttons">
           <button class="btn-secondary" onclick="Prize.backToIdentityChoose()">Назад</button>
         </div>
+      </div>
+
+      <!-- НОВОЕ: Шаг 3b: подтверждение через бота -->
+      <div id="idw-step-bot" style="display:none;">
+        <div class="download-modal-title">Подтверждение в Telegram‑боте</div>
+        <div class="stat-card" style="margin-bottom:10px;">
+          <div style="font-size:.92em;color:#9aa8c4;">
+            Нажмите «Открыть Telegram», подтвердите вход у бота, затем вернитесь сюда — мы всё подхватим автоматически.
+          </div>
+        </div>
+        <div id="idw-bot-code" class="prize-note" style="text-align:center; margin-bottom:8px;"></div>
+        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <a id="idw-bot-link" class="prize-btn" target="_blank" rel="noopener">Открыть Telegram</a>
+          <button class="prize-btn" onclick="Prize.cancelBotIdentity()">Отмена</button>
+        </div>
+        <div id="idw-bot-qr-wrap" style="display:flex;justify-content:center;margin-top:6px;">
+          <img id="idw-bot-qr" alt="QR" style="width:180px;height:180px;border-radius:8px;display:none;"/>
+        </div>
+        <div class="prize-note" id="idw-bot-status" style="text-align:center; margin-top:10px;">Ожидание подтверждения…</div>
       </div>
 
       <!-- Шаг 4: ввод имени -->
@@ -4667,6 +4693,120 @@ const Prize = {
       this.setBusy(false);
       NotificationSystem.error('Ошибка ручной привязки');
     }
+  },
+  // НОВОЕ: Способ "Через бота (deep-link)"
+  _botPollTimer: null,
+  _botPollCode: null,
+
+  async startBotIdentity() {
+    try {
+      const choose = document.getElementById('idw-step-choose');
+      const bot = document.getElementById('idw-step-bot');
+      if (choose) choose.style.display = 'none';
+      if (bot) bot.style.display = '';
+
+      // 1) Запрашиваем у бэкенда одноразовый код и deep-link
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/bot/start`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        mode:'cors',
+        credentials:'include',
+        body: JSON.stringify({ deviceHash: getDeviceHash() })
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok || !data?.code) {
+        NotificationSystem.error('Не удалось начать подтверждение через бота');
+        this.backToIdentityChoose();
+        return;
+      }
+
+      this._botPollCode = data.code;
+
+      // 2) Линк на бота — если бэк не вернул username, строим по фронт-константе TG_BOT_USERNAME
+      let link = data.link;
+      if (!link) {
+        const botU = (typeof TG_BOT_USERNAME !== 'undefined' ? String(TG_BOT_USERNAME) : '').replace(/^@+/, '');
+        if (botU) link = `https://t.me/${botU}?start=BL_${data.code}`;
+      }
+
+      // 3) Обновляем UI: код, ссылка, QR (для десктопа)
+      const codeEl = document.getElementById('idw-bot-code');
+      if (codeEl) codeEl.innerHTML = `Код подтверждения: <b>${data.code}</b>`;
+      const a = document.getElementById('idw-bot-link');
+      if (a) {
+        a.href = link || '#';
+        a.textContent = 'Открыть Telegram';
+      }
+      const isDesktop = !/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const qrImg = document.getElementById('idw-bot-qr');
+      if (qrImg) {
+        if (isDesktop && link) {
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+          qrImg.src = qrUrl; qrImg.style.display = '';
+        } else {
+          qrImg.style.display = 'none';
+        }
+      }
+
+      // Авто‑открытие Telegram на мобильных
+      if (!isDesktop && link) {
+        setTimeout(() => { try { window.open(link, '_blank'); } catch(e){} }, 300);
+      }
+
+      // 4) Запускаем опрос
+      this._botPollTimer = setInterval(() => this._pollBotCode(), 2000);
+      document.getElementById('idw-bot-status').textContent = 'Ожидаем подтверждение у бота…';
+    } catch (e) {
+      console.error('startBotIdentity error:', e);
+      NotificationSystem.error('Не удалось начать подтверждение через бота');
+      this.backToIdentityChoose();
+    }
+  },
+
+  async _pollBotCode() {
+    if (!this._botPollCode) return;
+    try {
+      const res = await fetch(`${GLOBAL_STATS_URL}/auth/bot/poll?code=${encodeURIComponent(this._botPollCode)}`, {
+        method:'GET', mode:'cors', credentials:'include'
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok) return;
+
+      if (data.ready) {
+        // Успех
+        if (this._botPollTimer) { clearInterval(this._botPollTimer); this._botPollTimer = null; }
+        document.getElementById('idw-bot-status').textContent = 'Подтверждено. Настраиваем…';
+
+        try {
+          if (data.sid) localStorage.setItem('vr_sid', data.sid);
+          if (data.tgId) localStorage.setItem('tg_id', String(data.tgId));
+          if (data.username) localStorage.setItem('tg_username', String(data.username));
+        } catch(e){}
+
+        this.state.authed = true;
+
+        // Переходим к шагу ввода имени
+        const botStep = document.getElementById('idw-step-bot');
+        const nm = document.getElementById('idw-step-name');
+        if (botStep) botStep.style.display = 'none';
+        if (nm) nm.style.display = '';
+
+        const prefill = localStorage.getItem('profile_name') || (data.username || 'Пользователь');
+        const inp = document.getElementById('idw-display-name');
+        if (inp) inp.value = prefill;
+
+        // Подтягиваем профиль, обновляем готовность
+        this.fetchMe(true).then(()=> this.updateLocalReadiness());
+      }
+    } catch(e) {
+      // молча повторим
+    }
+  },
+
+  cancelBotIdentity() {
+    if (this._botPollTimer) { clearInterval(this._botPollTimer); this._botPollTimer = null; }
+    this._botPollCode = null;
+    this.backToIdentityChoose();
   },
 
   startAutoIdentity() {
