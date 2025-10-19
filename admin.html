@@ -45,6 +45,10 @@
     <h1>VR Admin</h1>
     <div class="tabs">
       <button class="tab active" id="tab-claims">Заявки</button>
+      <button class="tab" id="tab-devices">Устройства</button>
+      <button class="tab" id="tab-backups">Бэкапы</button>
+      <button class="tab" id="tab-logs">Логи</button>
+      <button class="tab" id="tab-stats">Статистика</button>
       <button class="tab" id="tab-fb">Обратная связь</button>
       <button class="tab" id="tab-prizes">Призы</button>
       <button class="tab" id="tab-logout" title="Выйти">Logout</button>
@@ -130,6 +134,89 @@
         <div class="muted">История</div>
         <div class="list" id="claim-events" style="max-height:240px;"></div>
       </div>
+    </div>
+  </main>
+  <main id="view-devices" style="display:none">
+    <div class="card">
+      <div class="search">
+        <input id="dev-q" placeholder="Поиск device_hash / имя / tg_id..." class="w100">
+        <button class="btn" onclick="loadDevices()">Искать</button>
+      </div>
+      <div class="list" id="devices-list"></div>
+    </div>
+    <div class="card">
+      <div class="muted">Клик по устройству слева — для копирования device_hash</div>
+      <div id="devices-details" class="muted" style="margin-top:8px;">—</div>
+    </div>
+  </main>
+
+  <main id="view-backups" style="display:none">
+    <div class="card">
+      <div class="search">
+        <button class="btn" onclick="loadBackups()">Обновить</button>
+      </div>
+      <div class="list" id="backups-list"></div>
+    </div>
+    <div class="card">
+      <div class="muted">Просмотр бэкапа (read‑only)</div>
+      <pre id="backup-viewer" style="max-height:70vh; overflow:auto; background:#0f1218; border:1px solid #2b3955; border-radius:10px; padding:10px; color:#cfe3ff;"></pre>
+    </div>
+  </main>
+
+  <main id="view-logs" style="display:none">
+    <div class="card">
+      <div class="search" style="flex-wrap:wrap; gap:8px;">
+        <select id="logs-type" title="Тип">
+          <option value="">Все типы</option>
+          <option value="claim_create">claim_create</option>
+          <option value="claim_update">claim_update</option>
+          <option value="claim_shipped">claim_shipped</option>
+          <option value="claim_delivered">claim_delivered</option>
+          <option value="claim_cancel">claim_cancel</option>
+          <option value="feedback">feedback</option>
+          <option value="tg_link">tg_link</option>
+          <option value="backup_save">backup_save</option>
+        </select>
+        <label class="muted">с</label>
+        <input type="datetime-local" id="logs-from">
+        <label class="muted">по</label>
+        <input type="datetime-local" id="logs-to">
+
+        <input id="logs-pkey" placeholder="payload ключ (a.b.c)" style="min-width:180px;">
+        <select id="logs-pop" title="Оператор">
+          <option value="contains">contains</option>
+          <option value="eq">=</option>
+          <option value="ne">≠</option>
+          <option value="gt">&gt;</option>
+          <option value="lt">&lt;</option>
+          <option value="ge">≥</option>
+          <option value="le">≤</option>
+        </select>
+        <input id="logs-pval" placeholder="значение" style="min-width:140px;">
+
+        <button class="btn" onclick="loadLogs()">Применить</button>
+        <button class="btn" onclick="exportLogs('csv')">Экспорт CSV</button>
+        <button class="btn" onclick="exportLogs('ndjson')">Экспорт NDJSON</button>
+        <button class="btn warn" onclick="deleteSelectedLogs()">Удалить выбранные</button>
+      </div>
+      <div class="list" id="logs-list"></div>
+    </div>
+    <div class="card">
+      <div class="muted">Детали лога</div>
+      <pre id="log-details" style="max-height:70vh; overflow:auto; background:#0f1218; border:1px solid #2b3955; border-radius:10px; padding:10px; color:#cfe3ff;"></pre>
+    </div>
+  </main>
+
+  <main id="view-stats" style="display:none">
+    <div class="card">
+      <div class="search">
+        <button class="btn" onclick="loadMetrics()">Обновить</button>
+      </div>
+      <div id="metrics-box" class="list"></div>
+    </div>
+    <div class="card">
+      <div class="muted">Дополнительно</div>
+      <div class="muted">Здесь можно будет добавить графики/гео после подключения соответствующих источников.</div>
     </div>
   </main>
 
@@ -307,17 +394,34 @@ document.addEventListener('keydown', (e) => {
 
 function switchTab(tab) {
   document.getElementById('tab-claims').classList.toggle('active', tab==='claims');
+  document.getElementById('tab-devices').classList.toggle('active', tab==='devices');
+  document.getElementById('tab-backups').classList.toggle('active', tab==='backups');
+  document.getElementById('tab-logs').classList.toggle('active', tab==='logs');
+  document.getElementById('tab-stats').classList.toggle('active', tab==='stats');
   document.getElementById('tab-fb').classList.toggle('active', tab==='fb');
   document.getElementById('tab-prizes').classList.toggle('active', tab==='prizes');
-  document.getElementById('view-claims').style.display = (tab==='claims') ? '' : 'none';
-  document.getElementById('view-fb').style.display = (tab==='fb') ? '' : 'none';
-  document.getElementById('view-prizes').style.display = (tab==='prizes') ? '' : 'none';
+
+  document.getElementById('view-claims').style.display  = (tab==='claims') ? '' : 'none';
+  document.getElementById('view-devices').style.display = (tab==='devices') ? '' : 'none';
+  document.getElementById('view-backups').style.display = (tab==='backups') ? '' : 'none';
+  document.getElementById('view-logs').style.display    = (tab==='logs') ? '' : 'none';
+  document.getElementById('view-stats').style.display   = (tab==='stats') ? '' : 'none';
+  document.getElementById('view-fb').style.display      = (tab==='fb') ? '' : 'none';
+  document.getElementById('view-prizes').style.display  = (tab==='prizes') ? '' : 'none';
+
   if (tab==='prizes') loadPrizesAdmin();
+  if (tab==='devices') loadDevices();
+  if (tab==='backups') loadBackups();
+  if (tab==='logs') loadLogs();
+  if (tab==='stats') loadMetrics();
 }
 document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
+document.getElementById('tab-devices').onclick = ()=>switchTab('devices');
+document.getElementById('tab-backups').onclick = ()=>switchTab('backups');
+document.getElementById('tab-logs').onclick = ()=>switchTab('logs');
+document.getElementById('tab-stats').onclick = ()=>switchTab('stats');
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
 document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
-document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
 
 // Claims
 let currentClaim = null;
@@ -375,11 +479,22 @@ async function loadClaims() {
 
   list.innerHTML = items.map(c=>{
     const dt = new Date(c.created_at).toLocaleString();
-    const stClass = `status-${c.status}`;
+    let stClass = `status-${c.status}`;
+    // Просроченное напоминание для pending — фиолетовый
+    const now = Date.now();
+    const dueAt = c.meta_dueAt ? Number(c.meta_dueAt) : null;
+    if (c.status === 'pending' && Number.isFinite(dueAt) && dueAt < now) {
+      stClass = 'status-pending'; // базовый класс
+      // обрамим рамкой фиолетовым (добавим inline стилем)
+      var extraStyle = 'box-shadow: inset 0 0 0 1px #7a3fb4;';
+    } else {
+      var extraStyle = '';
+    }
     const tg = c.tg_id ? ` · tg:${String(c.tg_id).slice(0,8)}…` : '';
+    const metaMark = c.meta_color ? ` <span class="pill" style="border-color:#555;background:#222;">${c.meta_color}</span>` : '';
     return `<div class="row" onclick="selectClaim('${c.id}')">
       <div>
-        <div><span class="pill ${stClass}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b></div>
+        <div><span class="pill ${stClass}" style="${extraStyle}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b>${metaMark}</div>
         <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)}${tg} · lvl:${c.level} · cyc:${c.cycle}</div>
       </div>
       <div class="muted">${dt}</div>
@@ -649,6 +764,213 @@ async function sendReply() {
   if (!res.ok || !data?.ok) { alert('Не отправлено: '+(data?.error||res.status)); return; }
   inp.value = '';
   loadMessages();
+}
+// ===== Устройства =====
+async function loadDevices() {
+  if (needLogin()) return;
+  const q = document.getElementById('dev-q').value.trim();
+  const url = new URL(API + '/admin/devices');
+  if (q) url.searchParams.set('q', q);
+  url.searchParams.set('limit', '100');
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('devices-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(d=>{
+    const dt1 = new Date(d.first_seen).toLocaleString();
+    const dt2 = new Date(d.last_seen).toLocaleString();
+    const claimStat = `T:${d.claims_total||0} • p:${d.claims_pending||0} • a:${d.claims_approved||0} • s:${d.claims_shipped||0} • d:${d.claims_delivered||0} • r:${d.claims_rejected||0}`;
+    const user = `${escapeHtml(d.user_name||'—')} ${d.tg_id?('· tg:'+String(d.tg_id)) : ''}`;
+    return `<div class="row" onclick="copyDeviceHash('${d.device_hash}')">
+      <div>
+        <div><b>dev:${escapeHtml(d.device_hash.slice(0,12))}…</b> · ${user}</div>
+        <div class="muted">${dt1} → ${dt2}</div>
+      </div>
+      <div class="muted">${claimStat}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('devices-details').textContent = '—';
+}
+function copyDeviceHash(hash) {
+  navigator.clipboard?.writeText(hash);
+  const box = document.getElementById('devices-details');
+  if (box) box.textContent = `Скопировано: ${hash}`;
+}
+
+// ===== Бэкапы =====
+async function loadBackups() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/backups/list', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('backups-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(b=>{
+    const when = b.exportedAt ? new Date(b.exportedAt).toLocaleString() : '—';
+    return `<div class="row">
+      <div>
+        <div><b>dev:${escapeHtml((b.device||'').slice(0,12))}…</b></div>
+        <div class="muted">${when}</div>
+      </div>
+      <div class="flex">
+        <div class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(b.checksum||'')}</div>
+        <button class="btn" onclick="viewBackup('${b.device}')">Открыть</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('backup-viewer').textContent = '';
+}
+async function viewBackup(device) {
+  if (needLogin()) return;
+  const url = new URL(API + '/admin/backup/get');
+  url.searchParams.set('device', device);
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const pre = document.getElementById('backup-viewer');
+  if (!data?.ok) { pre.textContent = 'Ошибка'; return; }
+  pre.textContent = JSON.stringify(data.backup, null, 2);
+}
+
+// ===== Логи =====
+let __selectedLogKeys = new Set();
+
+function readDTLocal(id) {
+  const v = document.getElementById(id)?.value;
+  if (!v) return null;
+  try { return new Date(v).toISOString(); } catch { return null; }
+}
+
+async function loadLogs() {
+  if (needLogin()) return;
+  __selectedLogKeys = new Set();
+  const type = document.getElementById('logs-type').value;
+  const from = readDTLocal('logs-from');
+  const to   = readDTLocal('logs-to');
+
+  const url = new URL(API + '/admin/logs');
+  if (type) url.searchParams.set('type', type);
+  if (from) url.searchParams.set('from', from);
+  if (to) url.searchParams.set('to', to);
+  const pkey = document.getElementById('logs-pkey').value.trim();
+  const pop  = document.getElementById('logs-pop').value;
+  const pval = document.getElementById('logs-pval').value.trim();
+  if (pkey) url.searchParams.set('pkey', pkey);
+  if (pop)  url.searchParams.set('pop', pop);
+  if (pval) url.searchParams.set('pval', pval);
+  url.searchParams.set('limit', '100');
+
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('logs-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+
+  list.innerHTML = (data.items||[]).map(l=>{
+    const when = l.ts ? new Date(l.ts).toLocaleString() : '—';
+    const payloadShort = escapeHtml(JSON.stringify(l.payload||{})).slice(0,120);
+    return `<div class="row">
+      <div onclick="selectLog('${l.key}')">
+        <div><span class="pill">${escapeHtml(l.type||'log')}</span> <b>${when}</b></div>
+        <div class="muted">${payloadShort}</div>
+      </div>
+      <div>
+        <input type="checkbox" onchange="toggleLogKey('${l.key}', this.checked)">
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('log-details').textContent = '';
+}
+function toggleLogKey(key, checked) {
+  if (checked) __selectedLogKeys.add(key); else __selectedLogKeys.delete(key);
+}
+async function selectLog(key) {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/logs?limit=1', { headers:{ ...authHeader() }});
+  // упрощение: ключи мы не загружаем по ключу отдельно, а повторно стягивать список не будем — в реальном коде можно добавить /admin/logs/get
+  // здесь найдём в текущем списке и выведем детали
+  try {
+    const node = Array.from(document.querySelectorAll('#logs-list .row')).find(r => r.innerHTML.includes(key));
+    // Просто повторно загружаем весь список и ищем item
+    const type = document.getElementById('logs-type').value;
+    const from = readDTLocal('logs-from');
+    const to   = readDTLocal('logs-to');
+    const url = new URL(API + '/admin/logs');
+    if (type) url.searchParams.set('type', type);
+    if (from) url.searchParams.set('from', from);
+    if (to) url.searchParams.set('to', to);
+    url.searchParams.set('limit', '100');
+    const resp = await fetch(url, { headers:{ ...authHeader() }});
+    const data = await resp.json().catch(()=> ({}));
+    const it = (data.items||[]).find(x => x.key === key);
+    document.getElementById('log-details').textContent = it ? JSON.stringify(it, null, 2) : 'Не найден';
+  } catch {
+    document.getElementById('log-details').textContent = 'Ошибка';
+  }
+}
+async function deleteSelectedLogs() {
+  if (!__selectedLogKeys.size) { alert('Не выбрано ни одного лога'); return; }
+  if (!confirm(`Удалить ${__selectedLogKeys.size} логов?`)) return;
+  const res = await fetch(API + '/admin/logs/delete', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ keys: Array.from(__selectedLogKeys) })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка удаления: ' + (data?.error||res.status)); return; }
+  alert('Удалено');
+  loadLogs();
+}
+async function exportLogs(fmt) {
+  if (needLogin()) return;
+  const type = document.getElementById('logs-type').value;
+  const from = readDTLocal('logs-from');
+  const to   = readDTLocal('logs-to');
+  const pkey = document.getElementById('logs-pkey').value.trim();
+  const pop  = document.getElementById('logs-pop').value;
+  const pval = document.getElementById('logs-pval').value.trim();
+
+  const url = new URL(API + '/admin/logs/export');
+  url.searchParams.set('format', fmt || 'csv');
+  if (type) url.searchParams.set('type', type);
+  if (from) url.searchParams.set('from', from);
+  if (to)   url.searchParams.set('to', to);
+  if (pkey) url.searchParams.set('pkey', pkey);
+  if (pop)  url.searchParams.set('pop', pop);
+  if (pval) url.searchParams.set('pval', pval);
+  url.searchParams.set('limit', '20000');
+
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `logs-${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.${fmt==='ndjson'?'ndjson':'csv'}`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+// ===== Сводная статистика =====
+async function loadMetrics() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/metrics/summary', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const box = document.getElementById('metrics-box');
+  if (!data?.ok) { box.textContent = 'Ошибка'; return; }
+  const byStatus = (data.claimsByStatus||[]).map(s=> `<div class="row"><div>${s.status}</div><div class="muted">${s.c}</div></div>`).join('');
+  box.innerHTML = `
+    <div class="row"><div>Пользователей</div><div class="muted">${data.users}</div></div>
+    <div class="row"><div>Устройств</div><div class="muted">${data.devices}</div></div>
+    <div class="row"><div>Заявок</div><div class="muted">${data.claims}</div></div>
+    <div class="row"><div>Диалогов обратной связи</div><div class="muted">${data.feedback_threads}</div></div>
+    <div class="row"><div>Сообщений</div><div class="muted">${data.feedback_messages}</div></div>
+    <div class="row"><div><b>Заявки по статусам</b></div><div></div></div>
+    ${byStatus || '<div class="muted">—</div>'}
+  `;
 }
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 window.addEventListener('load', () => {
