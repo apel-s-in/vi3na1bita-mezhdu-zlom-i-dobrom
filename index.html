@@ -70,7 +70,33 @@
       min-width: 260px;
       min-height: 170px;
     }
-    
+    /* Карточки «Мои заявки» */
+    .claim-card {
+      border:1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.25);
+      border-radius: 10px;
+      padding: 10px;
+      margin: 8px 0;
+    }
+    .claim-head {
+      font-weight: 800;
+      color: #cfe3ff;
+      margin-bottom: 6px;
+    }
+    .claim-img {
+      width: 100%;
+      max-width: 360px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      object-fit: cover;
+      display:block;
+      margin: 6px auto;
+    }
+    .claim-title { font-weight: 800; color: #fff; margin: 6px 0 2px 0; }
+    .claim-sub   { color:#9aa8c4; font-size:.92em; margin-bottom: 6px; }
+    .claim-tags { display:flex; gap:6px; flex-wrap:wrap; margin: 8px 0; }
+    .claim-actions { display:flex; justify-content:center; margin-top: 8px; }
+
     .promo-cover {
       width: 256px;
       height: 256px;
@@ -1921,13 +1947,11 @@
     /* === Галерея призов (4 иконки в ряд, расширение по клику) === */
     .prize-gallery {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr)); /* Всегда 4 колонки */
       gap: 6px;
       margin-bottom: 6px;
     }
-    @media (max-width: 360px) {
-      .prize-gallery { grid-template-columns: repeat(3, 1fr); }
-    }
+    /* Удаляем медиаправило на 3 колонки — всегда 4, иконки просто становятся меньше */
     .prize-thumb {
       width: 100%;
       aspect-ratio: 1/1;
@@ -4392,7 +4416,7 @@ const Prize = {
 
     this.renderSkeleton();
     this.updateLocalReadiness();
-
+    this.loadPrizes().catch(()=>{});
     // 1) Тихая авторизация (получим свежий sid), но UI не даунгрейдим
     this.attemptSilentAuth().then(() => {
       this.fetchStatus();
@@ -4476,12 +4500,7 @@ const Prize = {
 
         <div class="prize-status" id="prize-status" style="margin-top:10px; display:none;">
           <h4>Мои заявки</h4>
-          <ul id="claim-list"></ul>
-          <div class="prize-note">Статусы: pending = на модерации, approved = одобрено, shipped = отправлено, delivered = получено, rejected = отклонено</div>
-        </div>
-
-        <div style="text-align:center; margin-top:12px;">
-          <button class="prize-btn" onclick="Prize.deleteAccount()" style="background:#8a2a2a;">Удалить аккаунт</button>
+          <div id="claim-cards"></div>
         </div>
       `;
 
@@ -4522,7 +4541,7 @@ const Prize = {
       const nm = this.currentProfileName();
       if (nm) {
         nameView.style.display = '';
-        nameView.textContent = `Имя: ${nm}`;
+        nameView.textContent = `${nm}`;
       } else {
         nameView.style.display = 'none';
       }
@@ -4534,15 +4553,22 @@ const Prize = {
     }
 
     if (flag) {
-      if (!ready) {
-        flag.className = 'prize-not-ready';
-        flag.textContent = 'Недостаточно условий для заявки';
-      } else if (!hasName) {
-        flag.className = 'prize-not-ready';
-        flag.textContent = 'Создайте имя в приложении';
+      // Если уже есть хотя бы одна заявка — флаг скрываем
+      const hasClaims = Array.isArray(this.state.claims) && this.state.claims.length > 0;
+      if (hasClaims) {
+        flag.style.display = 'none';
       } else {
-        flag.className = 'prize-ready';
-        flag.textContent = 'Готово: можно подать заявку';
+        flag.style.display = '';
+        if (!ready) {
+          flag.className = 'prize-not-ready';
+          flag.textContent = 'Недостаточно условий для заявки';
+        } else if (!hasName) {
+          flag.className = 'prize-not-ready';
+          flag.textContent = 'Создайте имя в приложении';
+        } else {
+          flag.className = 'prize-ready';
+          flag.textContent = 'Готово: можно подать заявку';
+        }
       }
     }
 
@@ -4705,8 +4731,22 @@ const Prize = {
         setTimeout(() => { try { window.open(link, '_blank'); } catch(e){} }, 300);
       }
 
-      // 4) Запускаем опрос
-      this._botPollTimer = setInterval(() => this._pollBotCode(), 2000);
+      // 4) Запускаем ускоренный опрос: первые ~12 сек часто, затем реже
+      this._botPollStartedAt = Date.now();
+      this._botPollActive = true;
+      const fastLoop = async () => {
+        if (!this._botPollActive) return;
+        await this._pollBotCode(true);
+        const elapsed = Date.now() - this._botPollStartedAt;
+        const nextDelay = elapsed < 12000 ? 350 : 1000; // первые 12с ~3 опроса в сек, потом ~1/с
+        this._botPollTimer = setTimeout(fastLoop, nextDelay);
+      };
+      fastLoop();
+
+      // При возврате в окно приложения — сразу пробуем ещё раз
+      this._onVis = () => { if (this._botPollActive) this._pollBotCode(true); };
+      document.addEventListener('visibilitychange', this._onVis);
+
       document.getElementById('idw-bot-status').textContent = 'Ожидаем подтверждение у бота…';
     } catch (e) {
       console.error('startBotIdentity error:', e);
@@ -4715,19 +4755,31 @@ const Prize = {
     }
   },
 
-  async _pollBotCode() {
+  async _pollBotCode(noCache=false) {
     if (!this._botPollCode) return;
     try {
-      const res = await fetch(`${GLOBAL_STATS_URL}/auth/bot/poll?code=${encodeURIComponent(this._botPollCode)}`, {
-        method:'GET', mode:'cors', credentials:'include'
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000); // fail‑fast
+      const url = `${GLOBAL_STATS_URL}/auth/bot/poll?code=${encodeURIComponent(this._botPollCode)}&ts=${Date.now()}`;
+      const res = await fetch(url, {
+        method:'GET',
+        mode:'cors',
+        credentials:'include',
+        signal: ctrl.signal,
+        headers: noCache ? { 'Cache-Control': 'no-cache', 'Pragma':'no-cache' } : {}
       });
+      clearTimeout(t);
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) return;
 
       if (data.ready) {
         // Успех
-        if (this._botPollTimer) { clearInterval(this._botPollTimer); this._botPollTimer = null; }
-        document.getElementById('idw-bot-status').textContent = 'Подтверждено. Настраиваем…';
+        this._botPollActive = false;
+        if (this._botPollTimer) { clearTimeout(this._botPollTimer); this._botPollTimer = null; }
+        if (this._onVis) { document.removeEventListener('visibilitychange', this._onVis); this._onVis = null; }
+
+        const st = document.getElementById('idw-bot-status');
+        if (st) st.textContent = 'Подтверждено. Настраиваем…';
 
         try {
           if (data.sid) localStorage.setItem('vr_sid', data.sid);
@@ -4751,12 +4803,14 @@ const Prize = {
         this.fetchMe(true).then(()=> this.updateLocalReadiness());
       }
     } catch(e) {
-      // молча повторим
+      // тихо игнорируем — следующая попытка в цикле
     }
   },
 
   cancelBotIdentity() {
-    if (this._botPollTimer) { clearInterval(this._botPollTimer); this._botPollTimer = null; }
+    this._botPollActive = false;
+    if (this._botPollTimer) { clearTimeout(this._botPollTimer); this._botPollTimer = null; }
+    if (this._onVis) { document.removeEventListener('visibilitychange', this._onVis); this._onVis = null; }
     this._botPollCode = null;
     this.backToIdentityChoose();
   },
@@ -4929,16 +4983,20 @@ const Prize = {
   renderClaims(claims) {
     this.state.claims = claims;
     const box = document.getElementById('prize-status');
-    const ul = document.getElementById('claim-list');
-    if (!box || !ul) return;
+    const wrap = document.getElementById('claim-cards');
+    if (!box || !wrap) return;
 
+    // Если каталог ещё не подгружен — подгрузим и повторим рендер
     if ((!this.state.prizes || this.state.prizes.length === 0) && GLOBAL_STATS_URL) {
       this.loadPrizes().then(()=> this.renderClaims(claims)).catch(()=>{});
     }
 
     if (!claims.length) {
       box.style.display = 'none';
-      ul.innerHTML = '';
+      wrap.innerHTML = '';
+      // При отсутствии заявок возвращаем видимость зелёного флага
+      const flag = document.getElementById('prize-ready-flag');
+      if (flag) flag.style.display = '';
       return;
     }
     box.style.display = '';
@@ -4951,32 +5009,57 @@ const Prize = {
       rejected:  'отклонено'
     }[s] || s);
 
-    ul.innerHTML = claims.map(c=>{
+    wrap.innerHTML = claims.map(c=>{
       const p = (this.state.prizes || []).find(x => x.id === c.prize_id);
-      const icon = p ? `<img src="${p.img}" alt="" style="width:26px;height:26px;border-radius:6px;object-fit:cover;border:1px solid rgba(255,255,255,0.12);margin-right:6px">` : '';
-      const statusPill = `<span class="pill">${ruStatus(c.status)}</span>`;
-      const left = `
-        <span style="display:flex;align-items:center;gap:6px;">
-          ${icon}
-          <span>#${c.id.slice(0,8)} · ${c.prize_title || '—'}</span>
-          ${statusPill}
-        </span>`;
+      const img = p?.img || 'img/prize-01.png';
+      const title = c.prize_title || p?.title || 'Приз';
+      const sub = p?.long || p?.short || '';
 
-      let right = '';
+      // Тэги статуса
+      const tags = [
+        `<span class="pill">${ruStatus(c.status)}</span>`
+      ];
+      if (c.status === 'shipped' && c.tracking_code) {
+        tags.push(`<span class="pill">трек: ${c.tracking_code}</span>`);
+      }
+      const tagsHtml = `<div class="claim-tags">${tags.join(' ')}</div>`;
+
+      // Кнопка внизу
+      let actions = '';
       if (['pending','approved'].includes(c.status)) {
-        right = `<button class="prize-btn" style="background:#8a2a2a;" onclick="Prize.cancelClaim('${c.id}')">Отмена</button>`;
+        actions = `<div class="claim-actions">
+          <button class="prize-btn" style="background:#8a2a2a;" onclick="Prize.cancelClaim('${c.id}')">Отменить</button>
+        </div>`;
       } else if (c.status === 'shipped') {
         const tr = c.tracking_code || '';
         const copyBtn = tr ? `<button class="prize-btn" onclick="Prize.copyTracking('${tr}')">Скопировать</button>` : '';
         const openBtn = tr ? `<button class="prize-btn" onclick="Prize.openTracking('${tr}')">Открыть</button>` : '';
-        right = `трек: ${tr||'—'} ${copyBtn} ${openBtn} <button class="prize-btn" onclick="Prize.markReceived('${c.id}')">Я получил</button>`;
+        actions = `<div class="claim-actions" style="gap:8px; flex-wrap:wrap;">
+          ${copyBtn} ${openBtn}
+          <button class="prize-btn" onclick="Prize.markReceived('${c.id}')">Я получил</button>
+        </div>`;
       } else if (c.status === 'rejected') {
-        right = `<button class="prize-btn" onclick="openFeedbackModal()">Обратная связь</button>`;
+        actions = `<div class="claim-actions">
+          <button class="prize-btn" onclick="openFeedbackModal()">Обратная связь</button>
+        </div>`;
       } else if (c.status === 'delivered') {
-        right = 'спасибо!';
+        actions = `<div class="claim-actions"><span class="prize-note" style="font-weight:800;color:#27b34c;">Спасибо!</span></div>`;
       }
-      return `<li><span>${left}</span><span>${right}</span></li>`;
+
+      return `
+        <div class="claim-card">
+          <div class="claim-head">#${c.id.slice(0,8)}</div>
+          <img class="claim-img" src="${img}" alt="">
+          <div class="claim-title">${title}</div>
+          <div class="claim-sub">${sub}</div>
+          ${tagsHtml}
+          ${actions}
+        </div>`;
     }).join('');
+
+    // Если есть хотя бы одна заявка — скрываем зелёный флаг (делаем и здесь на всякий)
+    const flag = document.getElementById('prize-ready-flag');
+    if (flag) flag.style.display = 'none';
   },
 
   copyTracking(code) {
@@ -4997,12 +5080,22 @@ const Prize = {
   },
 
   openPrizes() {
-    // Страхуемся: если по какой-то причине сессии нет — восстановим
-   this.ensureSessionActive().then(()=> {
-    this.loadPrizes().then(()=>{
-        const list = document.getElementById('prize-list');
-        if (list) {
-          list.innerHTML = (this.state.prizes || []).map(p => `
+    // Открываем модалку мгновенно: показываем скелетон и грузим в фоне
+    const list = document.getElementById('prize-list');
+    if (list) {
+      list.innerHTML = `
+        <div class="stat-card" style="text-align:center; padding:16px;">
+          Загружаем призы…
+        </div>`;
+    }
+    document.getElementById('modal-prizes')?.classList.add('active');
+
+    // В фоне валидируем сессию (если надо) и подгружаем каталог
+    this.ensureSessionActive().catch(()=>{}).finally(()=>{
+      this.loadPrizes().then(()=>{
+        const L = document.getElementById('prize-list');
+        if (L) {
+          L.innerHTML = (this.state.prizes || []).map(p => `
             <div class="prize-card">
               <img src="${p.img}" alt="">
               <div><div class="title">${p.title}</div><div class="sub">${p.short}</div></div>
@@ -5010,8 +5103,10 @@ const Prize = {
             </div>
           `).join('');
         }
-        document.getElementById('modal-prizes')?.classList.add('active');
-      }).catch(()=> NotificationSystem.error('Не удалось загрузить призы'));
+      }).catch(()=> {
+        const L2 = document.getElementById('prize-list');
+        if (L2) L2.innerHTML = `<div class="stat-card" style="text-align:center; padding:16px;">Не удалось загрузить призы</div>`;
+      });
     });
   },
 
@@ -5119,6 +5214,11 @@ const Prize = {
           NotificationSystem.error(`Нужно минимум ${data.need} достижений (сейчас ${data.level})`);
         } else if (err === 'duplicate') {
           NotificationSystem.warning('Заявка уже создана');
+        } else if (err === 'active_exists') {
+          NotificationSystem.warning('У вас уже есть активная заявка. Проверьте раздел «Мои заявки».');
+          // Откроем статус сразу
+          this.closeShipping();
+          await this.fetchStatus();
         } else {
           NotificationSystem.error(`Ошибка заявки: ${err}`);
         }
@@ -5166,28 +5266,6 @@ const Prize = {
       this.fetchStatus();
     } catch { NotificationSystem.error('Ошибка подтверждения'); }
   },
-
-  async deleteAccount() {
-    if (!GLOBAL_STATS_URL) return;
-    if (!confirm('Удалить аккаунт и отвязать устройства? Это действие необратимо.')) return;
-    try {
-      const res = await fetch(`${GLOBAL_STATS_URL}/account/delete`, { method:'POST', mode:'cors', credentials:'include' });
-      const data = await res.json().catch(()=> ({}));
-      if (!res.ok || !data?.ok) { NotificationSystem.error('Не удалось удалить аккаунт'); return; }
-      NotificationSystem.success('Аккаунт удалён');
-      
-      // Очищаем локальные данные Telegram
-      localStorage.removeItem('tg_id');
-      localStorage.removeItem('tg_username');
-      localStorage.removeItem('tg_first_name');
-      localStorage.removeItem('vr_sid');
-      
-      this.state.authed = false; 
-      this.state.user = null;
-      this.paintChecklist(); 
-      this.renderClaims([]);
-    } catch { NotificationSystem.error('Ошибка удаления аккаунта'); }
-  }
 };
 
 // ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ====
