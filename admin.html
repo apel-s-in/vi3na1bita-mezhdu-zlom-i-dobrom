@@ -23,6 +23,11 @@
     input,textarea,select{background:#111826;color:#e8eefc;border:1px solid #2b3955;border-radius:8px;padding:7px}
     .list{max-height:70vh;overflow:auto}
     .pill{font-size:.9em;border:1px solid #2b3955;background:#1e2638;border-radius:999px;padding:2px 8px;color:#cfe3ff}
+    .pill.status-pending   { background:#3a2c14; border-color:#6b4b14; color:#ffb84d; }
+    .pill.status-approved  { background:#1f3a29; border-color:#2f7a4e; color:#6df59a; }
+    .pill.status-shipped   { background:#1f3a29; border-color:#2f7a4e; color:#6df59a; }
+    .pill.status-delivered { background:#1f3a29; border-color:#2f7a4e; color:#6df59a; }
+    .pill.status-rejected  { background:#3a1f1f; border-color:#7a2f2f; color:#ff9b9b; }
     .flex{display:flex;gap:8px;align-items:center}
     .w100{width:100%}
     .split{display:grid;grid-template-columns:300px 1fr;gap:12px}
@@ -75,20 +80,55 @@
       <div class="muted">Клик по заявке слева — для действий</div>
       <div id="claim-details" class="muted" style="margin-top:8px;">Ничего не выбрано</div>
       <div style="margin-top:10px;display:none" id="claim-actions">
+        <div id="claim-meta" class="muted" style="margin-bottom:8px;"></div>
+
         <div class="flex"><label class="muted">Причина (для rejected):</label><input class="w100" id="claim-reason" placeholder="Причина..."></div>
         <div style="margin-top:8px;" class="flex">
           <button class="btn ok" onclick="updateClaim('approved')">Одобрить</button>
           <button class="btn warn" onclick="updateClaim('rejected')">Отклонить</button>
           <button class="btn" onclick="updateClaim('pending')">Вернуть в pending</button>
         </div>
+
         <hr style="border-color:#2b3955;margin:10px 0;">
+
         <div class="flex">
           <input class="w100" id="claim-tracking" placeholder="Трек‑номер (для shipped)">
           <button class="btn" onclick="setTracking()">Отправлено</button>
-        </div>
-        <div class="flex" style="margin-top:6px;">
           <button class="btn" onclick="markDelivered()">Получено</button>
         </div>
+
+        <hr style="border-color:#2b3955;margin:10px 0;">
+
+        <div class="flex">
+          <label class="muted" style="min-width:90px;">Цвет:</label>
+          <select id="adm-color">
+            <option value="">—</option>
+            <option value="orange">оранжевый (ждёт)</option>
+            <option value="green">зелёный (ок)</option>
+            <option value="red">красный</option>
+            <option value="violet">фиолетовый (напоминание)</option>
+          </select>
+        </div>
+        <div class="flex" style="margin-top:6px;">
+          <label class="muted" style="min-width:90px;">Метки:</label>
+          <input class="w100" id="adm-tags" placeholder="через запятую">
+        </div>
+        <div class="flex" style="margin-top:6px;">
+          <label class="muted" style="min-width:90px;">Напоминание:</label>
+          <input type="datetime-local" id="adm-due">
+        </div>
+        <div class="flex" style="margin-top:6px;">
+          <textarea id="adm-note" class="w100" placeholder="Заметка администратора"></textarea>
+        </div>
+        <div class="flex" style="margin-top:6px;">
+          <button class="btn" onclick="saveClaimMeta()">Сохранить мета</button>
+          <button class="btn warn" onclick="deleteClaim()">Удалить заявку</button>
+        </div>
+
+        <hr style="border-color:#2b3955;margin:10px 0;">
+
+        <div class="muted">История</div>
+        <div class="list" id="claim-events" style="max-height:240px;"></div>
       </div>
     </div>
   </main>
@@ -335,10 +375,12 @@ async function loadClaims() {
 
   list.innerHTML = items.map(c=>{
     const dt = new Date(c.created_at).toLocaleString();
+    const stClass = `status-${c.status}`;
+    const tg = c.tg_id ? ` · tg:${String(c.tg_id).slice(0,8)}…` : '';
     return `<div class="row" onclick="selectClaim('${c.id}')">
       <div>
-        <div><span class="pill">${c.status}</span> <b>${c.user_name||'Пользователь'}</b></div>
-        <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)} · lvl:${c.level} · cyc:${c.cycle}</div>
+        <div><span class="pill ${stClass}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b></div>
+        <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)}${tg} · lvl:${c.level} · cyc:${c.cycle}</div>
       </div>
       <div class="muted">${dt}</div>
     </div>`;
@@ -359,6 +401,98 @@ async function selectClaim(id) {
   el.innerHTML = `Заявка <b>#${id}</b><br><span class="muted">Статус меняется кнопками ниже</span>`;
   currentClaim = id;
   document.getElementById('claim-actions').style.display = '';
+
+  // Загрузим метаданные и историю
+  loadClaimMeta();
+  loadClaimEvents();
+}
+async function loadClaimMeta() {
+  if (!currentClaim) return;
+  const metaBox = document.getElementById('claim-meta');
+  try {
+    const url = new URL(API + '/admin/claim/meta/get');
+    url.searchParams.set('id', currentClaim);
+    const res = await fetch(url, { headers:{ ...authHeader() }});
+    if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) { metaBox.textContent = 'Мета недоступна'; return; }
+    const m = data.meta || {};
+    document.getElementById('adm-color').value = m.color || '';
+    document.getElementById('adm-tags').value = (Array.isArray(m.tags) ? m.tags.join(', ') : '');
+    document.getElementById('adm-note').value = m.note || '';
+    if (m.dueAt) {
+      const dt = new Date(m.dueAt);
+      const iso = dt.toISOString().slice(0,16); // YYYY-MM-DDTHH:mm
+      document.getElementById('adm-due').value = iso;
+    } else {
+      document.getElementById('adm-due').value = '';
+    }
+    metaBox.innerHTML = `dev/tg и прочие данные в списке слева · <span class="muted">модиф.: ${m.updatedAt?new Date(m.updatedAt).toLocaleString():'—'}</span>`;
+  } catch {
+    if (metaBox) metaBox.textContent = 'Ошибка загрузки мета';
+  }
+}
+
+async function saveClaimMeta() {
+  if (needLogin()) return;
+  if (!currentClaim) return;
+  const color = document.getElementById('adm-color').value;
+  const tags = (document.getElementById('adm-tags').value || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const note = document.getElementById('adm-note').value || '';
+  const dueStr = document.getElementById('adm-due').value;
+  let dueAt = null;
+  try { if (dueStr) dueAt = new Date(dueStr).getTime(); } catch(e){}
+  const res = await fetch(API + '/admin/claim/meta/set', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id: currentClaim, color, tags, note, dueAt })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Мета не сохранена: '+(data?.error||res.status)); return; }
+  alert('Мета сохранена');
+  loadClaimMeta();
+}
+
+async function loadClaimEvents() {
+  if (!currentClaim) return;
+  const box = document.getElementById('claim-events');
+  try {
+    const url = new URL(API + '/admin/claim/events');
+    url.searchParams.set('id', currentClaim);
+    const res = await fetch(url, { headers:{ ...authHeader() }});
+    if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) { box.textContent = 'История недоступна'; return; }
+    const items = data.items || [];
+    if (!items.length) { box.textContent = 'Пусто'; return; }
+    box.innerHTML = items.map(ev=>{
+      const dt = new Date(ev.at).toLocaleString();
+      return `<div class="row">
+        <div><b>${ev.type}</b></div>
+        <div class="muted">${dt}</div>
+      </div>`;
+    }).join('');
+  } catch {
+    box.textContent = 'Ошибка истории';
+  }
+}
+
+async function deleteClaim() {
+  if (!currentClaim) return;
+  if (!confirm('Удалить эту заявку без возможности восстановления?')) return;
+  const res = await fetch(API + '/admin/claim/delete', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id: currentClaim })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не удалось удалить: '+(data?.error||res.status)); return; }
+  alert('Удалено');
+  currentClaim = null;
+  document.getElementById('claim-actions').style.display = 'none';
+  loadClaims();
 }
 
 async function updateClaim(next) {
