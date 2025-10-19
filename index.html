@@ -5189,7 +5189,6 @@ const Prize = {
 
       const body = {
         deviceHash: getDeviceHash(),
-        cycle: 1,
         prizeId: this.state.selectedPrize.id,
         prizeTitle: this.state.selectedPrize.title,
         shippingMethod: this.state.shippingMethod,
@@ -5247,8 +5246,19 @@ const Prize = {
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) { NotificationSystem.error(`Не удалось отменить (${data?.error||res.status})`); return; }
       NotificationSystem.success('Заявка отменена');
-      this.fetchStatus();
-    } catch { NotificationSystem.error('Ошибка отмены'); }
+
+      // Обновим статус и если заявок нет — сразу вернём на этап выбора приза
+      await this.fetchStatus();
+      const noClaims = !this.state.claims || this.state.claims.length === 0;
+      if (noClaims) {
+        // вернём зелёный флаг/кнопку и откроем список призов
+        this.updateLocalReadiness();
+        this.paintChecklist();
+        setTimeout(()=> this.openPrizes(), 200);
+      }
+    } catch { 
+      NotificationSystem.error('Ошибка отмены'); 
+    }
   },
 
   async markReceived(id) {
