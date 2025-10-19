@@ -2091,7 +2091,6 @@
     @media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
   </style>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 </head>
 <body>
   <div id="promocode-block">
@@ -2434,13 +2433,6 @@
           </div>
           <button class="prize-btn" onclick="Prize.startBotIdentity()">Подтвердить в боте</button>
         </div>
-        <div class="stat-card">
-          <div style="font-weight:700;margin-bottom:6px;">Автоматически через Telegram</div>
-          <div style="font-size:.92em;color:#9aa8c4;margin-bottom:8px;">
-            Будет предложено разово ввести номер телефона для авторизации Telegram и открыть новый сеанс. После получения вашего имени в приложении этот сеанс можно завершить в Telegram.
-          </div>
-          <button class="prize-btn" onclick="Prize.startAutoIdentity()">Войти через Telegram</button>
-        </div>
       </div>
 
       <!-- Шаг 2: форма ручного ввода username/id -->
@@ -2460,20 +2452,6 @@
         <div class="modal-buttons">
           <button class="btn-secondary" onclick="Prize.backToIdentityChoose()">Назад</button>
           <button class="btn-primary" onclick="Prize.submitManualIdentity()">Далее</button>
-        </div>
-      </div>
-
-      <!-- Шаг 3: автоматический вход (виджет Telegram) -->
-      <div id="idw-step-auto" style="display:none;">
-        <div class="download-modal-title">Автоматическая привязка</div>
-        <div class="stat-card" style="margin-bottom:10px;">
-          <div style="font-size:.92em;color:#9aa8c4;">
-            Разово потребуется авторизация через Telegram. После присвоения имени в приложении, сессию можно завершить в Telegram.
-          </div>
-        </div>
-        <div id="idw-auto-holder" class="tg-holder" style="display:flex;justify-content:center;margin:8px 0;"></div>
-        <div class="modal-buttons">
-          <button class="btn-secondary" onclick="Prize.backToIdentityChoose()">Назад</button>
         </div>
       </div>
 
@@ -2828,7 +2806,7 @@ function apiAuthHeaders() {
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
 
 // Telegram bot username для Login Widget — ВСТАВЬТЕ имя бота
-const TG_BOT_USERNAME = 'vi3na1bita_login_bot'; // ← замените на ваш @username без @
+const TG_BOT_USERNAME = 'vi3na1bita_feedback_bot';
 
 // Информационный порог для чек-листа на фронте (сервер проверяет сам env.MIN_CLAIM_LEVEL)
 const FRONT_MIN_CLAIM_LEVEL = 1;
@@ -4581,32 +4559,6 @@ const Prize = {
     }
   },
 
-  mountCompactTelegramWidget() {
-    const holder = document.getElementById('tg-holder-compact');
-    const loginBlock = document.getElementById('tg-login-compact');
-    // Если уже есть sid — авторизованы, виджет не нужен
-    if (localStorage.getItem('vr_sid') || this.state.authed) {
-      if (loginBlock) loginBlock.style.display = 'none';
-      return;
-    }
-    if (!holder) return;
-
-    holder.innerHTML = '';
-    if (!TG_BOT_USERNAME || !TG_BOT_USERNAME.includes('bot')) {
-      holder.innerHTML = `<div class="prize-note">Укажите TG_BOT_USERNAME в коде</div>`;
-      return;
-    }
-
-    const scr = document.createElement('script');
-    scr.src = 'https://telegram.org/js/telegram-widget.js?22';
-    scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
-    scr.setAttribute('data-size', 'medium');
-    scr.setAttribute('data-userpic', 'false');
-    scr.setAttribute('data-onauth', 'onTelegramAuthCompact');
-    scr.setAttribute('data-request-access', 'write');
-    holder.appendChild(scr);
-  },
-
   hasProfileName() {
     return !!(this.state?.user?.display_name || localStorage.getItem('profile_name'));
   },
@@ -4616,8 +4568,8 @@ const Prize = {
 
   openIdentityWizard() {
     try {
-      // Сброс шагов
-      ['idw-step-choose','idw-step-manual','idw-step-auto','idw-step-name'].forEach(id=>{
+      // Сброс шагов (без auto)
+      ['idw-step-choose','idw-step-manual','idw-step-name','idw-step-bot'].forEach(id=>{
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
       });
@@ -4632,7 +4584,7 @@ const Prize = {
     document.getElementById('identity-modal')?.classList.remove('active');
   },
   backToIdentityChoose() {
-    ['idw-step-manual','idw-step-auto','idw-step-name'].forEach(id=>{
+    ['idw-step-manual','idw-step-name','idw-step-bot'].forEach(id=>{
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -4807,124 +4759,6 @@ const Prize = {
     if (this._botPollTimer) { clearInterval(this._botPollTimer); this._botPollTimer = null; }
     this._botPollCode = null;
     this.backToIdentityChoose();
-  },
-
-  startAutoIdentity() {
-    try {
-      const choose = document.getElementById('idw-step-choose');
-      const auto = document.getElementById('idw-step-auto');
-      if (choose) choose.style.display = 'none';
-      if (auto) auto.style.display = '';
-
-      const holder = document.getElementById('idw-auto-holder');
-      if (holder) {
-        holder.innerHTML = '';
-        // Предупреждение уже показано — теперь рендерим Telegram widget
-        const scr = document.createElement('script');
-        scr.src = 'https://telegram.org/js/telegram-widget.js?22';
-        scr.setAttribute('data-telegram-login', TG_BOT_USERNAME);
-        scr.setAttribute('data-size', 'large');
-        scr.setAttribute('data-userpic', 'false');
-        // 1) callback-режим (как было)
-        scr.setAttribute('data-onauth', 'onTelegramAuthCompact');
-        scr.setAttribute('data-request-access', 'write');
-        // 2) ДОБАВЛЕНО: redirect-режим для iOS
-        try {
-          const authUrl = `${GLOBAL_STATS_URL}/auth/tg-redirect?device=${encodeURIComponent(getDeviceHash())}`;
-          scr.setAttribute('data-auth-url', authUrl);
-        } catch(e) {}
-        holder.appendChild(scr);
-      }
-    } catch(e) {
-      console.error('startAutoIdentity error:', e);
-    }
-  },
-
-  async onTelegramAuthCompact(user) {
-    try {
-      if (!GLOBAL_STATS_URL) { NotificationSystem.warning('Сервер призов не настроен'); return; }
-      this.setBusy(true);
-
-      // Сохраняем Telegram-данные локально
-      localStorage.setItem('tg_id', String(user.id||''));
-      if (user.username)   localStorage.setItem('tg_username', user.username);
-      if (user.first_name) localStorage.setItem('tg_first_name', user.first_name);
-
-      // Пробуем нормальную авторизацию
-      let ok = false, sid = null;
-      try {
-        const res = await fetch(`${GLOBAL_STATS_URL}/auth/tg`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          mode: 'cors',
-          credentials: 'include',
-          body: JSON.stringify({ tg: user, deviceHash: getDeviceHash() })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.ok) { ok = true; sid = data.sid || null; }
-      } catch(e){ /* игнор */ }
-
-      if (!ok) {
-        // Фолбэк
-        try {
-          const res2 = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            mode: 'cors',
-            credentials: 'include',
-            body: JSON.stringify({ tgId: user.id, username: user.username || user.first_name || null, deviceHash: getDeviceHash() })
-          });
-          const data2 = await res2.json().catch(() => ({}));
-          if (res2.ok && data2?.ok) { ok = true; sid = data2.sid || null; }
-        } catch(e){ /* игнор */ }
-      }
-
-      if (!ok) {
-        NotificationSystem.error('Ошибка входа через Telegram. Попробуйте ещё раз.');
-        this.setBusy(false);
-        return;
-      }
-
-      if (sid) localStorage.setItem('vr_sid', sid);
-      this.state.authed = true;
-
-      // Переходим к шагу ввода имени
-      const auto = document.getElementById('idw-step-auto');
-      const nm = document.getElementById('idw-step-name');
-      if (auto) auto.style.display = 'none';
-      if (nm) nm.style.display = '';
-      const prefill = localStorage.getItem('profile_name') || (user.first_name || (user.username ? `@${user.username}` : ''));
-      document.getElementById('idw-display-name').value = prefill;
-
-      this.setBusy(false);
-    } catch (e) {
-      console.error('[Prize] onTelegramAuthCompact error:', e);
-      this.setBusy(false);
-      NotificationSystem.error('Не удалось войти');
-    }
-  },
-
-  // НОВОЕ: завершение авторизации через redirect (iOS лучший путь)
-  onTelegramAuthRedirectDone(data) {
-    try {
-      if (data?.sid) localStorage.setItem('vr_sid', data.sid);
-      if (data?.tgId) localStorage.setItem('tg_id', String(data.tgId));
-      if (data?.username) localStorage.setItem('tg_username', String(data.username));
-    } catch(e){}
-
-    this.state.authed = true;
-
-    // Если открыт мастер «Автоматическая привязка» — сразу на шаг имени
-    const auto = document.getElementById('idw-step-auto');
-    const nm = document.getElementById('idw-step-name');
-    if (auto) auto.style.display = 'none';
-    if (nm) nm.style.display = '';
-    const prefill = localStorage.getItem('profile_name') || (data?.username || 'Пользователь');
-    const inp = document.getElementById('idw-display-name');
-    if (inp) inp.value = prefill;
-
-    // Подтягиваем /me в фоне, обновляем готовность
-    this.fetchMe(true).then(()=> this.updateLocalReadiness());
   },
 
   async saveDisplayName() {
@@ -5355,33 +5189,6 @@ const Prize = {
     } catch { NotificationSystem.error('Ошибка удаления аккаунта'); }
   }
 };
-
-// Глобальный callback для компактного виджета
-window.onTelegramAuthCompact = (user) => {
-  try { Prize.onTelegramAuthCompact(user); } catch(e) { console.error(e); }
-};
-
-// Глобальный callback для Telegram Login Widget
-window.onTelegramAuth = (user) => {
-  try { Prize.onTelegramAuth(user); } catch(e){ console.error(e); }
-};
-
-// НОВОЕ: слушаем postMessage от /auth/tg-redirect (надёжно для iOS)
-window.addEventListener('message', (ev) => {
-  try {
-    const d = ev?.data || {};
-    if (d && d.type === 'TG_AUTH_OK' && d.sid) {
-      try {
-        localStorage.setItem('vr_sid', d.sid);
-        if (d.tgId) localStorage.setItem('tg_id', String(d.tgId));
-        if (d.username) localStorage.setItem('tg_username', String(d.username));
-      } catch(e) {}
-      if (window.Prize && typeof Prize.onTelegramAuthRedirectDone === 'function') {
-        Prize.onTelegramAuthRedirectDone(d);
-      }
-    }
-  } catch(e) {}
-});
 
 // ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ====
 const GS_Q_KEY = 'vr_gs_queue_v1';
