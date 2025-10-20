@@ -5473,6 +5473,8 @@ const GlobalStats = {
     if (!FeatureFlags.globalStatsSend) return;
     if (!GLOBAL_STATS_URL) return;
     if (this.sending) return;
+
+    // Backoff: ждём до _retryAt, чтобы не спамить при ошибках
     if (Date.now() < this._retryAt) return;
 
     const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
@@ -5487,10 +5489,14 @@ const GlobalStats = {
         events: q
       };
 
-      const __tsToken = await getTurnstileToken('send_event').catch(()=>null);
-
-      const headers = { 'Content-Type':'application/json' };
-      if (__tsToken) headers['CF-TURNSTILE-RESPONSE'] = __tsToken;
+      // Получаем одноразовый токен Turnstile; добавляем заголовок только если токен есть
+      let headers = { 'Content-Type': 'application/json' };
+      try {
+        const __tsToken = await getTurnstileToken('send_event');
+        if (__tsToken) headers['CF-TURNSTILE-RESPONSE'] = __tsToken;
+      } catch(e) {
+        // тихо: без токена сервер примет событие, если в конфиге отключено requireTurnstile
+      }
 
       const res = await fetch(`${GLOBAL_STATS_URL}/event`, {
         method: 'POST',
@@ -5498,12 +5504,18 @@ const GlobalStats = {
         mode: 'cors',
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error(`event_send_failed_${res.status}`);
+
+      // Очищаем очередь только при 2xx
+      if (!res.ok) {
+        throw new Error(`event_send_failed_${res.status}`);
+      }
 
       localStorage.setItem(GS_Q_KEY, JSON.stringify([]));
+      // сброс бэкоффа после успеха
       this._failCount = 0;
       this._retryAt = 0;
-    } catch(e) {
+    } catch (e) {
+      // оставим события в очереди; поднимем бэкофф
       this._failCount = Math.min(this._failCount + 1, 10);
       const delay = Math.min(5 * 60 * 1000, Math.pow(2, this._failCount) * 1000);
       this._retryAt = Date.now() + delay;
@@ -6150,8 +6162,22 @@ function closeBackupPromptWithChoice() {
   try {
     const never = document.getElementById('backup-opt-never')?.checked;
     const plus5 = document.getElementById('backup-opt-5')?.checked;
-    // ...
-  } catch {}
+
+    if (never) {
+      // Никогда не напоминать
+      localStorage.setItem('backup_prompt_mode', 'never');
+      localStorage.removeItem('backup_prompt_next');
+    } else if (plus5) {
+      // Следующее напоминание через 5 видимых достижений
+      const cur = getVisibleAchievementsCount();
+      localStorage.setItem('backup_prompt_next', String(cur + 5));
+      localStorage.removeItem('backup_prompt_mode');
+    } else {
+      // Сбрасываем настройки — вернёмся к поведению по умолчанию
+      localStorage.removeItem('backup_prompt_mode');
+      localStorage.removeItem('backup_prompt_next');
+    }
+  } catch(e) {}
   closeBackupPrompt();
 }
 
