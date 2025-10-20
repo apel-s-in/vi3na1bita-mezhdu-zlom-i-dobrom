@@ -5126,7 +5126,7 @@ const Prize = {
     } catch { this.renderClaims([]); }
   },
 
-  renderClaims(claims) {
+  async renderClaims(claims) {
     this.state.claims = claims;
     const box = document.getElementById('prize-status');
     const wrap = document.getElementById('claim-cards');
@@ -5202,13 +5202,17 @@ const Prize = {
           ${actions}
         </div>`;
     }).join('');
+
     // Если имеется любая доставленная заявка и секретный этап ещё не начат — начнём его
     try {
       const hasDelivered = claims.some(c => c.status === 'delivered');
       const secretStartAt = localStorage.getItem('secret_start_at');
       if (hasDelivered && !secretStartAt) {
         // Если есть delivered_at у какой-то заявки — возьмём максимальный, иначе now
-        const deliveredTs = Math.max(0, ...claims.filter(c=>c.status==='delivered').map(c=>Number(c.delivered_at||0)).filter(Number.isFinite));
+        const deliveredTs = Math.max(0, ...claims
+          .filter(c=>c.status==='delivered')
+          .map(c=>Number(c.delivered_at||0))
+          .filter(Number.isFinite));
         const ts = deliveredTs > 0 ? deliveredTs : Date.now();
         localStorage.setItem('secret_start_at', String(ts));
         const secRow = document.getElementById('prize-gallery-secret');
@@ -5218,6 +5222,7 @@ const Prize = {
         NotificationSystem.info('Секретные уровни активированы');
       }
     } catch(e){}
+
     // Если есть хотя бы одна заявка — скрываем зелёный флаг (делаем и здесь на всякий)
     const flag = document.getElementById('prize-ready-flag');
     if (flag) flag.style.display = 'none';
