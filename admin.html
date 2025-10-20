@@ -406,6 +406,20 @@ function adminLogin() {
   }
 }
 
+// НОВОЕ: корректный выход из админки
+function adminLogout() {
+  try { sessionStorage.removeItem(authKey); } catch(e){}
+  // Спрятать всё и показать окно логина
+  guardApp();
+  // Очистить поля и сообщение
+  try {
+    document.getElementById('adm-user').value = '';
+    document.getElementById('adm-pass').value = '';
+    const err = document.getElementById('login-err');
+    if (err) err.textContent = '';
+  } catch(e){}
+}
+
 // Вход по Enter в полях
 document.addEventListener('keydown', (e) => {
   const loginShown = document.getElementById('login')?.style.display !== 'none';
@@ -445,6 +459,7 @@ document.getElementById('tab-logs').onclick = ()=>switchTab('logs');
 document.getElementById('tab-stats').onclick = ()=>switchTab('stats');
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
 document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
+document.getElementById('tab-logout').onclick = adminLogout;  // НОВОЕ: выход из админки
 
 // Claims
 let currentClaim = null;
@@ -910,12 +925,8 @@ function toggleLogKey(key, checked) {
 }
 async function selectLog(key) {
   if (needLogin()) return;
-  const res = await fetch(API + '/admin/logs?limit=1', { headers:{ ...authHeader() }});
-  // упрощение: ключи мы не загружаем по ключу отдельно, а повторно стягивать список не будем — в реальном коде можно добавить /admin/logs/get
-  // здесь найдём в текущем списке и выведем детали
   try {
-    const node = Array.from(document.querySelectorAll('#logs-list .row')).find(r => r.innerHTML.includes(key));
-    // Просто повторно загружаем весь список и ищем item
+    // Повторно загружаем список с текущими фильтрами и ищем по ключу
     const type = document.getElementById('logs-type').value;
     const from = readDTLocal('logs-from');
     const to   = readDTLocal('logs-to');
@@ -924,14 +935,18 @@ async function selectLog(key) {
     if (from) url.searchParams.set('from', from);
     if (to) url.searchParams.set('to', to);
     url.searchParams.set('limit', '100');
+
     const resp = await fetch(url, { headers:{ ...authHeader() }});
+    if (resp.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
     const data = await resp.json().catch(()=> ({}));
     const it = (data.items||[]).find(x => x.key === key);
+
     document.getElementById('log-details').textContent = it ? JSON.stringify(it, null, 2) : 'Не найден';
   } catch {
     document.getElementById('log-details').textContent = 'Ошибка';
   }
 }
+
 async function deleteSelectedLogs() {
   if (!__selectedLogKeys.size) { alert('Не выбрано ни одного лога'); return; }
   if (!confirm(`Удалить ${__selectedLogKeys.size} логов?`)) return;
