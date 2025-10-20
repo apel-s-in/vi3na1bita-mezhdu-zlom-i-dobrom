@@ -2234,11 +2234,11 @@
           <div class="chart-block" style="margin-top:4px;">
             <div class="ach-group-title" style="margin:4px;">Период</div>
             <div class="ach-tabs" style="margin-top:2px;">
-              <button class="ach-tab active" data-period="today" id="gs-tab-today">Сегодня</button>
+              <button class="ach-tab active" data-period="all" id="gs-tab-all">Всего</button>
+              <button class="ach-tab" data-period="today" id="gs-tab-today">Сегодня</button>
               <button class="ach-tab" data-period="week" id="gs-tab-week">Неделя</button>
               <button class="ach-tab" data-period="month" id="gs-tab-month">Месяц</button>
             </div>
-          </div>
 
           <div class="stat-card" id="gs-error" style="display:none; border-color: #8a2a2a; color: #ffb3b3;">
             Глобальная статистика временно недоступна.
@@ -2252,6 +2252,25 @@
           <div class="stat-card">
             <div class="stat-title">Топ‑5 по суммарному времени (мин)</div>
             <ul class="stat-list" id="gs-top-time"></ul>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Топ городов (пользователи)</div>
+            <ul class="stat-list" id="gs-top-cities"></ul>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-title">Топ пользователей (по достижениям)</div>
+            <ul class="stat-list" id="gs-top-users"></ul>
+          </div>
+
+          <div class="chart-block" id="gs-hours">
+            <div class="chart-title" style="cursor:pointer;" id="gs-hours-toggle">По часам суток</div>
+            <div class="chart-bars" id="gs-hours-bars" style="display:none;"></div>
+          </div>
+
+          <div class="chart-block" id="gs-week">
+            <div class="chart-title" style="cursor:pointer;" id="gs-week-toggle">По дням недели</div>
+            <div class="chart-bars" id="gs-week-bars" style="display:none;"></div>
           </div>
 
           <div class="chart-block">
@@ -5282,7 +5301,7 @@ const Prize = {
 const GS_Q_KEY = 'vr_gs_queue_v1';
 
 const GlobalStats = {
-  period: 'today',
+  period: 'all',
   sending: false,
   errorOnce: false,
   // backoff для повторов при ошибках отправки
@@ -5311,17 +5330,40 @@ const GlobalStats = {
     });
 
     // Табы периода
-    ['today','week','month'].forEach(p=>{
+    ['all','today','week','month'].forEach(p=>{
       const el = document.getElementById('gs-tab-'+p);
       if (el) el.onclick = ()=>{
         this.period = p;
-        ['today','week','month'].forEach(pp=>{
+        ['all','today','week','month'].forEach(pp=>{
           const btn = document.getElementById('gs-tab-'+pp);
           if (btn) btn.classList.toggle('active', pp===p);
         });
         this.fetchAndRender(true);
       };
     });
+
+    // Переключатели свёртки «по часам»/«по дням»
+    const hT = document.getElementById('gs-hours-toggle');
+    const hB = document.getElementById('gs-hours-bars');
+    if (hT && hB) hT.onclick = ()=> hB.style.display = (hB.style.display==='none') ? '' : 'none';
+    const wT = document.getElementById('gs-week-toggle');
+    const wB = document.getElementById('gs-week-bars');
+    if (wT && wB) wT.onclick = ()=> wB.style.display = (wB.style.display==='none') ? '' : 'none';
+
+    // Подтянем удалённый конфиг — управляем UI и отправкой
+    this.fetchConfig().then(cfg=>{
+      if (!cfg.showUI) {
+        // спрячем секцию целиком
+        const root = document.getElementById('global-stats-root');
+        if (root) root.style.display = 'none';
+      }
+      // Переключатель клиента (на случай, если хотите жестко вырубить отправку)
+      localStorage.setItem('ff_global_stats_send', cfg.sendEnabled ? '1' : '0');
+      FeatureFlags.globalStatsSend = cfg.sendEnabled;
+      // если открыто — загрузим данные
+      const open = this.toggleBtn.getAttribute('aria-expanded') === 'true';
+      if (open) this.fetchAndRender();
+    }).catch(()=>{ /* молча */ });
 
     // Если секция открыта — сразу загрузить
     if (open) this.fetchAndRender();
@@ -5397,6 +5439,13 @@ const GlobalStats = {
       this.sending = false;
     }
   },
+  async fetchConfig() {
+    if (!GLOBAL_STATS_URL) return { masterEnabled:true, sendEnabled:false, showUI:true, requireTurnstile:true };
+    const res = await fetch(`${GLOBAL_STATS_URL}/gs/config`, { mode:'cors' });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) return { masterEnabled:true, sendEnabled:true, showUI:true, requireTurnstile:true };
+    return data.config || { masterEnabled:true, sendEnabled:true, showUI:true, requireTurnstile:true };
+  },
 
   async fetchAndRender(force=false) {
     if (!FeatureFlags.globalStatsUI) return;
@@ -5433,17 +5482,15 @@ const GlobalStats = {
     const topL = document.getElementById('gs-top-listens');
     const topT = document.getElementById('gs-top-time');
     const upd  = document.getElementById('gs-updated');
+    const topC = document.getElementById('gs-top-cities');
+    const topU = document.getElementById('gs-top-users');
+    const barsH= document.getElementById('gs-hours-bars');
+    const barsW= document.getElementById('gs-week-bars');
     if (!config) return;
 
-    // ожидаемый формат:
-    // { top_listens: [{idx: number, count: number}, ...],
-    //   top_time:    [{idx: number, seconds: number}, ...],
-    //   updatedAt:   "2025-02-01T12:00:00Z" }
     const toTitle = (idx)=> (config?.tracks?.[idx]?.title || `Трек ${(idx+1)}`);
 
-    const list1 = (data.top_listens||[]).slice(0,5).map(x=>(
-      `<li><span>${toTitle(x.idx)}</span><span>${x.count||0}</span></li>`
-    )).join('');
+    const list1 = (data.top_listens||[]).slice(0,5).map(x=>(`<li><span>${toTitle(x.idx)}</span><span>${x.count||0}</span></li>`)).join('');
     const list2 = (data.top_time||[]).slice(0,5).map(x=>{
       const mins = Math.round((x.seconds||0)/60);
       return `<li><span>${toTitle(x.idx)}</span><span>${mins}</span></li>`;
@@ -5452,8 +5499,50 @@ const GlobalStats = {
     if (topL) topL.innerHTML = list1 || '<li><span>—</span><span>0</span></li>';
     if (topT) topT.innerHTML = list2 || '<li><span>—</span><span>0</span></li>';
     if (upd)  upd.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—';
-  }
-};
+
+    // Топ городов
+    if (topC) {
+      const arr = (data.top_cities||[]).slice(0,10);
+      topC.innerHTML = arr.length ? arr.map(c=>{
+        const flag = getFlagEmoji(c.cc);
+        return `<li><span>${flag} ${escapeHtml(c.city)}</span><span>${c.users}</span></li>`;
+      }).join('') : '<li><span>—</span><span>0</span></li>';
+    }
+
+    // Топ пользователей
+    if (topU) {
+      const arr = (data.top_users||[]).slice(0,10);
+      topU.innerHTML = arr.length ? arr.map(u=>{
+        const name = escapeHtml(u.name||`@user_${String(u.tgId).slice(-4)}`);
+        const span = (typeof u.spanSec==='number') ? formatSpan(u.spanSec) : '—';
+        return `<li><span>${name}</span><span>${u.count||0} • ${span}</span></li>`;
+      }).join('') : '<li><span>—</span><span>0</span></li>';
+    }
+
+    // Гистограммы
+    if (barsH) {
+      const max = Math.max(1, ...((data.by_hour||[])));
+      barsH.innerHTML = (data.by_hour||[]).map((v,h)=>(
+        `<div class="chart-row">
+           <div class="label">${String(h).padStart(2,'0')}</div>
+           <div class="bar"><div class="fill" style="width:${Math.round((v/max)*100)}%"></div></div>
+           <div class="val">${v}</div>
+         </div>`
+      )).join('');
+    }
+    if (barsW) {
+      const labels = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб']; // в /top 0..6 = Вс..Сб
+      const arr = data.by_weekday||[];
+      const max = Math.max(1, ...arr);
+      barsW.innerHTML = arr.map((v,d)=>(
+        `<div class="chart-row">
+           <div class="label">${labels[d]||d}</div>
+           <div class="bar"><div class="fill" style="width:${Math.round((v/max)*100)}%"></div></div>
+           <div class="val">${v}</div>
+         </div>`
+      )).join('');
+    }
+  };
 // ==== Animated Noto Emoji (Lottie + WebP+PNG fallback) ====
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
@@ -9651,7 +9740,21 @@ function escapeHtml(s){
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
-
+function getFlagEmoji(cc) {
+  // ISO-3166 alpha-2 -> региональный индикатор
+  if (!cc || cc.length !== 2) return '🏳️';
+  const codePoints = cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt());
+  try { return String.fromCodePoint(...codePoints); } catch { return '🏳️'; }
+}
+function formatSpan(sec) {
+  if (sec <= 0) return '—';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400)/3600);
+  const m = Math.floor((sec % 3600)/60);
+  if (d>0) return `${d}д ${h}ч`;
+  if (h>0) return `${h}ч ${m}м`;
+  return `${m}м`;
+}
 // Закрытие по клику на фон оставляем как было: ниже в initializeMainUi уже есть
 // document.getElementById('modal-feedback').onclick = (e) => { if (e.target===this) closeFeedbackModal(); };
 
