@@ -38,6 +38,10 @@
     .login-box{background:#171d29;border:1px solid #2b3955;border-radius:12px;padding:16px;min-width:280px}
     .footer{padding:10px;text-align:center;color:#9aa8c4}
     .search{display:flex;gap:8px;margin-bottom:8px}
+    /* простые бары для графиков в статистике */
+    .chart-row{display:grid;grid-template-columns:34px 1fr 40px;gap:8px;align-items:center;margin:2px 0}
+    .chart-row .bar{background:#101522;border:1px solid #2b3955;border-radius:6px;height:10px;overflow:hidden}
+    .chart-row .fill{background:#4daaff;height:100%}
   </style>
 </head>
 <body>
@@ -55,6 +59,7 @@
     </div>
   </header>
 
+  <!-- Заявки -->
   <main id="view-claims">
     <div class="card">
       <div class="search" style="flex-wrap:wrap">
@@ -136,6 +141,8 @@
       </div>
     </div>
   </main>
+
+  <!-- Устройства -->
   <main id="view-devices" style="display:none">
     <div class="card">
       <div class="search">
@@ -150,6 +157,7 @@
     </div>
   </main>
 
+  <!-- Бэкапы -->
   <main id="view-backups" style="display:none">
     <div class="card">
       <div class="search">
@@ -163,6 +171,7 @@
     </div>
   </main>
 
+  <!-- Логи -->
   <main id="view-logs" style="display:none">
     <div class="card">
       <div class="search" style="flex-wrap:wrap; gap:8px;">
@@ -176,12 +185,12 @@
           <option value="feedback">feedback</option>
           <option value="tg_link">tg_link</option>
           <option value="backup_save">backup_save</option>
+          <option value="backup_user_latest">backup_user_latest</option>
         </select>
         <label class="muted">с</label>
         <input type="datetime-local" id="logs-from">
         <label class="muted">по</label>
         <input type="datetime-local" id="logs-to">
-
         <input id="logs-pkey" placeholder="payload ключ (a.b.c)" style="min-width:180px;">
         <select id="logs-pop" title="Оператор">
           <option value="contains">contains</option>
@@ -193,7 +202,6 @@
           <option value="le">≤</option>
         </select>
         <input id="logs-pval" placeholder="значение" style="min-width:140px;">
-
         <button class="btn" onclick="loadLogs()">Применить</button>
         <button class="btn" onclick="exportLogs('csv')">Экспорт CSV</button>
         <button class="btn" onclick="exportLogs('ndjson')">Экспорт NDJSON</button>
@@ -207,11 +215,14 @@
     </div>
   </main>
 
+  <!-- Статистика -->
   <main id="view-stats" style="display:none">
     <div class="card">
       <div class="search">
         <button class="btn" onclick="loadMetrics()">Обновить</button>
       </div>
+      <div id="metrics-box" class="list"></div>
+
       <div class="card" style="margin-top:8px;">
         <div style="font-weight:700;margin-bottom:8px;">Глобальная статистика — управление</div>
         <div class="row">
@@ -235,14 +246,18 @@
           <button class="btn" onclick="loadGsConfig()">Обновить</button>
         </div>
       </div>
-      <div id="metrics-box" class="list"></div>
     </div>
     <div class="card">
       <div class="muted">Дополнительно</div>
       <div class="muted">Здесь можно будет добавить графики/гео после подключения соответствующих источников.</div>
+      <div class="card" style="margin-top:8px;">
+        <div style="font-weight:700;margin-bottom:6px;">Распределение (по часам/по дням) — рендерится в приложении у пользователей; в админке пока только сводка по цифрам</div>
+        <div id="stats-note" class="muted">Данные берутся из /top?period=all|today|week|month</div>
+      </div>
     </div>
   </main>
 
+  <!-- Обратная связь -->
   <main id="view-fb" style="display:none">
     <div class="card">
       <div class="search">
@@ -260,6 +275,8 @@
       </div>
     </div>
   </main>
+
+  <!-- Призы -->
   <main id="view-prizes" style="display:none">
     <div class="card">
       <div class="search">
@@ -282,6 +299,7 @@
       </div>
     </div>
   </main>
+
   <div class="footer">v1 • Basic Auth • Работает только по HTTPS</div>
 
   <div id="login" class="login-modal" style="display:none;">
@@ -297,70 +315,6 @@
   </div>
 
 <script>
-async function loadPrizesAdmin() {
-  if (needLogin()) return;
-  const res = await fetch(API+'/admin/prizes', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('adm-prizes-list');
-  if (!data?.ok) { list.textContent='Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(p => `
-    <div class="row" onclick="fillPrizeForm('${p.id}')">
-      <div>
-        <div><b>${escapeHtml(p.title||p.id)}</b></div>
-        <div class="muted">${escapeHtml(p.short||'')}</div>
-      </div>
-      <div class="muted" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.img||'')}</div>
-    </div>
-  `).join('');
-  window.__admPrizes = data.items || [];
-}
-
-function fillPrizeForm(id) {
-  const p = (window.__admPrizes||[]).find(x=>x.id===id);
-  if (!p) return;
-  document.getElementById('adm-prize-id').value = p.id;
-  document.getElementById('adm-prize-title').value = p.title||'';
-  document.getElementById('adm-prize-short').value = p.short||'';
-  document.getElementById('adm-prize-long').value = p.long||'';
-  document.getElementById('adm-prize-img').value = p.img||'';
-}
-
-async function savePrize() {
-  if (needLogin()) return;
-  const id    = document.getElementById('adm-prize-id').value.trim();
-  const title = document.getElementById('adm-prize-title').value.trim();
-  const short = document.getElementById('adm-prize-short').value.trim();
-  const long  = document.getElementById('adm-prize-long').value.trim();
-  const img   = document.getElementById('adm-prize-img').value.trim();
-  if (!title || !img) { alert('Заполните название и картинку'); return; }
-  const res = await fetch(API+'/admin/prize/upsert', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id:id||undefined, title, short, long, img })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Сохранено'); loadPrizesAdmin();
-}
-
-async function deletePrize() {
-  if (needLogin()) return;
-  const id = document.getElementById('adm-prize-id').value.trim();
-  if (!id) { alert('Укажите ID'); return; }
-  if (!confirm('Удалить приз?')) return;
-  const res = await fetch(API+'/admin/prize/delete', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Удалено'); loadPrizesAdmin();
-}
-
 const API = 'https://vr-backend.apel-s-in.workers.dev';
 const authKey = 'vr_admin_auth';
 
@@ -369,10 +323,9 @@ function authHeader() {
   return tok ? { 'Authorization': tok } : {};
 }
 
-// Показываем/прячем весь интерфейс админки в зависимости от наличия токена
+// Показываем/прячем интерфейс
 function guardApp() {
   const authed = !!sessionStorage.getItem(authKey);
-  // Прячем/показываем шапку, оба main и футер
   document.querySelectorAll('header, main, .footer').forEach(el => {
     if (!el) return;
     el.style.display = authed ? '' : 'none';
@@ -381,16 +334,11 @@ function guardApp() {
   if (login) login.style.display = authed ? 'none' : '';
   return authed;
 }
-
 function needLogin(show = true) {
   const has = !!sessionStorage.getItem(authKey);
-  if (!has && show) {
-    // сразу прячем приложение и открываем модалку
-    guardApp();
-  }
+  if (!has && show) guardApp();
   return !has;
 }
-
 function adminLogin() {
   const u = document.getElementById('adm-user').value.trim();
   const p = document.getElementById('adm-pass').value.trim();
@@ -400,52 +348,18 @@ function adminLogin() {
   }
   const token = 'Basic ' + btoa(u + ':' + p);
   sessionStorage.setItem(authKey, token);
-  // Показать интерфейс и загрузить данные
-  if (guardApp()) {
-    loadClaims();
-  }
+  if (guardApp()) loadClaims();
 }
-
-// НОВОЕ: корректный выход из админки
-function adminLogout() {
-  try { sessionStorage.removeItem(authKey); } catch(e){}
-  // Спрятать всё и показать окно логина
-  guardApp();
-  // Очистить поля и сообщение
-  try {
-    document.getElementById('adm-user').value = '';
-    document.getElementById('adm-pass').value = '';
-    const err = document.getElementById('login-err');
-    if (err) err.textContent = '';
-  } catch(e){}
-}
-
-// Вход по Enter в полях
 document.addEventListener('keydown', (e) => {
   const loginShown = document.getElementById('login')?.style.display !== 'none';
   if (!loginShown) return;
-  if (e.key === 'Enter') {
-    adminLogin();
-  }
+  if (e.key === 'Enter') adminLogin();
 });
 
 function switchTab(tab) {
-  document.getElementById('tab-claims').classList.toggle('active', tab==='claims');
-  document.getElementById('tab-devices').classList.toggle('active', tab==='devices');
-  document.getElementById('tab-backups').classList.toggle('active', tab==='backups');
-  document.getElementById('tab-logs').classList.toggle('active', tab==='logs');
-  document.getElementById('tab-stats').classList.toggle('active', tab==='stats');
-  document.getElementById('tab-fb').classList.toggle('active', tab==='fb');
-  document.getElementById('tab-prizes').classList.toggle('active', tab==='prizes');
-
-  document.getElementById('view-claims').style.display  = (tab==='claims') ? '' : 'none';
-  document.getElementById('view-devices').style.display = (tab==='devices') ? '' : 'none';
-  document.getElementById('view-backups').style.display = (tab==='backups') ? '' : 'none';
-  document.getElementById('view-logs').style.display    = (tab==='logs') ? '' : 'none';
-  document.getElementById('view-stats').style.display   = (tab==='stats') ? '' : 'none';
-  document.getElementById('view-fb').style.display      = (tab==='fb') ? '' : 'none';
-  document.getElementById('view-prizes').style.display  = (tab==='prizes') ? '' : 'none';
-
+  const tabs = ['claims','devices','backups','logs','stats','fb','prizes'];
+  tabs.forEach(t => document.getElementById('tab-'+t)?.classList.toggle('active', tab===t));
+  tabs.forEach(t => document.getElementById('view-'+t)?.style && (document.getElementById('view-'+t).style.display = (tab===t)?'':'none'));
   if (tab==='prizes') loadPrizesAdmin();
   if (tab==='devices') loadDevices();
   if (tab==='backups') loadBackups();
@@ -459,39 +373,30 @@ document.getElementById('tab-logs').onclick = ()=>switchTab('logs');
 document.getElementById('tab-stats').onclick = ()=>switchTab('stats');
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
 document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
-document.getElementById('tab-logout').onclick = adminLogout;  // НОВОЕ: выход из админки
+document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
 
-// Claims
+// ===== Заявки =====
 let currentClaim = null;
 let pageSize = 50;
 let currentOffset = 0;
 
-function resetPaging() {
-  currentOffset = 0;
-  document.getElementById('claims-page-label').textContent = '1';
-}
-function nextPage() {
-  currentOffset += pageSize;
-  loadClaims();
-}
+function resetPaging() { currentOffset = 0; document.getElementById('claims-page-label').textContent = '1'; }
+function nextPage() { currentOffset += pageSize; loadClaims(); }
 function prevPage() {
   currentOffset = Math.max(0, currentOffset - pageSize);
   const curPage = Math.floor(currentOffset / pageSize) + 1;
   document.getElementById('claims-page-label').textContent = String(curPage);
   loadClaims();
 }
-
 function readDateInput(id) {
   const v = document.getElementById(id)?.value;
   if (!v) return null;
   try {
-    // to 00:00/23:59 диапазон: для "to" добавим 23:59:59.999
     const dt = new Date(v);
     if (id === 'claims-to') dt.setHours(23,59,59,999);
     return dt.toISOString();
   } catch { return null; }
 }
-
 async function loadClaims() {
   if (needLogin()) return;
   const st  = document.getElementById('claims-status').value;
@@ -517,45 +422,28 @@ async function loadClaims() {
 
   list.innerHTML = items.map(c=>{
     const dt = new Date(c.created_at).toLocaleString();
-    let stClass = `status-${c.status}`;
-    // Просроченное напоминание для pending — фиолетовый
-    const now = Date.now();
-    const dueAt = c.meta_dueAt ? Number(c.meta_dueAt) : null;
-    if (c.status === 'pending' && Number.isFinite(dueAt) && dueAt < now) {
-      stClass = 'status-pending'; // базовый класс
-      // обрамим рамкой фиолетовым (добавим inline стилем)
-      var extraStyle = 'box-shadow: inset 0 0 0 1px #7a3fb4;';
-    } else {
-      var extraStyle = '';
-    }
+    const stClass = `status-${c.status}`;
     const tg = c.tg_id ? ` · tg:${String(c.tg_id).slice(0,8)}…` : '';
-    const metaMark = c.meta_color ? ` <span class="pill" style="border-color:#555;background:#222;">${c.meta_color}</span>` : '';
     return `<div class="row" onclick="selectClaim('${c.id}')">
       <div>
-        <div><span class="pill ${stClass}" style="${extraStyle}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b>${metaMark}</div>
+        <div><span class="pill ${stClass}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b></div>
         <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)}${tg} · lvl:${c.level} · cyc:${c.cycle}</div>
       </div>
       <div class="muted">${dt}</div>
     </div>`;
   }).join('');
 
-  if (items.length === 0 && currentOffset > 0) {
-    // вернемся на страницу назад если вышли за предел
-    prevPage();
-  }
+  if (items.length === 0 && currentOffset > 0) prevPage();
 
   document.getElementById('claim-details').textContent = 'Ничего не выбрано';
   document.getElementById('claim-actions').style.display = 'none';
   currentClaim = null;
 }
-
 async function selectClaim(id) {
   const el = document.getElementById('claim-details');
   el.innerHTML = `Заявка <b>#${id}</b><br><span class="muted">Статус меняется кнопками ниже</span>`;
   currentClaim = id;
   document.getElementById('claim-actions').style.display = '';
-
-  // Загрузим метаданные и историю
   loadClaimMeta();
   loadClaimEvents();
 }
@@ -575,17 +463,14 @@ async function loadClaimMeta() {
     document.getElementById('adm-note').value = m.note || '';
     if (m.dueAt) {
       const dt = new Date(m.dueAt);
-      const iso = dt.toISOString().slice(0,16); // YYYY-MM-DDTHH:mm
+      const iso = dt.toISOString().slice(0,16);
       document.getElementById('adm-due').value = iso;
-    } else {
-      document.getElementById('adm-due').value = '';
-    }
+    } else document.getElementById('adm-due').value = '';
     metaBox.innerHTML = `dev/tg и прочие данные в списке слева · <span class="muted">модиф.: ${m.updatedAt?new Date(m.updatedAt).toLocaleString():'—'}</span>`;
   } catch {
     if (metaBox) metaBox.textContent = 'Ошибка загрузки мета';
   }
 }
-
 async function saveClaimMeta() {
   if (needLogin()) return;
   if (!currentClaim) return;
@@ -593,20 +478,16 @@ async function saveClaimMeta() {
   const tags = (document.getElementById('adm-tags').value || '').split(',').map(s=>s.trim()).filter(Boolean);
   const note = document.getElementById('adm-note').value || '';
   const dueStr = document.getElementById('adm-due').value;
-  let dueAt = null;
-  try { if (dueStr) dueAt = new Date(dueStr).getTime(); } catch(e){}
+  let dueAt = null; try { if (dueStr) dueAt = new Date(dueStr).getTime(); } catch(e){}
   const res = await fetch(API + '/admin/claim/meta/set', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ id: currentClaim, color, tags, note, dueAt })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Мета не сохранена: '+(data?.error||res.status)); return; }
-  alert('Мета сохранена');
-  loadClaimMeta();
+  alert('Мета сохранена'); loadClaimMeta();
 }
-
 async function loadClaimEvents() {
   if (!currentClaim) return;
   const box = document.getElementById('claim-events');
@@ -621,75 +502,56 @@ async function loadClaimEvents() {
     if (!items.length) { box.textContent = 'Пусто'; return; }
     box.innerHTML = items.map(ev=>{
       const dt = new Date(ev.at).toLocaleString();
-      return `<div class="row">
-        <div><b>${ev.type}</b></div>
-        <div class="muted">${dt}</div>
-      </div>`;
+      return `<div class="row"><div><b>${ev.type}</b></div><div class="muted">${dt}</div></div>`;
     }).join('');
-  } catch {
-    box.textContent = 'Ошибка истории';
-  }
+  } catch { box.textContent = 'Ошибка истории'; }
 }
-
 async function deleteClaim() {
   if (!currentClaim) return;
   if (!confirm('Удалить эту заявку без возможности восстановления?')) return;
   const res = await fetch(API + '/admin/claim/delete', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id: currentClaim })
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() }, body: JSON.stringify({ id: currentClaim })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Не удалось удалить: '+(data?.error||res.status)); return; }
-  alert('Удалено');
-  currentClaim = null;
-  document.getElementById('claim-actions').style.display = 'none';
-  loadClaims();
+  alert('Удалено'); currentClaim = null; document.getElementById('claim-actions').style.display = 'none'; loadClaims();
 }
-
 async function updateClaim(next) {
   if (!currentClaim) return;
   const reason = document.getElementById('claim-reason').value.trim();
   const res = await fetch(API+'/admin/claim/update', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ id: currentClaim, status: next, reason: (next==='rejected'?reason:null) })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Готово: '+next);
-  loadClaims();
+  alert('Готово: '+next); loadClaims();
 }
 async function setTracking() {
   if (!currentClaim) return;
   const tracking = document.getElementById('claim-tracking').value.trim();
   if (!tracking) { alert('Введите трек‑номер'); return; }
   const res = await fetch(API+'/admin/claim/tracking', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ id: currentClaim, tracking })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Статус: shipped, трек установлен');
-  loadClaims();
+  alert('Статус: shipped, трек установлен'); loadClaims();
 }
-
 async function markDelivered() {
   if (!currentClaim) return;
   const res = await fetch(API+'/admin/claim/delivered', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ id: currentClaim })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Статус: delivered');
-  loadClaims();
+  alert('Статус: delivered'); loadClaims();
 }
 async function exportClaimsCSV() {
   if (needLogin()) return;
@@ -708,14 +570,12 @@ async function exportClaimsCSV() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `claims-${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
+  document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
-// Feedback
+// ===== Feedback =====
 let currentThread = null;
-
 async function loadThreads() {
   if (needLogin()) return;
   const q = document.getElementById('fb-q').value.trim();
@@ -742,32 +602,25 @@ async function loadThreads() {
   document.getElementById('msg-list').innerHTML = '';
   currentThread = null;
 }
-
 async function openThread(id, code, status='open') {
   currentThread = { id, code, status };
   const head = document.getElementById('thread-head');
   head.innerHTML = `Диалог <b>#${code}</b> · <span class="pill">${status}</span>
-    <button class="btn" style="margin-left:8px" onclick="toggleThreadStatus()">
-      ${status==='closed'?'Открыть':'Закрыть'}
-    </button>`;
+    <button class="btn" style="margin-left:8px" onclick="toggleThreadStatus()">${status==='closed'?'Открыть':'Закрыть'}</button>`;
   await loadMessages();
 }
-
 async function toggleThreadStatus() {
   if (!currentThread) return;
   const next = currentThread.status === 'closed' ? 'open' : 'closed';
   const res = await fetch(API + '/admin/feedback/close', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ threadId: currentThread.id, status: next })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  currentThread.status = next;
-  openThread(currentThread.id, currentThread.code, currentThread.status);
+  currentThread.status = next; openThread(currentThread.id, currentThread.code, currentThread.status);
 }
-
 async function loadMessages() {
   if (!currentThread) return;
   const url = new URL(API + '/admin/feedback/messages');
@@ -780,29 +633,24 @@ async function loadMessages() {
   list.innerHTML = (data.items||[]).map(m=>{
     const dt = new Date(m.created_at).toLocaleString();
     const cls = m.sender==='admin'?'msg admin':'msg user';
-    return `<div class="${cls}">
-      <div>${escapeHtml(m.text)}</div>
-      <div class="muted" style="font-size:.8em;margin-top:4px">${dt}</div>
-    </div>`;
+    return `<div class="${cls}"><div>${escapeHtml(m.text)}</div><div class="muted" style="font-size:.8em;margin-top:4px">${dt}</div></div>`;
   }).join('');
   list.scrollTop = list.scrollHeight;
 }
-
 async function sendReply() {
   const inp = document.getElementById('fb-reply');
   const text = (inp.value||'').trim();
   if (!text || !currentThread) return;
   const res = await fetch(API+'/admin/feedback/reply', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ threadId: currentThread.id, text })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Не отправлено: '+(data?.error||res.status)); return; }
-  inp.value = '';
-  loadMessages();
+  inp.value = ''; loadMessages();
 }
+
 // ===== Устройства =====
 async function loadDevices() {
   if (needLogin()) return;
@@ -873,27 +721,25 @@ async function viewBackup(device) {
 
 // ===== Логи =====
 let __selectedLogKeys = new Set();
-
 function readDTLocal(id) {
   const v = document.getElementById(id)?.value;
   if (!v) return null;
   try { return new Date(v).toISOString(); } catch { return null; }
 }
-
 async function loadLogs() {
   if (needLogin()) return;
   __selectedLogKeys = new Set();
   const type = document.getElementById('logs-type').value;
   const from = readDTLocal('logs-from');
   const to   = readDTLocal('logs-to');
+  const pkey = document.getElementById('logs-pkey').value.trim();
+  const pop  = document.getElementById('logs-pop').value;
+  const pval = document.getElementById('logs-pval').value.trim();
 
   const url = new URL(API + '/admin/logs');
   if (type) url.searchParams.set('type', type);
   if (from) url.searchParams.set('from', from);
   if (to) url.searchParams.set('to', to);
-  const pkey = document.getElementById('logs-pkey').value.trim();
-  const pop  = document.getElementById('logs-pop').value;
-  const pval = document.getElementById('logs-pval').value.trim();
   if (pkey) url.searchParams.set('pkey', pkey);
   if (pop)  url.searchParams.set('pop', pop);
   if (pval) url.searchParams.set('pval', pval);
@@ -925,41 +771,37 @@ function toggleLogKey(key, checked) {
 }
 async function selectLog(key) {
   if (needLogin()) return;
-  try {
-    // Повторно загружаем список с текущими фильтрами и ищем по ключу
-    const type = document.getElementById('logs-type').value;
-    const from = readDTLocal('logs-from');
-    const to   = readDTLocal('logs-to');
-    const url = new URL(API + '/admin/logs');
-    if (type) url.searchParams.set('type', type);
-    if (from) url.searchParams.set('from', from);
-    if (to) url.searchParams.set('to', to);
-    url.searchParams.set('limit', '100');
-
-    const resp = await fetch(url, { headers:{ ...authHeader() }});
-    if (resp.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-    const data = await resp.json().catch(()=> ({}));
-    const it = (data.items||[]).find(x => x.key === key);
-
-    document.getElementById('log-details').textContent = it ? JSON.stringify(it, null, 2) : 'Не найден';
-  } catch {
-    document.getElementById('log-details').textContent = 'Ошибка';
-  }
+  // перезагрузим текущий список (фильтры те же) и найдём запись
+  const type = document.getElementById('logs-type').value;
+  const from = readDTLocal('logs-from');
+  const to   = readDTLocal('logs-to');
+  const pkey = document.getElementById('logs-pkey').value.trim();
+  const pop  = document.getElementById('logs-pop').value;
+  const pval = document.getElementById('logs-pval').value.trim();
+  const url = new URL(API + '/admin/logs');
+  if (type) url.searchParams.set('type', type);
+  if (from) url.searchParams.set('from', from);
+  if (to) url.searchParams.set('to', to);
+  if (pkey) url.searchParams.set('pkey', pkey);
+  if (pop)  url.searchParams.set('pop', pop);
+  if (pval) url.searchParams.set('pval', pval);
+  url.searchParams.set('limit', '100');
+  const resp = await fetch(url, { headers:{ ...authHeader() }});
+  const data = await resp.json().catch(()=> ({}));
+  const it = (data.items||[]).find(x => x.key === key);
+  document.getElementById('log-details').textContent = it ? JSON.stringify(it, null, 2) : 'Не найден';
 }
-
 async function deleteSelectedLogs() {
   if (!__selectedLogKeys.size) { alert('Не выбрано ни одного лога'); return; }
   if (!confirm(`Удалить ${__selectedLogKeys.size} логов?`)) return;
   const res = await fetch(API + '/admin/logs/delete', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify({ keys: Array.from(__selectedLogKeys) })
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Ошибка удаления: ' + (data?.error||res.status)); return; }
-  alert('Удалено');
-  loadLogs();
+  alert('Удалено'); loadLogs();
 }
 async function exportLogs(fmt) {
   if (needLogin()) return;
@@ -986,8 +828,7 @@ async function exportLogs(fmt) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `logs-${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.${fmt==='ndjson'?'ndjson':'csv'}`;
-  document.body.appendChild(a);
-  a.click();
+  document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
@@ -1010,6 +851,8 @@ async function loadMetrics() {
     ${byStatus || '<div class="muted">—</div>'}
   `;
 }
+
+// ===== GS Config (управление глобальной статистикой) =====
 async function loadGsConfig() {
   if (needLogin()) return;
   const res = await fetch(API + '/admin/gs/config', { headers:{ ...authHeader() }});
@@ -1031,8 +874,7 @@ async function saveGsConfig() {
     requireTurnstile: document.getElementById('gs-ts').checked
   };
   const res = await fetch(API + '/admin/gs/config', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify(body)
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
@@ -1042,12 +884,9 @@ async function saveGsConfig() {
 }
 
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
 window.addEventListener('load', () => {
-  // Если нет токена — прячем интерфейс, показываем модалку
-  if (needLogin(true)) {
-    return; // ждём ввода логина/пароля
-  }
-  // Если токен уже есть (например, из этой вкладки) — показать интерфейс и загрузить данные
+  if (needLogin(true)) return;
   guardApp();
   loadClaims();
 });
