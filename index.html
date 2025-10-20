@@ -2231,16 +2231,15 @@
           <span class="chev" aria-hidden="true">▼</span>
         </button>
         <div class="my-stats-body" id="global-stats-body" hidden>
-          <div class="chart-block" style="margin-top:4px;">
-            <div class="ach-group-title" style="margin:4px;">Период</div>
-            <div class="ach-tabs" style="margin-top:2px;">
-              <button class="ach-tab active" data-period="all" id="gs-tab-all">Всего</button>
-              <button class="ach-tab" data-period="today" id="gs-tab-today">Сегодня</button>
-              <button class="ach-tab" data-period="week" id="gs-tab-week">Неделя</button>
-              <button class="ach-tab" data-period="month" id="gs-tab-month">Месяц</button>
-            </div>
+          <div class="ach-group-title" style="margin:4px;">Период</div>
+          <div class="ach-tabs" style="margin-top:2px;">
+            <button class="ach-tab active" data-period="all" id="gs-tab-all">Всего</button>
+            <button class="ach-tab" data-period="today" id="gs-tab-today">Сегодня</button>
+            <button class="ach-tab" data-period="week" id="gs-tab-week">Неделя</button>
+            <button class="ach-tab" data-period="month" id="gs-tab-month">Месяц</button>
+          </div>
 
-          <div class="stat-card" id="gs-error" style="display:none; border-color: #8a2a2a; color: #ffb3b3;">
+          <div class="stat-card" id="gs-error" style="display:none; border-color:#8a2a2a; color:#ffb3b3;">
             Глобальная статистика временно недоступна.
           </div>
 
@@ -2253,6 +2252,7 @@
             <div class="stat-title">Топ‑5 по суммарному времени (мин)</div>
             <ul class="stat-list" id="gs-top-time"></ul>
           </div>
+
           <div class="stat-card">
             <div class="stat-title">Топ городов (пользователи)</div>
             <ul class="stat-list" id="gs-top-cities"></ul>
@@ -2280,11 +2280,8 @@
         </div>
       </div>
 
-      <!-- Кнопка ГОРЯЧИЕ КЛАВИШИ - появляется динамически между кнопками -->
-      <button class="hotkeys-btn" id="hotkeys-btn" style="display: none;" onclick="showHotkeysModal()">
-        ГОРЯЧИЕ КЛАВИШИ
-      </button>
-      
+      <!-- КНОПКИ НИЖЕ ВНЕ ГЛОБАЛЬНОЙ СТАТИСТИКИ -->
+      <button class="hotkeys-btn" id="hotkeys-btn" style="display:none;" onclick="showHotkeysModal()">ГОРЯЧИЕ КЛАВИШИ</button>
       <span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span>
       <a class="support-link" id="support-link" href="#" target="_blank">ПОДДЕРЖАТЬ</a>
       <button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button>
@@ -5473,8 +5470,6 @@ const GlobalStats = {
     if (!FeatureFlags.globalStatsSend) return;
     if (!GLOBAL_STATS_URL) return;
     if (this.sending) return;
-
-    // Backoff: ждём до _retryAt, чтобы не спамить при ошибках
     if (Date.now() < this._retryAt) return;
 
     const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
@@ -5489,14 +5484,12 @@ const GlobalStats = {
         events: q
       };
 
-      // Получаем одноразовый токен Turnstile; добавляем заголовок только если токен есть
-      let headers = { 'Content-Type': 'application/json' };
+      // Получаем одноразовый токен Turnstile; добавляем заголовок только если он есть
+      const headers = { 'Content-Type': 'application/json' };
       try {
         const __tsToken = await getTurnstileToken('send_event');
         if (__tsToken) headers['CF-TURNSTILE-RESPONSE'] = __tsToken;
-      } catch(e) {
-        // тихо: без токена сервер примет событие, если в конфиге отключено requireTurnstile
-      }
+      } catch(e) { /* тихо: сервер примет, если requireTurnstile=false */ }
 
       const res = await fetch(`${GLOBAL_STATS_URL}/event`, {
         method: 'POST',
@@ -5505,17 +5498,14 @@ const GlobalStats = {
         body: JSON.stringify(payload)
       });
 
-      // Очищаем очередь только при 2xx
       if (!res.ok) {
         throw new Error(`event_send_failed_${res.status}`);
       }
 
       localStorage.setItem(GS_Q_KEY, JSON.stringify([]));
-      // сброс бэкоффа после успеха
       this._failCount = 0;
       this._retryAt = 0;
     } catch (e) {
-      // оставим события в очереди; поднимем бэкофф
       this._failCount = Math.min(this._failCount + 1, 10);
       const delay = Math.min(5 * 60 * 1000, Math.pow(2, this._failCount) * 1000);
       this._retryAt = Date.now() + delay;
@@ -6164,20 +6154,17 @@ function closeBackupPromptWithChoice() {
     const plus5 = document.getElementById('backup-opt-5')?.checked;
 
     if (never) {
-      // Никогда не напоминать
       localStorage.setItem('backup_prompt_mode', 'never');
       localStorage.removeItem('backup_prompt_next');
     } else if (plus5) {
-      // Следующее напоминание через 5 видимых достижений
       const cur = getVisibleAchievementsCount();
       localStorage.setItem('backup_prompt_next', String(cur + 5));
       localStorage.removeItem('backup_prompt_mode');
     } else {
-      // Сбрасываем настройки — вернёмся к поведению по умолчанию
       localStorage.removeItem('backup_prompt_mode');
       localStorage.removeItem('backup_prompt_next');
     }
-  } catch(e) {}
+  } catch {}
   closeBackupPrompt();
 }
 
@@ -6778,43 +6765,22 @@ function initAudioContext() {
       return;
     }
     
-    // ИСПРАВЛЕНО: Проверяем, не был ли уже создан источник для этого элемента
+    // Пытаемся создать источник; если уже есть — просто подключим анализатор и выходим
     try {
-      // Пытаемся создать новый источник
-      audioSource = audioContext.createMediaElementSource(audio);
-      audioSource.connect(analyser);
-      analyser.connect(audioContext.destination);
-    } catch (e) {
-      // Если источник уже был создан ранее, пересоздаём плеер
-      console.warn('Источник уже существует, пересоздаём подключение');
-      
-      // Сохраняем состояние
-      const currentTime = audio.currentTime;
-      const paused = audio.paused;
-      const volume = audio.volume;
-      const src = audio.src;
-      
-      // Пересоздаём audio элемент
-      const newAudio = audio.cloneNode(false);
-      newAudio.src = src;
-      newAudio.currentTime = currentTime;
-      newAudio.volume = volume;
-      
-      // Заменяем элемент
-      audio.parentNode.replaceChild(newAudio, audio);
-      
-      // Создаём источник для нового элемента
-      audioSource = audioContext.createMediaElementSource(newAudio);
-      audioSource.connect(analyser);
-      analyser.connect(audioContext.destination);
-      
-      // Восстанавливаем воспроизведение если нужно
-      if (!paused) {
-        newAudio.play().catch(err => console.log('Автовоспроизведение заблокировано'));
+      if (!audioSource) {
+        audioSource = audioContext.createMediaElementSource(audio);
+        audioSource.connect(analyser);
+        analyser.connect(audioContext.destination);
+      } else {
+        // Источник уже создан раньше — убедимся, что цепочка подключена
+        try { audioSource.connect(analyser); } catch(e) {}
+        try { analyser.connect(audioContext.destination); } catch(e) {}
       }
-      // ВСТАВЛЕНО: перепривязать обработчики к новому элементу
-      reattachAudioEventListeners(newAudio);
-    } // ← закрываем внутренний catch(e)
+    } catch (e) {
+      // Если ошибка “источник уже существует” — не пересоздаём audio, просто пропускаем
+      console.warn('MediaElementSource уже существует — пропускаем пересоздание');
+    }
+
     // Возобновляем контекст если он был приостановлен
     if (audioContext.state === 'suspended') {
       audioContext.resume();
