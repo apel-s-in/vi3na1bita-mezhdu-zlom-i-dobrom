@@ -3320,6 +3320,10 @@ const Stats = {
         ended: !!opts.ended,
         durationMs
       });
+      // Невидимый автосейв в облако после полного прослушивания
+      if (full) {
+        try { backupSaveToCloudOverwriteSilent(); } catch(e){}
+      }
     }
 
     if (opts.ended) this.lastStart = null;
@@ -4478,6 +4482,8 @@ const Prize = {
       } else {
         this.state.authed = false;
         this.paintChecklist();
+        // Попробуем подтянуть user-latest (если есть)
+        await this.recoverFromUserLatestIfAny();
       }
     } catch (e) {
       this.state.authed = false;
@@ -4566,9 +4572,12 @@ const Prize = {
       }
     }
 
-    // Если уже выполнены условия и имени нет — предлагаем создать
+    // Предложить создать имя:
+    // - как только достигнуто ≥5 видимых достижений и имени нет
+    // - или если уже выполнены все условия и имени нет
     if (createNameBlock) {
-      createNameBlock.style.display = (ready && !hasName) ? '' : 'none';
+      const enoughForName = (achCount >= 5);
+      createNameBlock.style.display = (!hasName && (enoughForName || ready)) ? '' : 'none';
     }
 
     if (flag) {
@@ -4819,7 +4828,10 @@ const Prize = {
         if (inp) inp.value = prefill;
 
         // Подтягиваем профиль, обновляем готовность
-        this.fetchMe(true).then(()=> this.updateLocalReadiness());
+        this.fetchMe(true).then(async () => {
+          await this.recoverFromUserLatestIfAny();
+          this.updateLocalReadiness();
+        });
       }
     } catch(e) {
       // тихо игнорируем — следующая попытка в цикле
@@ -4905,7 +4917,8 @@ const Prize = {
     const cloud = localStorage.getItem('CLOUD_SAVED_OK') === '1';
     const tamper = localStorage.getItem('tamper_detected') === '1';
     const nameSet = !!(this.state?.user?.display_name || localStorage.getItem('profile_name'));
-    this.state.readiness = { achCount, need: FRONT_MIN_CLAIM_LEVEL, cloud, tamper, nameSet };
+    const needAll = (typeof AchProgress?.totalVisible === 'number') ? AchProgress.totalVisible : FRONT_MIN_CLAIM_LEVEL;
+    this.state.readiness = { achCount, need: needAll, cloud, tamper, nameSet };
     this.paintChecklist();
   },
   async ensureSessionActive() {
@@ -4939,6 +4952,54 @@ const Prize = {
       return false;
     } catch { return false; }
   },
+  // Восстановление прогресса с user-latest (последний бэкап по tg_id)
+  async recoverFromUserLatestIfAny() {
+    try {
+      const tgId = localStorage.getItem('tg_id');
+      if (!tgId || !GLOBAL_STATS_URL) return;
+
+      let url = `${GLOBAL_STATS_URL}/backup/user-latest`;
+      const sid = localStorage.getItem('vr_sid');
+      if (!sid) url += `?tg=${encodeURIComponent(tgId)}`;
+
+      const res = await fetch(url, { method:'GET', mode:'cors', credentials:'include', headers: { ...apiAuthHeaders() }});
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || !data?.ok || !data?.backup?.payload) return;
+
+      const incoming = data.backup.payload;
+      const calc = await sha256String(JSON.stringify(incoming));
+      if (calc !== data.backup.checksum) return;
+      if (incoming.deviceHash === getDeviceHash()) return;
+
+      const curDone = getVisibleAchievementsCount();
+      const incDone = incoming.achOverview?.normalDone || Object.keys(incoming.stats?.achievements||{}).filter(id => !ACH_META[id]?.hidden).length;
+      if (incDone > curDone) {
+        StatsStore.s = incoming.stats;
+        if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
+        if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
+        if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
+        if (Array.isArray(StatsStore.s.perTrack)) {
+          for (let i = 0; i < StatsStore.s.perTrack.length; i++) {
+            const pt = StatsStore.s.perTrack[i] || {};
+            if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
+            if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0);
+            StatsStore.s.perTrack[i] = pt;
+          }
+        }
+        StatsStore.save();
+        AchProgress.updateFromStats();
+        localStorage.removeItem('tamper_detected');
+        hideTamperBanner();
+
+        // Сразу перезапишем бэкап под текущим устройством
+        await backupSaveToCloudOverwriteSilent();
+        this.updateLocalReadiness();
+        NotificationSystem.success('Прогресс восстановлен с другого устройства');
+      }
+    } catch(e) {
+      // тихо
+    }
+  },
 
   async fetchMe(silent=false) {
     try {
@@ -4961,6 +5022,11 @@ const Prize = {
           }
           if (this.state.user?.tg_username) {
             localStorage.setItem('tg_username', String(this.state.user.tg_username));
+          }
+          // Сохраним перечень устройств для knownDevices
+          if (Array.isArray(data.devices)) {
+            const arr = (data.devices || []).map(d => d.device_hash).filter(Boolean);
+            localStorage.setItem('me_devices', JSON.stringify(arr.slice(0, 50)));
           }
         } catch(e){}
       } else {
@@ -5700,6 +5766,27 @@ async function buildBackupFile() {
   const lsTgUsername = localStorage.getItem('tg_username');
   const lsProfileName = localStorage.getItem('profile_name');
 
+  // Известные устройства (локальные + из /me)
+  const knownSet = new Set();
+  try {
+    const localKnown = JSON.parse(localStorage.getItem('known_devices') || '[]');
+    localKnown.forEach(d => knownSet.add(String(d)));
+  } catch(e){}
+  try {
+    const meDev = JSON.parse(localStorage.getItem('me_devices') || '[]');
+    meDev.forEach(d => knownSet.add(String(d)));
+  } catch(e){}
+  knownSet.add(getDeviceHash());
+  const knownDevices = Array.from(knownSet).slice(0, 50);
+
+  // Избранные
+  const favorites = getLiked();
+
+  // Обзор достижений (обычные)
+  const ach = StatsStore.s?.achievements || {};
+  const normalTotal = Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length;
+  const normalDone  = Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length;
+
   const payload = {
     appVersion: VERSION,
     buildDate: BUILD_DATE,
@@ -5710,9 +5797,17 @@ async function buildBackupFile() {
       tgId: u?.tg_id || lsTgId || null,
       tgUsername: lsTgUsername || null
     },
+    favorites,
+    knownDevices,
+    achOverview: {
+      normalTotal,
+      normalDone
+      // secretTotal/secretDoneFromStart/secretStartAt — зарезервировано
+    },
     stats: StatsStore.s,
     statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
   };
+
   const checksum = await sha256String(JSON.stringify(payload));
   const file = { kind: 'vr_backup_v1', checksum, payload };
   return file;
