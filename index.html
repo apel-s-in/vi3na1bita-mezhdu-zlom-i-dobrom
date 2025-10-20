@@ -4475,6 +4475,9 @@ const Prize = {
         };
         this.paintChecklist();
 
+        // NEW: сразу пробуем восстановить прогресс по tg_id (user-latest)
+        await this.recoverFromUserLatestIfAny();
+
         // Сохраняем бэкап и подтягиваем профиль фоном
         await backupSaveToCloudOverwriteSilent();
         await this.fetchMe(true);
