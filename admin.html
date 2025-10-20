@@ -212,6 +212,29 @@
       <div class="search">
         <button class="btn" onclick="loadMetrics()">Обновить</button>
       </div>
+      <div class="card" style="margin-top:8px;">
+        <div style="font-weight:700;margin-bottom:8px;">Глобальная статистика — управление</div>
+        <div class="row">
+          <div>Общий выключатель</div>
+          <div><label class="muted">masterEnabled</label> <input type="checkbox" id="gs-master"></div>
+        </div>
+        <div class="row">
+          <div>Отправка с клиентов (/event)</div>
+          <div><label class="muted">sendEnabled</label> <input type="checkbox" id="gs-send"></div>
+        </div>
+        <div class="row">
+          <div>Показывать UI в приложении</div>
+          <div><label class="muted">showUI</label> <input type="checkbox" id="gs-ui"></div>
+        </div>
+        <div class="row">
+          <div>Требовать Turnstile</div>
+          <div><label class="muted">requireTurnstile</label> <input type="checkbox" id="gs-ts"></div>
+        </div>
+        <div class="flex" style="margin-top:8px;">
+          <button class="btn ok" onclick="saveGsConfig()">Сохранить</button>
+          <button class="btn" onclick="loadGsConfig()">Обновить</button>
+        </div>
+      </div>
       <div id="metrics-box" class="list"></div>
     </div>
     <div class="card">
@@ -413,7 +436,7 @@ function switchTab(tab) {
   if (tab==='devices') loadDevices();
   if (tab==='backups') loadBackups();
   if (tab==='logs') loadLogs();
-  if (tab==='stats') loadMetrics();
+  if (tab==='stats') { loadMetrics(); loadGsConfig(); }
 }
 document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
 document.getElementById('tab-devices').onclick = ()=>switchTab('devices');
@@ -972,6 +995,37 @@ async function loadMetrics() {
     ${byStatus || '<div class="muted">—</div>'}
   `;
 }
+async function loadGsConfig() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/gs/config', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка конфигурации'); return; }
+  const c = data.config || {};
+  document.getElementById('gs-master').checked = !!c.masterEnabled;
+  document.getElementById('gs-send').checked = !!c.sendEnabled;
+  document.getElementById('gs-ui').checked = !!c.showUI;
+  document.getElementById('gs-ts').checked = !!c.requireTurnstile;
+}
+async function saveGsConfig() {
+  if (needLogin()) return;
+  const body = {
+    masterEnabled: document.getElementById('gs-master').checked,
+    sendEnabled: document.getElementById('gs-send').checked,
+    showUI: document.getElementById('gs-ui').checked,
+    requireTurnstile: document.getElementById('gs-ts').checked
+  };
+  const res = await fetch(API + '/admin/gs/config', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify(body)
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
+  alert('Сохранено');
+}
+
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 window.addEventListener('load', () => {
   // Если нет токена — прячем интерфейс, показываем модалку
