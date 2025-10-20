@@ -2844,6 +2844,21 @@ function apiAuthHeaders() {
   if (sid) h['X-Session'] = sid;
   return h;
 }
+// Страховка: если через 1 секунду поля ещё выключены — включим их
+setTimeout(() => {
+  try {
+    const inp = document.getElementById('promo-inp');
+    const btn = document.getElementById('promo-btn');
+    if (inp && btn && (inp.disabled || btn.disabled)) {
+      inp.disabled = false; btn.disabled = false;
+      const err = document.getElementById('promo-error');
+      if (err && !configLoaded) {
+        err.textContent = 'Конфиг ещё грузится... Можно попробовать промокод';
+        err.style.color = '#9aa8c4';
+      }
+    }
+  } catch(e){}
+}, 1000);
 
 // Cloudflare Turnstile ...
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
@@ -6302,50 +6317,106 @@ class PositionManager {
 }
 
 // ==================== ЗАГРУЗКА КОНФИГУРАЦИИ ====================
-fetch('./config.json')
-  .then(r => r.json())
-  .then(data => {
+(async function loadAppConfigWithFallback() {
+  const promoInp = document.getElementById('promo-inp');
+  const promoBtn = document.getElementById('promo-btn');
+
+  // Страховка: если за 3 сек. не подгрузится конфиг — включаем ручной режим
+  let fallbackArmed = true;
+  const safetyTimer = setTimeout(() => {
+    if (!configLoaded && fallbackArmed) {
+      console.warn('[config] safety fallback fired: enabling promo input');
+      if (promoInp) promoInp.disabled = false;
+      if (promoBtn) promoBtn.disabled = false;
+      const err = document.getElementById('promo-error');
+      if (err) err.textContent = 'Конфиг недоступен. Включен резервный режим входа.';
+    }
+  }, 3000);
+
+  try {
+    const resp = await fetch('./config.json', { cache: 'no-cache' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    // Успех — снимаем страховку
+    clearTimeout(safetyTimer);
+    fallbackArmed = false;
+
     config = data;
     configLoaded = true;
-    document.getElementById('promo-inp').disabled = false;
-    document.getElementById('promo-btn').disabled = false;
-    
+
+    if (promoInp) promoInp.disabled = false;
+    if (promoBtn) promoBtn.disabled = false;
+
     if (localStorage.getItem('promoPassed') === '1') {
       promoPassed = true;
       document.getElementById('main-block').classList.remove('hidden');
       document.getElementById('promocode-block').classList.add('hidden');
       initializeMainUi();
-      
+
       const savedState = PlayerState.restore();
       if (savedState) {
         PlayerState.apply(savedState);
       }
-      
       parseDeepLink();
     }
-  })
-  .catch(err => {
+  } catch (err) {
+    // Ошибка — включаем fallback: активируем поля и используем запасной промокод
     console.error('Failed to load config:', err);
-    NotificationSystem.error('Ошибка загрузки конфигурации');
-  });
+    clearTimeout(safetyTimer);
+    fallbackArmed = false;
+
+    // Базовый минимальный конфиг, чтобы приложение не падало
+    config = {
+      albumName: 'Между Злом и Добром',
+      artist: 'Витрина Разбита',
+      albumYear: 2025,
+      tracks: [],              // пустые треки, UI всё равно инициализируется позже
+      socials: [],
+      promoCode: 'VITRINA2025',
+      donateLink: '#'
+    };
+    configLoaded = false; // помечаем как “резервный режим”
+
+    if (promoInp) promoInp.disabled = false;
+    if (promoBtn) promoBtn.disabled = false;
+
+    const errBox = document.getElementById('promo-error');
+    if (errBox) {
+      errBox.textContent = 'Конфиг не загружен. Включен резервный режим входа.';
+      errBox.style.color = '#ffa';
+    }
+    NotificationSystem.warning('Конфигурация не загружена — резервный режим');
+  }
+})();
 
 // ==================== ПРОМОКОД ====================
 function checkPromo() {
-  const val = document.getElementById('promo-inp').value.trim();
-  if (!configLoaded) {
-    document.getElementById('promo-error').innerText = "Загрузка данных... Попробуйте через пару секунд.";
+  const inp = document.getElementById('promo-inp');
+  const err = document.getElementById('promo-error');
+  const val = (inp?.value || '').trim();
+
+  // Разрешаем вход в двух режимах:
+  // 1) Обычный: configLoaded=true и сверяем с config.promoCode
+  // 2) Резервный: configLoaded=false и сверяем с fallback-кодом (из config.promoCode, заданного в catch)
+  if (!val) {
+    if (err) err.innerText = "Введите промокод";
     return;
   }
-  if (val && config && val.toUpperCase() === config.promoCode.toUpperCase()) {
+
+  const haveCfg = !!config && typeof config.promoCode === 'string';
+  const expected = haveCfg ? String(config.promoCode) : 'VITRINA2025';
+
+  if (val.toUpperCase() === expected.toUpperCase()) {
     promoPassed = true;
     localStorage.setItem('promoPassed', '1');
     document.getElementById('main-block').classList.remove('hidden');
     document.getElementById('promocode-block').classList.add('hidden');
     initializeMainUi();
     setOfflineUIState(offlineMode ? 'offline' : 'online');
-    autoPlayEnabled = true; // ИСПРАВЛЕНО: включаем автовоспроизведение после промокода
+    autoPlayEnabled = true;
   } else {
-    document.getElementById('promo-error').innerText = "Неверный промокод. Попробуйте ещё!";
+    if (err) err.innerText = "Неверный промокод. Попробуйте ещё!";
   }
 }
 
