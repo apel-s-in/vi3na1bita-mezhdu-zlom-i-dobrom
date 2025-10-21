@@ -5551,12 +5551,29 @@ const GlobalStats = {
     try {
       if (!FeatureFlags.globalStatsSend) return;
       if (!GLOBAL_STATS_URL) return;
-      const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
-      q.push(ev);
-      localStorage.setItem(GS_Q_KEY, JSON.stringify(q));
-      if (navigator.onLine && q.length >= 5) this.flush();
-    } catch(e) {}
-  },
+    const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
+    if (!q.length) return;
+
+    // НОВОЕ: отправим размер очереди, если флаг включён с сервера
+    try {
+      const cfg = await this.fetchConfig();
+      if (cfg.collectClientQueue) {
+        fetch(`${GLOBAL_STATS_URL}/gs/client-queue`, {
+          method: 'POST', mode: 'cors',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ q: q.length })
+        }).catch(()=>{});
+      }
+    } catch(e){}
+
+    this.sending = true;
+    try {
+      const payload = {
+        deviceHash: getDeviceHash(),
+        appVersion: VERSION,
+        platform: navigator.userAgent,
+        events: q
+      };
 
   async flush() {
     if (!FeatureFlags.globalStatsSend) return;
