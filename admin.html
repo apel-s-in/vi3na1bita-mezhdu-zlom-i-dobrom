@@ -918,7 +918,7 @@ async function loadGsHealth() {
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const d = await res.json().catch(()=> ({}));
   if (!res.ok || !d?.ok) { alert('Монитор недоступен'); return; }
-  document.getElementById('m-ok').textContent    = d.ok || 0;
+  document.getElementById('m-ok').textContent    = d.okCount || 0;
   document.getElementById('m-403').textContent   = d.denied403 || 0;
   document.getElementById('m-429').textContent   = d.rateLimited || 0;
   document.getElementById('m-other').textContent = d.otherDenied || 0;
