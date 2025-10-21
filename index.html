@@ -5642,6 +5642,11 @@ const GlobalStats = {
       const res = await fetch(`${GLOBAL_STATS_URL}/top?period=${this.period}`, { mode: 'cors' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      // УБИРАЕМ БАННЕР ОШИБКИ, ЕСЛИ БЫЛ
+      try {
+        const err = document.getElementById('gs-error');
+        if (err) err.style.display = 'none';
+      } catch(e){}
       this.renderLists(data);
     } catch (e) {
       if (errEl) errEl.style.display = '';
