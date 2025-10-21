@@ -1,5 +1,5 @@
-// service-worker.js - v6.6.8
-const VERSION = '6.6.8';
+// service-worker.js - v6.6.9
+const VERSION = '6.6.9';
 const CACHE_NAME = `album-cache-v${VERSION}`;
 const OFFLINE_CACHE = 'album-offline-v1';
 
