@@ -2843,6 +2843,79 @@ function apiAuthHeaders() {
   if (sid) h['X-Session'] = sid;
   return h;
 }
+// ===== DEMO Mode: изоляция локального хранилища по префиксу demo: =====
+const DemoMode = (() => {
+  // Оригинальные методы localStorage
+  const _orig = {
+    getItem: localStorage.getItem.bind(localStorage),
+    setItem: localStorage.setItem.bind(localStorage),
+    removeItem: localStorage.removeItem.bind(localStorage)
+  };
+
+  // Список ключей приложения, которые должны изолироваться в DEMO
+  // ВАЖНО: сюда включены ключи статистики, ачивок, локальных флагов/баннеров,
+  // но НЕ включены device_hash, vr_sid, promoPassed и т.п.
+  const DEMO_KEYS = new Set([
+    'vr_stats_v1','vr_crc_v1','tamper_detected',
+    'CLOUD_SAVED_OK','CLOUD_SAVED_CRC','CLOUD_SAVED_AT',
+    'likedTracks','favoritesFilter','favoritesOnlyMode',
+    'playerState','current_track_position','sleepTimer',
+    'backup_prompt_mode','backup_prompt_next','secret_start_at',
+    'myStatsOpen','globalStatsOpen','myStatsHoursOpen','myStatsWeekOpen',
+    'animationEnabled','bitEnabled','bitIntensity',
+    'hasShownAnimationWarning','hasShownBitWarning',
+    'me_devices','known_devices','profile_name'
+  ]);
+
+  let on = false; // текущий режим
+  const HINT_KEY = 'app_demo_mode'; // без префикса, чтобы всегда был доступен
+
+  function demoKey(k) {
+    return (on && DEMO_KEYS.has(String(k))) ? ('demo:' + k) : k;
+  }
+
+  function patch() {
+    // Переопределяем getItem/setItem/removeItem
+    localStorage.getItem = (k) => _orig.getItem(demoKey(k));
+    localStorage.setItem = (k, v) => _orig.setItem(demoKey(k), v);
+    localStorage.removeItem = (k) => _orig.removeItem(demoKey(k));
+  }
+
+  function unpatch() {
+    // Возвращаем оригинальные методы
+    localStorage.getItem = _orig.getItem;
+    localStorage.setItem = _orig.setItem;
+    localStorage.removeItem = _orig.removeItem;
+  }
+
+  function setMode(val) {
+    const next = !!val;
+    if (next === on) return;
+    on = next;
+    _orig.setItem(HINT_KEY, on ? '1' : '0');
+    patch(); // включаем/пере‑включаем патч (safe)
+    console.log('[DemoMode]', on ? 'enabled' : 'disabled');
+  }
+
+  function bootstrap() {
+    // На самый ранний момент: активируем патч по “подсказке” (если уже была)
+    try {
+      const hint = _orig.getItem(HINT_KEY) === '1';
+      on = !!hint;
+      patch();
+    } catch (e) {
+      // на всякий — оставим оригинальные
+    }
+  }
+
+  function current() { return on; }
+
+  return { bootstrap, setMode, current };
+})();
+
+// ВАЖНО: активируем патч ДО инициализации сторов/прогресса
+DemoMode.bootstrap();
+
 // Страховка: если через 1 секунду поля ещё выключены — включим их
 setTimeout(() => {
   try {
@@ -5138,6 +5211,9 @@ const Prize = {
       const data = await res.json().catch(()=> ({}));
 
       if (res.ok && data?.ok && data?.auth) {
+        // НОВОЕ: применим DEMO-режим из бэкенда (изолирует localStorage)
+        try { DemoMode.setMode(!!data.demoMode); } catch(e){}
+
         this.state.authed = true;
         this.state.user = data.user || this.state.user;
         try {
@@ -5158,10 +5234,11 @@ const Prize = {
         } catch(e){}
       } else {
 
-        // НЕ даунгрейдим, если есть локальный sid (липкая авторизация)
+        // если сервер не подтвердил /me — выключим DEMO-патч (безопасно)
+        try { DemoMode.setMode(false); } catch(e){}
+
         if (localStorage.getItem('vr_sid')) {
           this.state.authed = true;
-          // user могли не вернуть — оставим прежний
         } else {
           this.state.authed = false;
           this.state.user = null;
@@ -6634,15 +6711,13 @@ function initializeMainUi() {
   DOM.trackList = document.getElementById('track-list');
   DOM.socialLinks = document.getElementById('social-links');
 
-  // НОВОЕ: загрузим оверрайды достижений до инициализации прогресса
-  // делаем это синхронно/ожиданием, чтобы пороги и заголовки применились
-  // (если сеть недоступна — просто останутся дефолты)
-  // eslint-disable-next-line no-unused-expressions
+  // НОВОЕ: загрузим оверрайды достижений ...
   (async ()=>{ try { await loadAchOverrides(); } catch(e){} })();
 
+  // ВАЖНО: патч localStorage уже активирован глобально DemoMode.bootstrap(),
+  // поэтому сразу инициализируем сторы с правильным префиксом.
   setCoverImage(coverGalleryIdx);
   buildSocials();
-  // ==== Этап 1: старт статы и прогресс‑панели ====
   StatsStore.init();
   AchProgress.init();
   // Проверка целостности локальных данных + отображение баннера
