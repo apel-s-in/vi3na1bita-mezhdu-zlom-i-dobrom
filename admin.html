@@ -241,6 +241,14 @@
           <div>Требовать Turnstile</div>
           <div><label class="muted">requireTurnstile</label> <input type="checkbox" id="gs-ts"></div>
         </div>
+        <div class="row">
+          <div>Включить монитор в админке</div>
+          <div><label class="muted">monitorEnabled</label> <input type="checkbox" id="gs-mon"></div>
+        </div>
+        <div class="row">
+          <div>Собирать очередь клиентов</div>
+          <div><label class="muted">collectClientQueue</label> <input type="checkbox" id="gs-cq"></div>
+        </div>
         <div class="flex" style="margin-top:8px;">
           <button class="btn ok" onclick="saveGsConfig()">Сохранить</button>
           <button class="btn" onclick="loadGsConfig()">Обновить</button>
@@ -255,6 +263,17 @@
         <div id="stats-note" class="muted">Данные берутся из /top?period=all|today|week|month</div>
       </div>
     </div>
+      <div class="card" id="gs-health-card" style="margin-top:8px; display:none;">
+        <div style="font-weight:700;margin-bottom:8px;">Монитор /event (последние 5 минут)</div>
+        <div class="row"><div>OK</div><div class="muted" id="m-ok">0</div></div>
+        <div class="row"><div>403 (Turnstile)</div><div class="muted" id="m-403">0</div></div>
+        <div class="row"><div>429 (Rate limit)</div><div class="muted" id="m-429">0</div></div>
+        <div class="row"><div>Иные отказы</div><div class="muted" id="m-other">0</div></div>
+        <div class="row"><div>Очередь клиентов (avg / max)</div><div class="muted"><span id="m-q-avg">0</span> / <span id="m-q-max">0</span></div></div>
+        <div class="flex" style="margin-top:8px;">
+          <button class="btn" onclick="loadGsHealth()">Обновить</button>
+        </div>
+      </div>
   </main>
 
   <!-- Обратная связь -->
@@ -864,6 +883,13 @@ async function loadGsConfig() {
   document.getElementById('gs-send').checked = !!c.sendEnabled;
   document.getElementById('gs-ui').checked = !!c.showUI;
   document.getElementById('gs-ts').checked = !!c.requireTurnstile;
+  document.getElementById('gs-mon').checked = !!c.monitorEnabled;
+  document.getElementById('gs-cq').checked = !!c.collectClientQueue;
+
+  // Показ/скрытие монитора
+  const monCard = document.getElementById('gs-health-card');
+  if (monCard) monCard.style.display = c.monitorEnabled ? '' : 'none';
+  if (c.monitorEnabled) loadGsHealth();
 }
 async function saveGsConfig() {
   if (needLogin()) return;
@@ -871,16 +897,33 @@ async function saveGsConfig() {
     masterEnabled: document.getElementById('gs-master').checked,
     sendEnabled: document.getElementById('gs-send').checked,
     showUI: document.getElementById('gs-ui').checked,
-    requireTurnstile: document.getElementById('gs-ts').checked
+    requireTurnstile: document.getElementById('gs-ts').checked,
+    monitorEnabled: document.getElementById('gs-mon').checked,
+    collectClientQueue: document.getElementById('gs-cq').checked
   };
   const res = await fetch(API + '/admin/gs/config', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
     body: JSON.stringify(body)
   });
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
   alert('Сохранено');
+  loadGsConfig();
+}
+async function loadGsHealth() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/gs/health', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const d = await res.json().catch(()=> ({}));
+  if (!res.ok || !d?.ok) { alert('Монитор недоступен'); return; }
+  document.getElementById('m-ok').textContent    = d.ok || 0;
+  document.getElementById('m-403').textContent   = d.denied403 || 0;
+  document.getElementById('m-429').textContent   = d.rateLimited || 0;
+  document.getElementById('m-other').textContent = d.otherDenied || 0;
+  document.getElementById('m-q-avg').textContent = (d.queue?.avg ?? 0);
+  document.getElementById('m-q-max').textContent = (d.queue?.max ?? 0);
 }
 
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
