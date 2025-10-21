@@ -3793,6 +3793,55 @@ const ACH_META = {
     howTo:'Откройте крупную ачивку и сохраните бэкап в этот же день.'
   }
 };
+// ===== Оверрайды достижений с сервера =====
+let ACH_OVERRIDES = { items:[], thresholds:{} };
+
+// получить порог для конкретного id порога (например, 'play_25_total'), иначе вернуть дефолт
+function threshold(id, def) {
+  if (!id) return def;
+  const t = (ACH_OVERRIDES && ACH_OVERRIDES.thresholds && typeof ACH_OVERRIDES.thresholds === 'object')
+    ? ACH_OVERRIDES.thresholds[id]
+    : undefined;
+  return (typeof t === 'number' && isFinite(t)) ? t : def;
+}
+
+// мержим оверрайды в ACH_META (title/short/desc/howTo/hidden/tier/core)
+function applyAchOverridesToMeta() {
+  if (!ACH_OVERRIDES || !Array.isArray(ACH_OVERRIDES.items)) return;
+  for (const ov of ACH_OVERRIDES.items) {
+    const id = ov.id;
+    if (!id) continue;
+    // merge описаний
+    ACH_META[id] = ACH_META[id] || {};
+    if ('title' in ov && ov.title) ACH_META[id].title = ov.title;
+    if ('short' in ov && ov.short) ACH_META[id].short = ov.short;
+    if ('desc' in ov && ov.desc) ACH_META[id].desc = ov.desc;
+    if ('howTo' in ov && ov.howTo) ACH_META[id].howTo = ov.howTo;
+    if ('hidden' in ov) ACH_META[id].hidden = !!ov.hidden;
+    if ('tier' in ov && Number.isFinite(ov.tier)) ACH_META[id].tier = Number(ov.tier);
+    if ('core' in ov) ACH_META[id].core = !!ov.core;
+
+    // thresholds — собираем в единую карту
+    if (ov.thresholds && typeof ov.thresholds === 'object') {
+      ACH_OVERRIDES.thresholds = ACH_OVERRIDES.thresholds || {};
+      Object.assign(ACH_OVERRIDES.thresholds, ov.thresholds);
+    }
+  }
+}
+
+// загрузка оверрайдов при старте
+async function loadAchOverrides() {
+  try {
+    if (!GLOBAL_STATS_URL) { ACH_OVERRIDES = { items:[], thresholds:{} }; return; }
+    const res = await fetch(`${GLOBAL_STATS_URL}/ach/overrides`, { mode:'cors' });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data?.ok) { ACH_OVERRIDES = { items:[], thresholds:{} }; return; }
+    ACH_OVERRIDES = { items: data.items || [], thresholds:{} };
+    applyAchOverridesToMeta();
+  } catch(e) {
+    ACH_OVERRIDES = { items:[], thresholds:{} };
+  }
+}
 
 // ==== Движок ачивок (Этап 2) ====
 const Ach = {
@@ -3857,9 +3906,9 @@ const Ach = {
     const liked = S.likedCount || 0;
 
     // Tier 1
-    if (tot.totalValidPlays >= 1) this.unlock('play_first');
-    if (uniq >= 5) this.unlock('unique_5_tracks');
-    if (liked >= 3) this.unlock('fav_3');
+    if (tot.totalValidPlays >= threshold('play_first', 1)) this.unlock('play_first');
+    if (uniq >= threshold('unique_5_tracks', 5)) this.unlock('unique_5_tracks');
+    if (liked >= threshold('fav_3', 3)) this.unlock('fav_3');
 
     // ранние/ночные окна — считаем по времени валидного прослушивания
     const d = new Date(ts);
@@ -3868,38 +3917,34 @@ const Ach = {
     if (t >= '02:00:00' && t <= '04:30:00') this.unlock('night_listener');
 
     // Tier 2
-    if (tot.totalSeconds >= 3600) this.unlock('time_listened_1h');
-    if (tot.totalValidPlays >= 25) this.unlock('play_25_total');
-    if (tot.totalFullPlays >= 1) this.unlock('full_play_first');
-    if ((StatsStore.s.streak?.max||0) >= 3) this.unlock('streak_3');
-    if (liked >= 5) this.unlock('fav_5');
-    if ((S._shuffleValid||0) >= 5) this.unlock('use_shuffle_5');
+    if (tot.totalSeconds >= threshold('time_listened_1h', 3600)) this.unlock('time_listened_1h');
+    if (tot.totalValidPlays >= threshold('play_25_total', 25)) this.unlock('play_25_total');
+    if (tot.totalFullPlays >= threshold('full_play_first', 1)) this.unlock('full_play_first');
+    if ((StatsStore.s.streak?.max||0) >= threshold('streak_3', 3)) this.unlock('streak_3');
+    if (liked >= threshold('fav_5', 5)) this.unlock('fav_5');
+    if ((S._shuffleValid||0) >= threshold('use_shuffle_5', 5)) this.unlock('use_shuffle_5');
 
     // Tier 3
-    if (uniq >= 10) this.unlock('unique_10_tracks');
-    if (tot.totalFullPlays >= 10) this.unlock('full_10_total');
-    if ((StatsStore.s.streak?.max||0) >= 7) this.unlock('streak_7');
+    if (uniq >= threshold('unique_10_tracks', 10)) this.unlock('unique_10_tracks');
+    if (tot.totalFullPlays >= threshold('full_10_total', 10)) this.unlock('full_10_total');
+    if ((StatsStore.s.streak?.max||0) >= threshold('streak_7', 7)) this.unlock('streak_7');
 
     // Tier 4
-    if (tot.totalSeconds >= 18_000) this.unlock('time_listened_5h');
-    if (tot.totalValidPlays >= 100) this.unlock('play_100_total');
-    if (liked >= 8) this.unlock('fav_8');
+    if (tot.totalSeconds >= threshold('time_listened_5h', 18000)) this.unlock('time_listened_5h');
+    if (tot.totalValidPlays >= threshold('play_100_total', 100)) this.unlock('play_100_total');
+    if (liked >= threshold('fav_8', 8)) this.unlock('fav_8');
 
     // Tier 5
-    if (tot.totalFullPlays >= 50) this.unlock('full_50_total');
-    if (tot.totalValidPlays >= 500) this.unlock('play_500_total');
+    if (tot.totalFullPlays >= threshold('full_50_total', 50)) this.unlock('full_50_total');
+    if (tot.totalValidPlays >= threshold('play_500_total', 500)) this.unlock('play_500_total');
 
     // one_track_full_25/100 — проверим пер‑трек
     const pt = StatsStore.s.perTrack || [];
     for (let i=0;i<pt.length;i++){
       const f = pt[i]?.fullPlays||0;
-      if (f >= 25) this.unlock('one_track_full_25');
-      if (f >= 100) this.unlock('one_track_full_100');
+      if (f >= threshold('one_track_full_25', 25)) this.unlock('one_track_full_25');
+      if (f >= threshold('one_track_full_100', 100)) this.unlock('one_track_full_100');
     }
-
-    // ВНИМАНИЕ: сложные ачивки (favorites_order_5_full, favorites_shuffle_5_full,
-    // album_in_order_session) подключим на Этапе 3 (SessionManager).
-    // album_any_order_7d, weekend_warrior, weekend_album — запланированы на Этап 3 (окна/недели).
   },
 
   evaluateFromLikes(){
@@ -4079,18 +4124,19 @@ function getAchievementProgressMeta() {
   const S = StatsStore.s;
   const T = S.totals || {};
   return {
-    play_25_total:     { need: 25,    have: T.totalValidPlays || 0,             label: 'прослушиваний' },
-    play_100_total:    { need: 100,   have: T.totalValidPlays || 0,             label: 'прослушиваний' },
-    time_listened_1h:  { need: 3600,  have: Math.floor(T.totalSeconds||0),      label: 'секунд' },
-    time_listened_5h:  { need: 18000, have: Math.floor(T.totalSeconds||0),      label: 'секунд' },
-    unique_10_tracks:  { need: 10,    have: (S.uniqueTracksPlayed||[]).length,  label: 'трека' },
-    full_10_total:     { need: 10,    have: T.totalFullPlays || 0,              label: 'полных' },
-    fav_5:             { need: 5,     have: S.likedCount || 0,                   label: 'избранных' },
-    fav_8:             { need: 8,     have: S.likedCount || 0,                   label: 'избранных' },
-    streak_7:          { need: 7,     have: (S.streak?.max||0),                  label: 'дней подряд' },
-    streak_3:          { need: 3,     have: (S.streak?.max||0),                  label: 'дней подряд' }
+    play_25_total:     { need: threshold('play_25_total',25),    have: T.totalValidPlays || 0,             label: 'прослушиваний' },
+    play_100_total:    { need: threshold('play_100_total',100),  have: T.totalValidPlays || 0,             label: 'прослушиваний' },
+    time_listened_1h:  { need: threshold('time_listened_1h',3600),  have: Math.floor(T.totalSeconds||0),   label: 'секунд' },
+    time_listened_5h:  { need: threshold('time_listened_5h',18000), have: Math.floor(T.totalSeconds||0),   label: 'секунд' },
+    unique_10_tracks:  { need: threshold('unique_10_tracks',10),    have: (S.uniqueTracksPlayed||[]).length,  label: 'трека' },
+    full_10_total:     { need: threshold('full_10_total',10),       have: T.totalFullPlays || 0,           label: 'полных' },
+    fav_5:             { need: threshold('fav_5',5),                have: S.likedCount || 0,               label: 'избранных' },
+    fav_8:             { need: threshold('fav_8',8),                have: S.likedCount || 0,               label: 'избранных' },
+    streak_7:          { need: threshold('streak_7',7),             have: (S.streak?.max||0),              label: 'дней подряд' },
+    streak_3:          { need: threshold('streak_3',3),             have: (S.streak?.max||0),              label: 'дней подряд' }
   };
 }
+
 function formatUnits(u, n) {
   if (u === 'секунд') return (n >= 60 ? `${Math.floor(n/60)} мин` : `${n} сек`);
   return `${n} ${u}`;
@@ -4562,6 +4608,13 @@ const Prize = {
           `).join('')}
         </div>
 
+        <!-- НОВОЕ: мини‑иконка последнего полученного приза -->
+        <div id="received-block" style="display:none; margin:6px 0 4px 0; text-align:center;">
+          <div style="font-weight:800; color:#9fc3ff; text-transform:uppercase; font-size:.86em; margin-bottom:4px;">ПОЛУЧЕНО:</div>
+          <img id="received-thumb" style="width:72px; height:72px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); object-fit:cover;" alt="Полученный приз"/>
+          <div id="received-title" class="prize-note" style="margin-top:4px;"></div>
+        </div>
+
         <div id="prize-auth-block" style="text-align:center; margin:10px 0;">
           <!-- Кнопка запуска мастера создания имени (показывается только когда пора и имени нет) -->
           <div id="create-name-block" style="display:none;">
@@ -4612,6 +4665,9 @@ const Prize = {
     if (achEl) achEl.textContent = String(achCount);
     if (cloudEl) cloudEl.textContent = cloud ? 'есть' : 'нет';
     if (tamperEl) tamperEl.textContent = tamper ? 'обнаружена подмена' : 'OK';
+    // НОВОЕ: показываем реальное требование = все видимые достижения
+    const needEl = document.getElementById('ach-need');
+    if (needEl) needEl.textContent = String(need);
 
     rowAch.classList.remove('ok','warn','err');
     rowCloud.classList.remove('ok','warn','err');
@@ -5233,6 +5289,30 @@ const Prize = {
       }
     } catch(e){}
 
+    // Мини‑иконка последнего полученного
+    try {
+      const delivered = claims.filter(c => c.status === 'delivered');
+      const rb = document.getElementById('received-block');
+      const rt = document.getElementById('received-title');
+      const ri = document.getElementById('received-thumb');
+      if (delivered.length && rb && rt && ri) {
+        // берём самую свежую доставленную
+        delivered.sort((a,b)=> (b.delivered_at||0) - (a.delivered_at||0));
+        const last = delivered[0];
+        // попытаемся найти картинку из каталога призов
+        const p = (this.state.prizes||[]).find(x=> x.id === last.prize_id);
+        const img = p?.img || 'img/prize-01.png';
+        ri.src = img;
+        rt.textContent = last.prize_title || p?.title || 'Приз';
+        rb.style.display = '';
+        // Меняем кнопку на "ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ"
+        const claimBtn = document.getElementById('claim-btn');
+        if (claimBtn) claimBtn.textContent = 'ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ';
+      } else if (rb) {
+        rb.style.display = 'none';
+      }
+    } catch(e){}
+
     // Если есть хотя бы одна заявка — скрываем зелёный флаг (делаем и здесь на всякий)
     const flag = document.getElementById('prize-ready-flag');
     if (flag) flag.style.display = 'none';
@@ -5453,19 +5533,20 @@ const Prize = {
       const exist = localStorage.getItem('secret_start_at');
       if (!exist) {
         localStorage.setItem('secret_start_at', String(Date.now()));
-        // Показать второй ряд призов
         const secRow = document.getElementById('prize-gallery-secret');
         if (secRow) secRow.style.display = '';
-        // Обновить шкалы (секретные)
         AchProgress.updateFromStats();
         NotificationSystem.success('🎉 Открыты секретные уровни');
-        // Сразу сохраним в облако (overwrite)
         await backupSaveToCloudOverwriteSilent();
       }
 
       // Обновим карточки заявок и локальную готовность
       await this.fetchStatus();
       this.updateLocalReadiness();
+
+      // Сменим кнопку на "ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ"
+      const claimBtn = document.getElementById('claim-btn');
+      if (claimBtn) claimBtn.textContent = 'ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ';
     } catch { NotificationSystem.error('Ошибка подтверждения'); }
   },
 };
@@ -6552,7 +6633,13 @@ function initializeMainUi() {
   DOM.cover = document.getElementById('cover');
   DOM.trackList = document.getElementById('track-list');
   DOM.socialLinks = document.getElementById('social-links');
-  
+
+  // НОВОЕ: загрузим оверрайды достижений до инициализации прогресса
+  // делаем это синхронно/ожиданием, чтобы пороги и заголовки применились
+  // (если сеть недоступна — просто останутся дефолты)
+  // eslint-disable-next-line no-unused-expressions
+  (async ()=>{ try { await loadAchOverrides(); } catch(e){} })();
+
   setCoverImage(coverGalleryIdx);
   buildSocials();
   // ==== Этап 1: старт статы и прогресс‑панели ====
