@@ -6845,19 +6845,14 @@ function toggleBit() {
   } else {
     if (btn) btn.classList.remove('bit-active');
     stopLogoPulsation();
-    
-    // ИСПРАВЛЕНО: Полная очистка контекста
-    if (audioContext) {
-      try {
-        audioContext.close();
-      } catch (e) {
-        console.error('Ошибка закрытия контекста:', e);
-      }
-      audioContext = null;
-      audioSource = null;
-      analyser = null;
-    }
-    
+
+    // МЯГКОЕ отключение, не закрываем весь контекст (на части браузеров это стопорит плеер)
+    try { if (audioSource) audioSource.disconnect(); } catch(e){}
+    try { if (analyser) analyser.disconnect(); } catch(e){}
+    analyser = null;
+    audioSource = null;
+    // audioContext оставляем жить — он больше не подключён к audio
+
     NotificationSystem.info('Пульсация логотипа выключена');
   }
   
@@ -6867,22 +6862,11 @@ function toggleBit() {
 // Инициализация Web Audio API
 function initAudioContext() {
   try {
-    // ИСПРАВЛЕНО: Проверяем и закрываем старый контекст безопасно
-    if (audioContext) {
-      try {
-        if (audioContext.state !== 'closed') {
-          audioContext.close();
-        }
-      } catch (e) {
-        console.warn('Не удалось закрыть старый контекст:', e);
-      }
-      audioContext = null;
-      audioSource = null;
-      analyser = null;
+    // НЕ закрываем существующий контекст, просто переиспользуем/переподключаем узлы
+    if (!audioContext) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioContext = new AudioContext();
     }
-    
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    audioContext = new AudioContext();
     
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
@@ -8189,26 +8173,29 @@ function showCloseInstructions() {
 function restoreSleepTimer() {
   const saved = localStorage.getItem('sleepTimer');
   if (!saved) return;
-  
+
   try {
     const data = JSON.parse(saved);
-    
+    // Игнорируем устаревшие таймеры (старше 12 часов с момента установки)
+    const tooOld = (Date.now() - (data.setAt||0)) > 12*60*60*1000;
+    if (tooOld) {
+      clearSleepTimer();
+      return;
+    }
+
     if (data.target > Date.now()) {
-      // Таймер ещё активен
       sleepTimerMode = data.mode;
       sleepTimerTarget = data.target;
-      
       updateSleepTimerUI();
-      
-      // Запускаем интервал
       if (sleepTimerInterval) clearInterval(sleepTimerInterval);
       sleepTimerInterval = setInterval(updateSleepTimerUI, 1000);
     } else {
-      // Таймер истёк пока приложение было закрыто
-      executeSleepTimer();
+      // Истёк в отсутствие приложения — не останавливаем сейчас, просто сбросим
+      clearSleepTimer();
     }
   } catch (e) {
     console.error('Failed to restore sleep timer:', e);
+    clearSleepTimer();
   }
 }
 
