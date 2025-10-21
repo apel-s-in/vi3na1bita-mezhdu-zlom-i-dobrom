@@ -53,6 +53,7 @@
       <button class="tab" id="tab-backups">Бэкапы</button>
       <button class="tab" id="tab-logs">Логи</button>
       <button class="tab" id="tab-stats">Статистика</button>
+      <button class="tab" id="tab-ach">Достижения</button>
       <button class="tab" id="tab-fb">Обратная связь</button>
       <button class="tab" id="tab-prizes">Призы</button>
       <button class="tab" id="tab-logout" title="Выйти">Logout</button>
@@ -275,7 +276,37 @@
         </div>
       </div>
   </main>
-
+  <!-- Достижения -->
+  <main id="view-ach" style="display:none">
+    <div class="card">
+      <div class="search" style="flex-wrap:wrap; gap:8px;">
+        <button class="btn" onclick="loadAchList()">Обновить</button>
+        <button class="btn" onclick="newAchItem()">Новый</button>
+        <button class="btn warn" onclick="deleteAch()">Удалить</button>
+        <button class="btn" onclick="copyAch()">Копировать</button>
+      </div>
+      <div class="list" id="ach-list"></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:8px;">Редактор оверрайда</div>
+      <div class="flex" style="flex-direction:column;gap:6px;">
+        <input id="ach-id" placeholder="ID достижения (например, play_25_total)">
+        <div class="flex"><label class="muted" style="min-width:120px;">Скрытое</label><input type="checkbox" id="ach-hidden"></div>
+        <div class="flex"><label class="muted" style="min-width:120px;">Core</label><input type="checkbox" id="ach-core"></div>
+        <div class="flex"><label class="muted" style="min-width:120px;">Tier</label><input id="ach-tier" placeholder="число"></div>
+        <input id="ach-title" placeholder="Заголовок (title)">
+        <input id="ach-short" placeholder="Коротко (short)">
+        <textarea id="ach-desc" class="w100" placeholder="Описание (desc)"></textarea>
+        <textarea id="ach-how" class="w100" placeholder="Как выполнить (howTo)"></textarea>
+        <div class="muted">Порог (thresholds) — для конкретных ID. Примеры: play_25_total=25, time_listened_1h=3600, fav_5=5</div>
+        <textarea id="ach-thresholds" class="w100" placeholder='JSON: {"play_25_total":20,"time_listened_1h":3000}'></textarea>
+        <div class="flex">
+          <button class="btn ok" onclick="saveAch()">Сохранить</button>
+          <button class="btn" onclick="loadAchList()">Сбросить</button>
+        </div>
+      </div>
+    </div>
+  </main>
   <!-- Обратная связь -->
   <main id="view-fb" style="display:none">
     <div class="card">
@@ -376,7 +407,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 function switchTab(tab) {
-  const tabs = ['claims','devices','backups','logs','stats','fb','prizes'];
+  const tabs = ['claims','devices','backups','logs','stats','ach','fb','prizes'];
   tabs.forEach(t => document.getElementById('tab-'+t)?.classList.toggle('active', tab===t));
   tabs.forEach(t => document.getElementById('view-'+t)?.style && (document.getElementById('view-'+t).style.display = (tab===t)?'':'none'));
   if (tab==='prizes') loadPrizesAdmin();
@@ -390,6 +421,7 @@ document.getElementById('tab-devices').onclick = ()=>switchTab('devices');
 document.getElementById('tab-backups').onclick = ()=>switchTab('backups');
 document.getElementById('tab-logs').onclick = ()=>switchTab('logs');
 document.getElementById('tab-stats').onclick = ()=>switchTab('stats');
+document.getElementById('tab-ach').onclick = ()=>{ switchTab('ach'); loadAchList(); };
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
 document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
 document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
@@ -927,6 +959,119 @@ async function loadGsHealth() {
 }
 
 function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// ===== Admin: Achievements overrides =====
+let __achItems = [];
+let __achSelectedId = null;
+
+async function loadAchList() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/achievements', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('ach-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  __achItems = data.items || [];
+  list.innerHTML = __achItems.map(it=>{
+    const t = escapeHtml(it.title || '');
+    const id = escapeHtml(it.id);
+    const th = it.thresholds ? escapeHtml(JSON.stringify(it.thresholds)) : '';
+    const meta = [
+      it.hidden ? 'hidden' : '',
+      (typeof it.tier==='number') ? ('tier:'+it.tier) : '',
+      it.core ? 'core' : ''
+    ].filter(Boolean).join(' · ');
+    return `<div class="row" onclick="editAch('${id}')">
+      <div><b>${id}</b> ${meta?('· '+meta):''}<div class="muted">${t}</div></div>
+      <div class="muted" style="max-width:240px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${th}</div>
+    </div>`;
+  }).join('');
+  clearAchEditor();
+}
+function clearAchEditor() {
+  __achSelectedId = null;
+  document.getElementById('ach-id').value = '';
+  document.getElementById('ach-hidden').checked = false;
+  document.getElementById('ach-core').checked = false;
+  document.getElementById('ach-tier').value = '';
+  document.getElementById('ach-title').value = '';
+  document.getElementById('ach-short').value = '';
+  document.getElementById('ach-desc').value = '';
+  document.getElementById('ach-how').value = '';
+  document.getElementById('ach-thresholds').value = '';
+}
+function newAchItem(){ clearAchEditor(); document.getElementById('ach-id').focus(); }
+function editAch(id) {
+  const it = __achItems.find(x=> String(x.id) === String(id));
+  if (!it) return;
+  __achSelectedId = id;
+  document.getElementById('ach-id').value = it.id || '';
+  document.getElementById('ach-hidden').checked = !!it.hidden;
+  document.getElementById('ach-core').checked = !!it.core;
+  document.getElementById('ach-tier').value = (typeof it.tier==='number') ? String(it.tier) : '';
+  document.getElementById('ach-title').value = it.title || '';
+  document.getElementById('ach-short').value = it.short || '';
+  document.getElementById('ach-desc').value = it.desc || '';
+  document.getElementById('ach-how').value = it.howTo || '';
+  document.getElementById('ach-thresholds').value = it.thresholds ? JSON.stringify(it.thresholds, null, 2) : '';
+}
+async function saveAch() {
+  const id = document.getElementById('ach-id').value.trim();
+  if (!id) { alert('Укажите ID'); return; }
+  let thresholds = null;
+  const t = document.getElementById('ach-thresholds').value.trim();
+  if (t) {
+    try { thresholds = JSON.parse(t); }
+    catch { alert('thresholds: некорректный JSON'); return; }
+  }
+  const body = {
+    id,
+    hidden: document.getElementById('ach-hidden').checked,
+    core: document.getElementById('ach-core').checked,
+    tier: Number(document.getElementById('ach-tier').value||''),
+    title: document.getElementById('ach-title').value,
+    short: document.getElementById('ach-short').value,
+    desc: document.getElementById('ach-desc').value,
+    howTo: document.getElementById('ach-how').value,
+    thresholds
+  };
+  const res = await fetch(API + '/admin/achievement/upsert', {
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify(body)
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
+  alert('Сохранено');
+  loadAchList();
+}
+async function deleteAch() {
+  const id = (document.getElementById('ach-id').value||'').trim();
+  if (!id) { alert('Сначала выберите элемент'); return; }
+  if (!confirm(`Удалить оверрайд "${id}"?`)) return;
+  const res = await fetch(API + '/admin/achievement/delete', {
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ id })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не удалено'); return; }
+  alert('Удалено'); loadAchList();
+}
+async function copyAch() {
+  const fromId = (document.getElementById('ach-id').value||'').trim();
+  if (!fromId) { alert('Выберите, что копировать'); return; }
+  const toId = prompt('Новый ID (копия из '+fromId+')');
+  if (!toId) return;
+  const res = await fetch(API + '/admin/achievement/copy', {
+    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ fromId, toId })
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не скопировано'); return; }
+  alert('Скопировано'); loadAchList();
+}
 
 window.addEventListener('load', () => {
   if (needLogin(true)) return;
