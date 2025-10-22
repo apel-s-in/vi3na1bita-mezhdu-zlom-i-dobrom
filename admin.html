@@ -342,23 +342,6 @@
         <input id="demo-tg" placeholder="tg_id" value="118759359" style="min-width:160px;">
         <button class="btn" onclick="loadDemoPanel()">Загрузить</button>
       </div>
-    <div class="card">
-      <div style="font-weight:700;margin-bottom:8px;">DEMO‑заявки</div>
-      <div class="flex" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-        <input id="demo-device" placeholder="device_hash (опц.)" style="min-width:220px;">
-        <button class="btn" onclick="demoLoadClaims()">Обновить</button>
-      </div>
-      <div id="demo-claims-list" class="list" style="max-height:40vh;"></div>
-      <div class="flex" style="gap:6px; margin-top:8px; flex-wrap:wrap;">
-        <input id="demo-claim-id" placeholder="claim_id" style="min-width:220px;">
-        <input id="demo-tracking" placeholder="трек-номер (для shipped)" style="min-width:220px;">
-      </div>
-      <div class="flex" style="gap:6px; margin-top:8px; flex-wrap:wrap;">
-        <button class="btn" onclick="demoSetShipped()">Отправлено (трек)</button>
-        <button class="btn ok" onclick="demoSetDelivered()">Доставлено</button>
-        <button class="btn warn" onclick="resetDemoClaims()">Очистить DEMO‑заявки</button>
-      </div>
-    </div>
 
       <div class="row">
         <div>Режим</div>
@@ -405,6 +388,25 @@
         <div id="demo-ach-box" class="list" style="max-height:60vh; padding-right:6px;">
           <!-- сюда подставится чек‑лист всех 34 -->
         </div>
+      </div>
+    </div>
+
+    <!-- Отдельная карточка: DEMO‑заявки -->
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:8px;">DEMO‑заявки</div>
+      <div class="flex" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <input id="demo-device" placeholder="device_hash (опц.)" style="min-width:220px;">
+        <button class="btn" onclick="demoLoadClaims()">Обновить</button>
+      </div>
+      <div id="demo-claims-list" class="list" style="max-height:40vh;"></div>
+      <div class="flex" style="gap:6px; margin-top:8px; flex-wrap:wrap;">
+        <input id="demo-claim-id" placeholder="claim_id" style="min-width:220px;">
+        <input id="demo-tracking" placeholder="трек-номер (для shipped)" style="min-width:220px;">
+      </div>
+      <div class="flex" style="gap:6px; margin-top:8px; flex-wrap:wrap;">
+        <button class="btn" onclick="demoSetShipped()">Отправлено (трек)</button>
+        <button class="btn ok" onclick="demoSetDelivered()">Доставлено</button>
+        <button class="btn warn" onclick="resetDemoClaims()">Очистить DEMO‑заявки</button>
       </div>
     </div>
 
@@ -1440,6 +1442,9 @@ async function loadDemoPanel() {
   const items = (base.items || []);
   setDemoHiddenMap(items);
   renderDemoAchList(items);
+
+  // Автозагрузка списка DEMO‑заявок для наглядности
+  try { await demoLoadClaims(); } catch(e){}
 }
 
 async function saveDemoMode() {
