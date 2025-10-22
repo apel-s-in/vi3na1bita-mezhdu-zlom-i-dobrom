@@ -1717,6 +1717,20 @@
       letter-spacing:.04em;
       text-transform: uppercase;
     }
+    /* Иконка облака слева от счетчика */
+    .ach-cloud-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:22px; height:22px;
+      border:none; background:none; color:#fff;
+      margin-right:6px;
+      cursor:pointer;
+      filter: drop-shadow(0 0 2px rgba(0,0,0,.4));
+    }
+    .ach-cloud-btn:hover{ opacity:.9; transform: scale(1.06); }
+    .ach-cloud-btn svg{ width:20px; height:20px; }
+
     /* Кнопки бэкапа под прогрессом */
     .ach-backup-controls{
       margin-top:10px;
@@ -4052,7 +4066,18 @@ const AchProgress = {
   render(done, total) {
     const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : 0;
     if (this.oneFill)   this.oneFill.style.width = pct + '%';
-    if (this.doneLabel) this.doneLabel.textContent = `ВЫПОЛНЕНО: ${done} / ${total}`;
+    if (this.doneLabel) {
+      this.doneLabel.innerHTML = `
+        <button class="ach-cloud-btn" id="ach-cloud-btn" title="Сохранить/импортировать">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M19.35 10.04A7 7 0 005.3 7.1 5.5 5.5 0 006 18h13a4 4 0 00.35-7.96zM13 12h-2v3H8l4 4 4-4h-3v-3z"/>
+          </svg>
+        </button>
+        ВЫПОЛНЕНО: ${done} / ${total}`;
+      // Привязываем открытие меню сохранения
+      const btn = document.getElementById('ach-cloud-btn');
+      if (btn) btn.onclick = () => openBackupActions();
+    }
   },
 
   updateFromStats() {
