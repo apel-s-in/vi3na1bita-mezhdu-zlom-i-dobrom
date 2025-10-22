@@ -1556,17 +1556,18 @@ async function demoLoadClaims() {
   if (!res.ok || !d?.ok) { box.textContent = 'Ошибка'; return; }
   const items = d.items || [];
   if (!items.length) { box.textContent = 'Заявок нет'; return; }
-box.innerHTML = items.map(c=>{
-  const when = c.created_at ? new Date(c.created_at).toLocaleString() : '—';
-  const devShort = (c.device_hash||'').slice(0,8);
-  return `<div class="row" onclick="(function(){document.getElementById('demo-claim-id').value='${c.id}';document.getElementById('demo-device').value='${c.device_hash||''}';})()">
-    <div>
-      <div><b>#${c.id.slice(0,8)}</b> · dev:${devShort} · <span class="pill">${c.status}</span></div>
-      <div class="muted">${when} · ${escapeHtml(c.prize_title||'')}</div>
-    </div>
-    <div class="muted">${c.tracking_code?('trk:'+escapeHtml(c.tracking_code)):'—'}</div>
-  </div>`;
-}).join('');
+  box.innerHTML = items.map(c=>{
+    const when = c.created_at ? new Date(c.created_at).toLocaleString() : '—';
+    const devShort = (c.device_hash||'').slice(0,8);
+    return `<div class="row" onclick="(function(){document.getElementById('demo-claim-id').value='${c.id}';document.getElementById('demo-device').value='${c.device_hash||''}';})()">
+      <div>
+        <div><b>#${c.id.slice(0,8)}</b> · dev:${devShort} · <span class="pill">${c.status}</span></div>
+        <div class="muted">${when} · ${escapeHtml(c.prize_title||'')}</div>
+      </div>
+      <div class="muted">${c.tracking_code?('trk:'+escapeHtml(c.tracking_code)):'—'}</div>
+    </div>`;
+  }).join('');
+}
 
 async function demoSetShipped() {
   if (needLogin()) return;
