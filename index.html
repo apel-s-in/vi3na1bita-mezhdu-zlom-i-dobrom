@@ -2127,6 +2127,38 @@
     .track .track-title { text-align: left; }
     .ach-last-earn{ margin-top:8px; display:flex; gap:8px; min-height:0; }
     @media (max-width:600px){ .ach-hint-bubble{ font-size:.86em; } }
+    /* ===== VIP modal ===== */
+    .vip-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .vip-modal {
+      width: 92%; max-width: 420px; background: #121824; border: 1px solid #2b3955; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); color: #e8eefc; padding: 16px;
+    }
+    .vip-modal h3 { margin: 0 0 10px 0; font-size: 18px; color:#9fc3ff; }
+    .vip-modal .desc { color:#9aa8c4; font-size: 14px; margin-bottom: 10px; }
+    .vip-modal .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+    .vip-modal input[type="password"], .vip-modal input[type="text"] {
+      width: 100%; background:#0f1522; border:1px solid #2b3955; color:#e8eefc; border-radius:8px; padding:8px 10px;
+    }
+    .vip-modal .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .vip-modal .btn { border:none; border-radius:8px; background:#2a3550; color:#e8eefc; padding:8px 12px; cursor:pointer; }
+    .vip-modal .btn.primary { background:#4daaff; color:#0b1322; }
+    .vip-modal .btn.warn { background:#8a2a2a; color:#fff; }
+    .vip-modal .close { margin-left:auto; background:#2a3550; color:#cfe3ff; }
+
+    /* ===== VIP banner ===== */
+    .vip-banner {
+      display: none; background:#111826; border:1px solid #3b4a6b; border-radius:12px; padding:12px; color:#e8eefc;
+    }
+    .vip-banner h2 { margin:0 0 6px 0; font-size:20px; color:#ffd966; }
+    .vip-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .vip-balance { font-size:16px; color:#9fc3ff; }
+    .vip-pill { display:inline-block; padding:2px 8px; border-radius:999px; font-weight:700; border:1px solid #4b5d86; background:#1a2335; color:#9fc3ff; }
+    .vip-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+   .vip-actions .btn { border:none; border-radius:8px; background:#2a3550; color:#e8eefc; padding:8px 12px; cursor:pointer; }
+    .vip-actions .btn.primary { background:#27b34c; color:#08120a; }
   </style>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -2857,6 +2889,221 @@ function apiAuthHeaders() {
   if (sid) h['X-Session'] = sid;
   return h;
 }
+
+/* ===== VipClient: управление VIP‑состоянием на клиенте ===== */
+const VipClient = (() => {
+  const st = {
+    vip: false,
+    vipAuthRequired: false,
+    balance: 0,
+    name: null,
+    secretStageStartAt: null
+  };
+
+  // UI элементы (лениво ищем)
+  function el(id) { return document.getElementById(id); }
+
+  function showModal(flag) {
+    const w = el('vip-modal-wrap');
+    if (!w) return;
+    w.style.display = flag ? 'flex' : 'none';
+  }
+
+  function paintVipBanner() {
+    const wrap = el('vip-banner');
+    if (!wrap) return;
+    if (!st.vip) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    const name = el('vip-user-name');
+    if (name && st.name) name.textContent = st.name;
+    const bal = el('vip-balance');
+    if (bal) bal.textContent = String(st.balance || 0);
+  }
+
+  async function fetchWallet() {
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/wallet`, {
+        method:'GET', headers: { ...apiAuthHeaders() }, credentials: 'include', mode: 'cors'
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (r.ok && j?.ok) {
+        st.balance = Number(j.balance || 0);
+        paintVipBanner();
+      }
+    } catch {}
+  }
+
+  async function verifyPass(password) {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/verify-pass`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({ password })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = 'Неверный пароль';
+        return false;
+      }
+      st.vipAuthRequired = false;
+      st.balance = Number(j.balance || 0);
+      paintVipBanner();
+      showModal(false);
+      return true;
+    } catch (e) {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  async function setPass(password) {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/set-pass`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({ password })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = (j?.error === 'not_vip') ? 'Только VIP может установить пароль' : 'Не удалось сохранить пароль';
+        return false;
+      }
+      if (msg) msg.textContent = 'Пароль сохранён';
+      return true;
+    } catch (e) {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  async function requestReset() {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/request-reset`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({})
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = (j?.error === 'no_tg') ? 'К аккаунту не привязан Telegram' : 'Не удалось отправить код';
+        return false;
+      }
+      if (msg) msg.textContent = 'Код отправлен в Telegram. Проверьте сообщения и введите код.';
+      return true;
+    } catch {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  async function resetPass(code, password) {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/reset-pass`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({ code, password })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = (j?.error || 'Не удалось сбросить');
+        return false;
+      }
+      if (msg) msg.textContent = 'Пароль сброшен. Введите новый пароль в разделе выше, чтобы сохранить его.';
+      return true;
+    } catch {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  function wireModal() {
+    const close = el('vip-close-btn');
+    if (close) close.onclick = () => showModal(false);
+    const vbtn = el('vip-verify-btn');
+    if (vbtn) vbtn.onclick = async () => {
+      const p = (el('vip-pass')?.value || '').trim();
+      if (!p) { const msg=el('vip-msg'); if (msg) msg.textContent = 'Введите пароль'; return; }
+      await verifyPass(p);
+    };
+    const setBtn = el('vip-setpass-confirm');
+    if (setBtn) setBtn.onclick = async () => {
+      const p = (el('vip-new-pass')?.value || '').trim();
+      if (!p || p.length < 4) { const msg=el('vip-msg'); if (msg) msg.textContent='Пароль слишком короткий'; return; }
+      await setPass(p);
+    };
+    const reqBtn = el('vip-requestreset-confirm');
+    if (reqBtn) reqBtn.onclick = async () => { await requestReset(); };
+    const doReset = el('vip-resetpass-confirm');
+    if (doReset) doReset.onclick = async () => {
+      const code = (el('vip-reset-code')?.value || '').trim();
+      const p = (el('vip-reset-new')?.value || '').trim();
+      if (!code || !p) { const msg=el('vip-msg'); if (msg) msg.textContent='Укажите код и новый пароль'; return; }
+      await resetPass(code, p);
+    };
+  }
+
+  function wireBanner() {
+    const setBtn = el('vip-setpass-btn');
+    if (setBtn) setBtn.onclick = () => {
+      showModal(true);
+      const title = el('vip-modal-title'); if (title) title.textContent = 'VIP пароль';
+      const desc  = el('vip-modal-desc');  if (desc) desc.textContent = 'Установите или измените VIP‑пароль, либо войдите на этом устройстве.';
+    };
+    const reqBtn = el('vip-requestreset-btn');
+    if (reqBtn) reqBtn.onclick = () => {
+      showModal(true);
+      requestReset();
+    };
+    const galleryBtn = el('vip-gallery-btn');
+    if (galleryBtn) galleryBtn.onclick = () => {
+      // Пока просто показываем сообщение, позже — открываем каталог VIP‑призов за коины
+      alert('Галерея призов скоро будет доступна. Баланс: ' + (st.balance||0));
+    };
+  }
+
+  function onAfterMe(data) {
+    st.vip  = !!data.vip;
+    st.vipAuthRequired = !!data.vipAuthRequired;
+    st.balance = Number(data.vipBalance || 0);
+    st.name = data?.user?.display_name || null;
+
+    paintVipBanner();
+    wireBanner();
+
+    if (st.vip && st.vipAuthRequired) {
+      wireModal();
+      showModal(true);
+    } else if (st.vip) {
+      fetchWallet();
+    }
+  }
+
+  function onAfterClaimStatus(resp) {
+    const t = Number(resp?.secretStageStartAt || 0);
+    st.secretStageStartAt = Number.isFinite(t) && t > 0 ? t : null;
+    // Здесь можно уведомить вашу логику ачивок, что секретный этап начался с момента t.
+    // Например: AchProgress.setSecretStartAt(st.secretStageStartAt);
+    try {
+      if (window.AchProgress && typeof window.AchProgress.setSecretStartAt === 'function') {
+        window.AchProgress.setSecretStartAt(st.secretStageStartAt);
+      }
+    } catch {}
+  }
+
+  function bootstrap() {
+    // Ничего особого. Вызовется явно из кода после получения /me и /claim/status
+  }
+
+  return { bootstrap, onAfterMe, onAfterClaimStatus };
+})();
 // ===== DEMO Mode: изоляция локального хранилища по префиксу demo: =====
 const DemoMode = (() => {
   // Оригинальные методы localStorage
@@ -4062,6 +4309,22 @@ const AchProgress = {
     this.updateFromStats();
   },
 
+  // НОВОЕ: установка таймстампа старта секретного этапа из ответа бэкенда
+  setSecretStartAt(ts) {
+    try {
+      const v = Number(ts);
+      if (Number.isFinite(v) && v > 0) {
+        localStorage.setItem('secret_start_at', String(v));
+      } else {
+        localStorage.removeItem('secret_start_at');
+      }
+      // немедленно пересчитаем метки "СЕКРЕТНЫЕ: X / Y"
+      this.updateFromStats();
+    } catch (e) {
+      // ignore
+    }
+  },
+
   // отрисовка одной шкалы и подписи
   render(done, total) {
     const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : 0;
@@ -5257,6 +5520,21 @@ const Prize = {
             localStorage.setItem('me_devices', JSON.stringify(arr.slice(0, 50)));
           }
         } catch(e){}
+
+        // НОВОЕ: VIP — передаём состояние клиенту (баннер/модалка/баланс)
+        try { VipClient.onAfterMe(data); } catch(e){}
+
+        // НОВОЕ: бейдж VIP в имени (если имя уже отображается)
+        try {
+          if (data.vip) {
+            const nv = document.getElementById('prize-name-view');
+            if (nv) {
+              const txt = (nv.textContent || this.state?.user?.display_name || '').trim();
+              nv.innerHTML = `${escapeHtml(txt)} <span class="vip-pill">VIP</span>`;
+            }
+          }
+        } catch(e){}
+
       } else {
 
         // если сервер не подтвердил /me — выключим DEMO-патч (безопасно)
@@ -5290,6 +5568,10 @@ const Prize = {
       });
       const data = await res.json().catch(()=> ({}));
       if (!res.ok || !data?.ok) { this.renderClaims([]); return; }
+
+      // НОВОЕ: сообщаем VIP‑клиенту о старте секретного этапа (если сервер прислал)
+      try { VipClient.onAfterClaimStatus(data); } catch(e){}
+
       this.renderClaims(data.claims || []);
     } catch { this.renderClaims([]); }
   },
@@ -6738,6 +7020,9 @@ function initializeMainUi() {
 
   // НОВОЕ: загрузим оверрайды достижений ...
   (async ()=>{ try { await loadAchOverrides(); } catch(e){} })();
+
+  // НОВОЕ: подготовка VIP‑клиента (сейчас bootstrap ничего не делает, но оставим вызов)
+  try { VipClient.bootstrap(); } catch(e){}
 
   // ВАЖНО: патч localStorage уже активирован глобально DemoMode.bootstrap(),
   // поэтому сразу инициализируем сторы с правильным префиксом.
@@ -10345,6 +10630,65 @@ console.log('Application initialized. Version:', VERSION);
 <script>
 // JSZip будет загружен динамически при первом использовании функции скачивания альбома
 </script>
+  <!-- VIP banner (показывается при vip=true) -->
+  <section id="vip-banner" class="vip-banner">
+    <h2>VIP</h2>
+    <div class="vip-row">
+      <div id="vip-user-name" class="vip-pill">Пользователь</div>
+      <div class="vip-balance">Баланс: <span id="vip-balance">0</span> коина(ов)</div>
+      <button id="vip-gallery-btn" class="btn primary">ГАЛЕРЕЯ ПРИЗОВ</button>
+    </div>
+    <div class="vip-actions">
+      <button id="vip-setpass-btn" class="btn">Задать/изменить VIP‑пароль</button>
+      <button id="vip-requestreset-btn" class="btn warn">Забыли пароль (получить код в Telegram)</button>
+    </div>
+  </section>
+
+  <!-- VIP password modal -->
+  <div id="vip-modal-wrap" class="vip-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="vip-modal-title">
+    <div class="vip-modal">
+      <div class="row" style="justify-content:space-between;">
+        <h3 id="vip-modal-title">Вход VIP</h3>
+        <button class="btn close" id="vip-close-btn" aria-label="Закрыть">✕</button>
+      </div>
+      <div class="desc" id="vip-modal-desc">Введите VIP‑пароль, чтобы подтвердить это устройство.</div>
+
+      <div class="row">
+        <input type="password" id="vip-pass" placeholder="VIP‑пароль">
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="vip-verify-btn">Подтвердить устройство</button>
+      </div>
+
+      <hr style="border-color:#2b3955; margin:12px 0;">
+
+      <div class="desc">Установить/изменить VIP‑пароль (только для VIP):</div>
+      <div class="row">
+        <input type="password" id="vip-new-pass" placeholder="Новый пароль (мин. 4 символа)">
+      </div>
+      <div class="actions">
+        <button class="btn" id="vip-setpass-confirm">Сохранить пароль</button>
+      </div>
+
+      <hr style="border-color:#2b3955; margin:12px 0;">
+
+      <div class="desc">Сброс пароля: получите код в Telegram и введите его здесь:</div>
+      <div class="row">
+        <input type="text" id="vip-reset-code" placeholder="Код из Telegram (например: ABC123)">
+      </div>
+      <div class="row">
+        <input type="password" id="vip-reset-new" placeholder="Новый пароль">
+      </div>
+      <div class="actions">
+        <button class="btn warn" id="vip-requestreset-confirm">Отправить код в Telegram</button>
+        <button class="btn" id="vip-resetpass-confirm">Сбросить по коду</button>
+      </div>
+
+      <div class="desc" id="vip-msg" style="margin-top:8px; color:#9aa8c4;"></div>
+    </div>
+  </div>
+</body>
+</html>
 
 </body>
 </html>
