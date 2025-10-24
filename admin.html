@@ -1225,11 +1225,19 @@ async function saveAch() {
     catch { alert('thresholds: некорректный JSON'); return; }
   }
 
+  // корректная обработка tier: если поле пустое — не отправляем число
+  const tierStr = (document.getElementById('ach-tier').value || '').trim();
+  const tierVal = tierStr === '' ? undefined : Number(tierStr);
+  if (tierVal !== undefined && !Number.isFinite(tierVal)) {
+    alert('Tier: укажите число'); return;
+  }
+
   const body = {
     id,
     hidden: document.getElementById('ach-hidden').checked,
     core: document.getElementById('ach-core').checked,
-    tier: Number(document.getElementById('ach-tier').value || ''),
+    // отправляем только если задан
+    ...(tierVal !== undefined ? { tier: tierVal } : {}),
     title: document.getElementById('ach-title').value,
     short: document.getElementById('ach-short').value,
     desc: document.getElementById('ach-desc').value,
