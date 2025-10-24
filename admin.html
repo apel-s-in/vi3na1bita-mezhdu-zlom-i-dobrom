@@ -160,6 +160,25 @@
 
         <div class="muted">История</div>
         <div class="list" id="claim-events" style="max-height:240px;"></div>
+
+        <hr style="border-color:#2b3955;margin:10px 0;">
+
+        <div style="font-weight:700; margin-bottom:6px;">VIP — кошелёк пользователя</div>
+        <div class="flex" style="flex-wrap:wrap; gap:6px;">
+          <input id="vip-tg" placeholder="tg_id (опц.)" style="min-width:160px;">
+          <input id="vip-user-id" placeholder="user_id (опц.)" style="min-width:260px;">
+        </div>
+        <div class="flex" style="margin-top:6px; flex-wrap:wrap; gap:6px;">
+          <input id="vip-delta" placeholder="Δ коины (например, 100 или -50)" style="min-width:180px;">
+          <input id="vip-reason" placeholder="Причина (например, bonus|penalty)" style="min-width:220px;">
+        </div>
+        <div class="flex" style="margin-top:6px; flex-wrap:wrap; gap:6px;">
+          <button class="btn ok" onclick="adminVipAdjust(1)">Начислить</button>
+          <button class="btn warn" onclick="adminVipAdjust(-1)">Списать</button>
+          <button class="btn" onclick="quickVipBonus(100)">+100</button>
+          <button class="btn" onclick="quickVipBonus(500)">+500</button>
+        </div>
+        <div class="muted" id="vip-tx-msg" style="margin-top:6px;"></div>
       </div>
     </div>
   </main>
@@ -562,6 +581,8 @@ document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(
 
 // ===== Заявки =====
 let currentClaim = null;
+let currentClaimUserId = null; // НОВОЕ: user_id выбранной заявки
+let currentClaimTgId = null;   // НОВОЕ: tg_id выбранной заявки
 let pageSize = 50;
 let currentOffset = 0;
 
@@ -608,11 +629,12 @@ async function loadClaims() {
   list.innerHTML = items.map(c=>{
     const dt = new Date(c.created_at).toLocaleString();
     const stClass = `status-${c.status}`;
-    const tg = c.tg_id ? ` · tg:${String(c.tg_id).slice(0,8)}…` : '';
-    return `<div class="row" onclick="selectClaim('${c.id}')">
+    const tgShort = c.tg_id ? ` · tg:${String(c.tg_id).slice(0,8)}…` : '';
+    const attrs = `data-user="${escapeHtml(c.user_id||'')}" data-tg="${escapeHtml(c.tg_id||'')}"`;
+    return `<div class="row" ${attrs} onclick="selectClaim('${c.id}', this)">
       <div>
         <div><span class="pill ${stClass}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b></div>
-        <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)}${tg} · lvl:${c.level} · cyc:${c.cycle}</div>
+        <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)}${tgShort} · lvl:${c.level} · cyc:${c.cycle}</div>
       </div>
       <div class="muted">${dt}</div>
     </div>`;
@@ -624,14 +646,25 @@ async function loadClaims() {
   document.getElementById('claim-actions').style.display = 'none';
   currentClaim = null;
 }
-async function selectClaim(id) {
+async function selectClaim(id, rowEl) {
   const el = document.getElementById('claim-details');
   el.innerHTML = `Заявка <b>#${id}</b><br><span class="muted">Статус меняется кнопками ниже</span>`;
   currentClaim = id;
+
+  // НОВОЕ: сохраним user_id и tg_id для VIP-инструмента
+  try {
+    currentClaimUserId = rowEl?.getAttribute('data-user') || null;
+    currentClaimTgId = rowEl?.getAttribute('data-tg') || null;
+    // автоподставим в поля формы VIP
+    const fTg = document.getElementById('vip-tg'); if (fTg && currentClaimTgId) fTg.value = currentClaimTgId;
+    const fUid = document.getElementById('vip-user-id'); if (fUid && currentClaimUserId) fUid.value = currentClaimUserId;
+  } catch(e){}
+
   document.getElementById('claim-actions').style.display = '';
   loadClaimMeta();
   loadClaimEvents();
 }
+
 async function loadClaimMeta() {
   if (!currentClaim) return;
   const metaBox = document.getElementById('claim-meta');
@@ -757,6 +790,54 @@ async function exportClaimsCSV() {
   a.download = `claims-${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+// ===== Admin VIP wallet ops =====
+async function adminVipAdjust(sign = 1) {
+  if (needLogin()) return;
+  const tg = (document.getElementById('vip-tg')?.value || '').trim();
+  const userId = (document.getElementById('vip-user-id')?.value || '').trim();
+  const deltaStr = (document.getElementById('vip-delta')?.value || '').trim();
+  const reason = (document.getElementById('vip-reason')?.value || '').trim() || (sign>0?'bonus':'penalty');
+  const msg = document.getElementById('vip-tx-msg');
+
+  let delta = Number(deltaStr);
+  if (!Number.isFinite(delta) || delta === 0) {
+    if (msg) msg.textContent = 'Укажите ненулевое число для Δ коины';
+    return;
+  }
+  delta = Math.abs(delta) * (sign >= 0 ? 1 : -1);
+
+  if (!tg && !userId) {
+    if (msg) msg.textContent = 'Укажите tg_id или user_id';
+    return;
+  }
+
+  try {
+    const body = { delta, reason };
+    if (userId) body.userId = userId;
+    else body.tgId = tg;
+
+    const res = await fetch(API + '/admin/vip/tx', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', ...authHeader() },
+      body: JSON.stringify(body)
+    });
+    const d = await res.json().catch(()=> ({}));
+    if (!res.ok || !d?.ok) {
+      if (msg) msg.textContent = 'Ошибка: ' + (d?.error || res.status);
+      return;
+    }
+    if (msg) msg.textContent = `Готово. Баланс: ${d.balance}`;
+    alert('Операция выполнена. Новый баланс: ' + d.balance);
+  } catch (e) {
+    if (msg) msg.textContent = 'Сеть недоступна';
+  }
+}
+function quickVipBonus(val) {
+  const inp = document.getElementById('vip-delta');
+  if (inp) inp.value = String(val);
+  adminVipAdjust(1);
 }
 
 // ===== Feedback =====
@@ -1236,14 +1317,13 @@ async function saveAch() {
     id,
     hidden: document.getElementById('ach-hidden').checked,
     core: document.getElementById('ach-core').checked,
-    // отправляем только если задан
-    ...(tierVal !== undefined ? { tier: tierVal } : {}),
     title: document.getElementById('ach-title').value,
     short: document.getElementById('ach-short').value,
     desc: document.getElementById('ach-desc').value,
     howTo: document.getElementById('ach-how').value,
     thresholds
   };
+  if (tierVal !== undefined) body.tier = tierVal;
 
   const res = await fetch(API + '/admin/achievement/upsert', {
     method: 'POST',
