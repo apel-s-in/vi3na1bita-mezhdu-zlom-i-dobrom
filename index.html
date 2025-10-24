@@ -3064,8 +3064,7 @@ const VipClient = (() => {
     };
     const galleryBtn = el('vip-gallery-btn');
     if (galleryBtn) galleryBtn.onclick = () => {
-      // Пока просто показываем сообщение, позже — открываем каталог VIP‑призов за коины
-      alert('Галерея призов скоро будет доступна. Баланс: ' + (st.balance||0));
+      try { VipGallery.open(); } catch(e){ alert('Галерея призов недоступна'); }
     };
   }
 
@@ -3104,6 +3103,103 @@ const VipClient = (() => {
 
   return { bootstrap, onAfterMe, onAfterClaimStatus };
 })();
+
+/* ===== VIP Gallery: список призов за коины (owned/price=100) ===== */
+const VipGallery = (() => {
+  const sel = {
+    wrap: 'vip-gallery-wrap',
+    list: 'vip-gallery-list',
+    bal:  'vip-gallery-balance',
+    close:'vip-gallery-close'
+  };
+  const api = () => (typeof GLOBAL_STATS_URL !== 'undefined' ? GLOBAL_STATS_URL : '');
+
+  function el(id){ return document.getElementById(id); }
+  function show(flag){ const w = el(sel.wrap); if (w) w.style.display = flag ? 'flex' : 'none'; }
+
+  async function fetchWallet() {
+    try {
+      const r = await fetch(`${api()}/vip/wallet`, { method:'GET', mode:'cors', credentials:'include', headers:{ ...apiAuthHeaders() }});
+      const j = await r.json().catch(()=> ({}));
+      if (r.ok && j?.ok) {
+        const b = el(sel.bal); if (b) b.textContent = String(j.balance||0);
+      }
+    } catch {}
+  }
+
+  function mountHandlers() {
+    const c = el(sel.close); if (c) c.onclick = ()=> show(false);
+    const w = el(sel.wrap); if (w) w.addEventListener('click', (e)=>{ if (e.target===w) show(false); });
+  }
+
+  async function render() {
+    const list = el(sel.list);
+    if (!list) return;
+    list.innerHTML = `<div class="stat-card" style="text-align:center; padding:12px;">Загрузка...</div>`;
+    try {
+      const r = await fetch(`${api()}/vip/prizes`, { method:'GET', mode:'cors', credentials:'include', headers:{ ...apiAuthHeaders() }});
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) { list.textContent = 'Ошибка загрузки'; return; }
+      const items = Array.isArray(j.items) ? j.items : [];
+      if (!items.length) { list.textContent = 'Пока пусто'; return; }
+      list.innerHTML = items.map(it => {
+        const owned = !!it.owned;
+        const btn = owned
+          ? `<button disabled style="border:none;border-radius:8px;background:#2a3550;color:#9aa8c4;padding:6px 10px;cursor:not-allowed;">Уже получен</button>`
+          : `<button data-id="${it.id}" data-title="${(it.title||'')}" class="vip-buy" style="border:none;border-radius:8px;background:#27b34c;color:#08120a;padding:6px 10px;cursor:pointer;">Купить за ${it.priceCoins||100}</button>`;
+        return `<div style="display:flex;align-items:center;gap:10px;border-bottom:1px dashed rgba(255,255,255,0.07); padding:8px 0;">
+          <img src="${it.img||''}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #2b3955;">
+          <div style="flex:1 1 auto;">
+            <div style="font-weight:800;">${escapeHtml(it.title||'')}</div>
+            <div style="color:#9aa8c4;font-size:13px;">${escapeHtml(it.short||'')}</div>
+          </div>
+          <div>${btn}</div>
+        </div>`;
+      }).join('');
+
+      // обработчики покупки
+      list.querySelectorAll('.vip-buy').forEach(b=>{
+        b.addEventListener('click', async () => {
+          const id = b.getAttribute('data-id');
+          const ttl= b.getAttribute('data-title') || 'приз';
+          if (!confirm(`Списать 100 коинов и получить «${ttl}»?`)) return;
+          b.disabled = true;
+          try {
+            const rr = await fetch(`${api()}/vip/redeem`, {
+              method:'POST', mode:'cors', credentials:'include',
+              headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() },
+              body: JSON.stringify({ prizeId: id })
+            });
+            const jj = await rr.json().catch(()=> ({}));
+            if (!rr.ok || !jj?.ok) {
+              alert('Не удалось: ' + (jj?.error || rr.status));
+              b.disabled = false;
+              return;
+            }
+            alert('Готово! Списано 100 коинов. Баланс: ' + (jj.balance||0));
+            await fetchWallet(); // обновим баланс
+            await render();      // обновим список (приз станет owned)
+          } catch (e) {
+            alert('Ошибка сети');
+            b.disabled = false;
+          }
+        });
+      });
+    } catch (e) {
+      list.textContent = 'Ошибка сети';
+    }
+  }
+
+  async function open() {
+    await fetchWallet();
+    await render();
+    mountHandlers();
+    show(true);
+  }
+
+  return { open };
+})();
+
 // ===== DEMO Mode: изоляция локального хранилища по префиксу demo: =====
 const DemoMode = (() => {
   // Оригинальные методы localStorage
@@ -4379,6 +4475,13 @@ const AchProgress = {
       }
     } catch(e){}
 
+    // НОВОЕ: если секретный этап идёт — проверим включение кнопки 2-го этапа
+    try {
+      if (localStorage.getItem('secret_start_at') && typeof Prize?.refreshSecondEligibility === 'function') {
+        Prize.refreshSecondEligibility();
+      }
+    } catch(e){}
+
     // подготовим список из 5 ближайших целей
     this._bubbleItems = this.computeGoalsList().slice(0, 5);
     this._bubbleIdx = 0;
@@ -5026,7 +5129,6 @@ const Prize = {
     if (achEl) achEl.textContent = String(achCount);
     if (cloudEl) cloudEl.textContent = cloud ? 'есть' : 'нет';
     if (tamperEl) tamperEl.textContent = tamper ? 'обнаружена подмена' : 'OK';
-    // НОВОЕ: показываем реальное требование = все видимые достижения
     const needEl = document.getElementById('ach-need');
     if (needEl) needEl.textContent = String(need);
 
@@ -5037,9 +5139,8 @@ const Prize = {
     rowCloud.classList.add(cloud ? 'ok' : 'warn');
     rowTamper.classList.add(tamper ? 'err' : 'ok');
 
-    const ready = (!tamper) && cloud && (achCount >= need);
+    const readyFirstStage = (!tamper) && cloud && (achCount >= need);
 
-    // Имя под иконками — главный признак "реального пользователя" (после первой привязки Telegram)
     const hasName = !!nameSet || this.hasProfileName();
 
     if (nameView) {
@@ -5052,22 +5153,23 @@ const Prize = {
       }
     }
 
-    // Предложить создать имя:
-    // - как только достигнуто ≥5 видимых достижений и имени нет
-    // - или если уже выполнены все условия и имени нет
     if (createNameBlock) {
       const enoughForName = (achCount >= 5);
-      createNameBlock.style.display = (!hasName && (enoughForName || ready)) ? '' : 'none';
+      createNameBlock.style.display = (!hasName && (enoughForName || readyFirstStage)) ? '' : 'none';
     }
 
+    const isSecondStage = !!localStorage.getItem('secret_start_at');
+
     if (flag) {
-      // Если уже есть хотя бы одна заявка — флаг скрываем
       const hasClaims = Array.isArray(this.state.claims) && this.state.claims.length > 0;
       if (hasClaims) {
         flag.style.display = 'none';
       } else {
         flag.style.display = '';
-        if (!ready) {
+        if (isSecondStage) {
+          flag.className = 'prize-not-ready';
+          flag.textContent = 'Выполните 3 секретных достижения';
+        } else if (!readyFirstStage) {
           flag.className = 'prize-not-ready';
           flag.textContent = 'Недостаточно условий для заявки';
         } else if (!hasName) {
@@ -5081,15 +5183,47 @@ const Prize = {
     }
 
     if (claimBtn) {
-      const canClaim = ready && hasName && !this.state.busy;
-      claimBtn.disabled = !canClaim;
+      if (isSecondStage) {
+        claimBtn.textContent = 'ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ';
+        claimBtn.disabled = true; // включим ниже по eligibility
+        claimBtn.title = 'Проверка условий...';
+        // Проверку делаем асинхронно
+        setTimeout(() => { try { this.refreshSecondEligibility(); } catch(e){} }, 0);
+      } else {
+        claimBtn.textContent = 'ПОЛУЧИТЬ ПРИЗ';
+        const canClaim = readyFirstStage && hasName && !this.state.busy;
+        claimBtn.disabled = !canClaim;
+        claimBtn.title = canClaim ? '' : 'Недостаточно условий';
+      }
     }
 
     // Тихая сессия (без внешнего входа) — чтобы /profile/set-name и /claim работали без фрикций
-    if (ready && !this.state.authed) {
+    if (!isSecondStage && readyFirstStage && !this.state.authed) {
       this.ensureSessionActive().then(ok => {
         if (ok) this.paintChecklist();
       });
+    }
+  },
+
+  // НОВОЕ: проверка доступности 2‑го этапа (3 секретки, нет активной заявки)
+  async refreshSecondEligibility() {
+    try {
+      const btn = document.getElementById('claim-btn');
+      if (!btn) return;
+      // если секретный этап ещё не начат — ничего не делаем
+      if (!localStorage.getItem('secret_start_at')) {
+        btn.disabled = true; btn.title = 'Секретный этап не начат'; return;
+      }
+      const r = await fetch(`${GLOBAL_STATS_URL}/claim/second/eligibility`, {
+        method:'GET', mode:'cors', credentials:'include', headers:{ ...apiAuthHeaders() }
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) { btn.disabled = true; btn.title = 'Ошибка проверки'; return; }
+      btn.disabled = !j.eligible || !!this.state.busy;
+      btn.title = j.eligible ? 'Готово: можно выбрать приз' : (j.reason || `Нужно секретных: ${j.count||0} / ${j.need||3}`);
+    } catch (e) {
+      const btn = document.getElementById('claim-btn');
+      if (btn) { btn.disabled = true; btn.title = 'Ошибка сети'; }
     }
   },
 
@@ -5573,6 +5707,9 @@ const Prize = {
       try { VipClient.onAfterClaimStatus(data); } catch(e){}
 
       this.renderClaims(data.claims || []);
+
+      // НОВОЕ: проверка доступности кнопки второго этапа после рендера
+      try { this.refreshSecondEligibility(); } catch(e){}
     } catch { this.renderClaims([]); }
   },
 
@@ -10685,6 +10822,17 @@ console.log('Application initialized. Version:', VERSION);
       </div>
 
       <div class="desc" id="vip-msg" style="margin-top:8px; color:#9aa8c4;"></div>
+    </div>
+  </div>
+  <!-- VIP Gallery Modal -->
+  <div id="vip-gallery-wrap" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:9999; align-items:center; justify-content:center;">
+    <div style="width:92%; max-width:860px; background:#121824; border:1px solid #2b3955; border-radius:12px; color:#e8eefc; padding:14px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <div style="font-size:18px; color:#9fc3ff; font-weight:700;">Галерея призов</div>
+        <button id="vip-gallery-close" style="border:none; background:#2a3550; color:#cfe3ff; border-radius:8px; padding:6px 10px; cursor:pointer;">✕</button>
+      </div>
+      <div id="vip-gallery-note" style="color:#9aa8c4; font-size:14px; margin:8px 0;">Баланс: <span id="vip-gallery-balance">0</span> коина(ов)</div>
+      <div id="vip-gallery-list" style="max-height:70vh; overflow:auto;"></div>
     </div>
   </div>
 </body>
