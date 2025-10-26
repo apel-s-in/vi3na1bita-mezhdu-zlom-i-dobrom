@@ -1,351 +1,172 @@
 // admin/logs-admin.js
-// Модуль для вкладки "Логи" в админке.
-// Ничего не ломает: добавляет функции и рендер, вешает публичные API на window.
+// Полностью совместим с текущим admin.html: те же id, те же эндпоинты и формат данных.
+// Экспортирует на window те же функции: loadLogs, exportLogs, deleteSelectedLogs, selectLog, toggleLogKey.
 
 const API = 'https://vr-backend.apel-s-in.workers.dev';
 const authKey = 'vr_admin_auth';
 
-const st = {
-  busy: false,
-  cursor: null,
-  exhausted: false,
-  items: [],
-  totalHint: null, // если бэкенд вернёт total
-  filter: {
-    q: '',
-    level: 'all' // all | info | warn | error | debug
-  }
-};
+let __selectedLogKeys = new Set();
 
 // ——— Helpers ———
 function authHeader() {
   const tok = sessionStorage.getItem(authKey);
-  return tok ? { Authorization: tok } : {};
+  return tok ? { 'Authorization': tok } : {};
 }
 function ensureAuthedOrLogin(res) {
   if (res.status === 401) {
     sessionStorage.removeItem(authKey);
-    try { if (typeof window.guardApp === 'function') window.guardApp(); } catch {}
+    try {
+      // ваш код: needLogin(true) -> покажет форму и спрячет интерфейс
+      if (typeof window.needLogin === 'function') window.needLogin(true);
+      else if (typeof window.guardApp === 'function') window.guardApp();
+    } catch {}
     return false;
   }
   return true;
 }
-function escapeHtml(s = '') {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-function fmtTs(ts) {
-  // ts может быть миллисекундами или секундным UNIX
-  let t = Number(ts);
-  if (!Number.isFinite(t)) return '—';
-  if (t < 10_000_000_000) t = t * 1000; // если секунды
-  try {
-    const d = new Date(t);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  } catch {
-    return '—';
-  }
-}
-function levelBadge(level = 'info') {
-  const l = String(level).toLowerCase();
-  const color =
-    l === 'error' ? '#ff4d4f' :
-    l === 'warn'  ? '#faad14' :
-    l === 'debug' ? '#8c8c8c' : '#1890ff';
-  return `<span style="display:inline-block;min-width:48px;text-align:center;padding:2px 6px;border-radius:4px;background:${color}20;color:${color};border:1px solid ${color}40;">${escapeHtml(l)}</span>`;
-}
-function getDom() {
-  return {
-    list: document.getElementById('adm-logs-list'),
-    moreBtn: document.getElementById('adm-logs-load-more'),
-    total: document.getElementById('adm-logs-total'),
-    q: document.getElementById('adm-logs-filter-q'),
-    level: document.getElementById('adm-logs-filter-level'),
-    empty: document.getElementById('adm-logs-empty'),
-  };
-}
-function setBusy(on) {
-  st.busy = !!on;
-  const { moreBtn } = getDom();
-  if (moreBtn) {
-    moreBtn.disabled = !!on || st.exhausted;
-    moreBtn.textContent = st.exhausted ? 'Больше нет' : on ? 'Загрузка…' : 'Загрузить ещё';
-  }
-}
-function paintTotal() {
-  const { total } = getDom();
-  if (!total) return;
-  const count = st.items.length;
-  let extra = '';
-  if (Number.isFinite(st.totalHint)) extra = ` из ~${st.totalHint}`;
-  total.textContent = `${count}${extra}`;
-}
-function paintEmptyState() {
-  const { list, empty } = getDom();
-  if (!list) return;
-  if (!st.items.length) {
-    if (empty) empty.style.display = '';
-    list.innerHTML = '';
-  } else {
-    if (empty) empty.style.display = 'none';
-  }
+function readDTLocal(id) {
+  const v = document.getElementById(id)?.value;
+  if (!v) return null;
+  try { return new Date(v).toISOString(); } catch { return null; }
 }
 
-// ——— Рендер одной записи ———
-function buildRow(it) {
-  const ts = fmtTs(it.ts);
-  const level = levelBadge(it.level);
-  const msg = escapeHtml(it.msg || it.message || '');
-  const ip = escapeHtml(it.ip || '');
-  const ua = escapeHtml(it.ua || '');
-  const metaObj = it.meta || it.extra || null;
+// ——— Основные функции ———
+async function loadLogs() {
+  // полностью повторяет вашу inline-реализацию
+  if (typeof window.needLogin === 'function' && window.needLogin()) return;
 
-  const metaShort = metaObj ? escapeHtml(JSON.stringify(metaObj)) : '';
-  const metaPretty = metaObj ? escapeHtml(JSON.stringify(metaObj, null, 2)) : '';
+  __selectedLogKeys = new Set();
+  const type = document.getElementById('logs-type')?.value || '';
+  const from = readDTLocal('logs-from');
+  const to   = readDTLocal('logs-to');
+  const pkey = (document.getElementById('logs-pkey')?.value || '').trim();
+  const pop  = document.getElementById('logs-pop')?.value || '';
+  const pval = (document.getElementById('logs-pval')?.value || '').trim();
 
-  const idAttr = it.id ? `data-id="${escapeHtml(String(it.id))}"` : '';
-  return `
-    <div class="row log-row" ${idAttr} onclick="toggleLogDetails(this)">
-      <div style="min-width:180px" class="muted">${ts}</div>
-      <div style="min-width:70px">${level}</div>
-      <div style="flex:1 1 auto">${msg}</div>
-      <div class="muted" style="min-width:110px;text-align:right">${escapeHtml(it.source || '')}</div>
-    </div>
-    <div class="log-row-details" style="display:none;padding:8px 12px;margin:-8px 0 8px 0;border-left:3px solid #eee;background:#fafafa;">
-      ${ip ? `<div><b>IP:</b> <span class="muted">${ip}</span></div>` : ''}
-      ${ua ? `<div><b>UA:</b> <span class="muted">${ua}</span></div>` : ''}
-      ${metaObj ? `
-        <div style="margin-top:6px">
-          <b>Meta:</b>
-          <pre style="margin:4px 0 0;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;">${metaPretty}</pre>
-        </div>
-        <details style="margin-top:6px;">
-          <summary class="muted">JSON в одну строку</summary>
-          <div class="muted" style="margin-top:4px;word-break:break-all;">${metaShort}</div>
-        </details>
-      ` : '<div class="muted">Нет дополнительных данных</div>'}
-    </div>
-  `;
-}
+  const url = new URL(API + '/admin/logs');
+  if (type) url.searchParams.set('type', type);
+  if (from) url.searchParams.set('from', from);
+  if (to)   url.searchParams.set('to', to);
+  if (pkey) url.searchParams.set('pkey', pkey);
+  if (pop)  url.searchParams.set('pop',  pop);
+  if (pval) url.searchParams.set('pval', pval);
+  url.searchParams.set('limit', '100');
 
-function appendItems(items) {
-  const { list } = getDom();
-  if (!list) return;
-  const html = items.map(buildRow).join('');
-  list.insertAdjacentHTML('beforeend', html);
-  paintEmptyState();
-  paintTotal();
-}
+  const res = await fetch(url, { headers:{ ...authHeader() } });
+  if (!ensureAuthedOrLogin(res)) return;
 
-// ——— Загрузка ———
-async function fetchLogs({ cursor = null, limit = 50, q = '', level = 'all' } = {}) {
-  const params = new URLSearchParams();
-  params.set('limit', String(limit));
-  if (cursor) params.set('cursor', cursor);
-  if (q) params.set('q', q);
-  if (level && level !== 'all') params.set('level', level);
+  const data = await res.json().catch(()=> ({}));
+  const list = document.getElementById('logs-list');
+  if (!data?.ok) { if (list) list.textContent = 'Ошибка'; return; }
 
-  const url = `${API}/admin/logs?${params.toString()}`;
-  const res = await fetch(url, { headers: { ...authHeader() } });
-  if (!ensureAuthedOrLogin(res)) return { items: [], cursor: null, hasMore: false, total: null };
-
-  const data = await res.json().catch(() => ({}));
-  const items = Array.isArray(data?.items) ? data.items : [];
-  const nextCursor = data?.nextCursor ?? data?.cursor ?? null;
-  const hasMore = !!(data?.hasMore ?? (nextCursor && items.length > 0));
-  const total = Number.isFinite(Number(data?.total)) ? Number(data.total) : null;
-  return { items, cursor: nextCursor, hasMore, total };
-}
-
-async function loadLogsAdmin({ reset = true } = {}) {
-  if (st.busy) return;
-  setBusy(true);
-
-  try {
-    const { q, level } = st.filter;
-    const cursor = reset ? null : st.cursor;
-    const { items, cursor: nextCursor, hasMore, total } = await fetchLogs({ cursor, q, level, limit: 50 });
-
-    if (reset) {
-      st.items = [];
-      st.cursor = null;
-      st.exhausted = false;
-      st.totalHint = total ?? null;
-      const { list } = getDom();
-      if (list) list.innerHTML = '';
-    }
-
-    st.items.push(...items);
-    appendItems(items);
-
-    st.cursor = nextCursor || null;
-    st.exhausted = !hasMore;
-    if (!hasMore) {
-      const { moreBtn } = getDom();
-      if (moreBtn) { moreBtn.disabled = true; moreBtn.textContent = 'Больше нет'; }
-    }
-  } catch (e) {
-    const { list } = getDom();
-    if (list) {
-      if (!st.items.length) {
-        list.innerHTML = '<div class="muted">Ошибка загрузки</div>';
-      } else {
-        list.insertAdjacentHTML('beforeend', '<div class="muted">Ошибка при догрузке</div>');
-      }
-    }
-  } finally {
-    setBusy(false);
-  }
-}
-
-function loadMoreLogsAdmin() {
-  if (st.exhausted || st.busy) return;
-  loadLogsAdmin({ reset: false });
-}
-
-function setLogsFilter() {
-  const { q, level } = getDom();
-  st.filter.q = (q?.value || '').trim();
-  st.filter.level = (level?.value || 'all');
-  loadLogsAdmin({ reset: true });
-}
-
-// ——— Очистка и экспорт ———
-async function clearLogsAdmin() {
-  if (!confirm('Очистить все логи? Это действие необратимо.')) return;
-  try {
-    const res = await fetch(API + '/admin/logs/clear', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() }
-    });
-    if (!ensureAuthedOrLogin(res)) return;
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok || !d?.ok) {
-      alert('Не удалось очистить: ' + (d?.error || res.status));
-      return;
-    }
-    // Сброс локального состояния
-    st.items = [];
-    st.cursor = null;
-    st.exhausted = true;
-    const { list, total, empty, moreBtn } = getDom();
-    if (list) list.innerHTML = '';
-    if (total) total.textContent = '0';
-    if (empty) empty.style.display = '';
-    if (moreBtn) { moreBtn.disabled = true; moreBtn.textContent = 'Больше нет'; }
-    alert('Логи очищены');
-  } catch (e) {
-    alert('Сеть недоступна');
-  }
-}
-
-function toCsvRow(fields) {
-  return fields.map(v => {
-    const s = v == null ? '' : String(v);
-    // Экранируем CSV-правилами
-    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  }).join(',');
-}
-
-async function exportLogsAdmin() {
-  if (st.busy) return;
-  setBusy(true);
-
-  try {
-    // Выгрузим все страницы под текущий фильтр
-    const { q, level } = st.filter;
-    let cursor = null;
-    let collected = [];
-    let guard = 0;
-    const MAX_PAGES = 200; // защитный предел
-    const LIMIT = 200;     // крупнее для экспорта
-
-    do {
-      const { items, cursor: nextCursor } = await fetchLogs({ cursor, q, level, limit: LIMIT });
-      collected.push(...items);
-      cursor = nextCursor || null;
-      guard++;
-      if (!cursor) break;
-    } while (guard < MAX_PAGES);
-
-    if (!collected.length) {
-      alert('Нет данных для экспорта');
-      return;
-    }
-
-    const header = ['ts', 'ts_iso', 'level', 'message', 'ip', 'source', 'ua', 'meta_json'];
-    const rows = [toCsvRow(header)];
-
-    for (const it of collected) {
-      const tsNum = Number(it.ts);
-      const tsIso = Number.isFinite(tsNum) ? new Date(tsNum < 10_000_000_000 ? tsNum * 1000 : tsNum).toISOString() : '';
-      const meta = it.meta || it.extra || null;
-      const metaJson = meta ? JSON.stringify(meta) : '';
-      rows.push(toCsvRow([
-        it.ts ?? '',
-        tsIso,
-        (it.level || '').toLowerCase(),
-        it.msg || it.message || '',
-        it.ip || '',
-        it.source || '',
-        it.ua || '',
-        metaJson
-      ]));
-    }
-
-    const csv = rows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const date = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    a.href = url;
-    a.download = `logs_${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    alert('Ошибка экспорта');
-  } finally {
-    setBusy(false);
-  }
-}
-
-// ——— Вспомогательная: сворачивание/разворачивание подробностей ———
-function toggleLogDetails(rowEl) {
-  if (!rowEl) return;
-  const next = rowEl.nextElementSibling;
-  if (!next || !next.classList.contains('log-row-details')) return;
-  const show = next.style.display === 'none' || next.style.display === '';
-  // Спрячем все открытые, если хотите режим "аккордеона"
-  // document.querySelectorAll('.log-row-details').forEach(el => el.style.display = 'none');
-  next.style.display = show ? 'block' : 'none';
-}
-
-// ——— Экспорт на window для inline-обработчиков ———
-window.loadLogsAdmin = loadLogsAdmin;
-window.loadMoreLogsAdmin = loadMoreLogsAdmin;
-window.setLogsFilter = setLogsFilter;
-window.clearLogsAdmin = clearLogsAdmin;
-window.exportLogsAdmin = exportLogsAdmin;
-window.toggleLogDetails = toggleLogDetails;
-
-// ——— Автоинициализация (не навязчивая) ———
-// Если вкладка "Логи" уже в DOM и есть список — можно сразу подгрузить первую страницу.
-// Модуль не будет падать, если элементов нет.
-document.addEventListener('DOMContentLoaded', () => {
-  const { list } = getDom();
   if (list) {
-    // Подхватим начальные значения фильтра, если есть поля
-    const { q, level } = getDom();
-    st.filter.q = (q?.value || '').trim();
-    st.filter.level = (level?.value || 'all');
-    loadLogsAdmin({ reset: true });
+    list.innerHTML = (data.items||[]).map(l=>{
+      const when = l.ts ? new Date(l.ts).toLocaleString() : '—';
+      const payloadShort = escapeHtml(JSON.stringify(l.payload||{})).slice(0,120);
+      return `<div class="row">
+        <div onclick="selectLog('${l.key}')">
+          <div><span class="pill">${escapeHtml(l.type||'log')}</span> <b>${when}</b></div>
+          <div class="muted">${payloadShort}</div>
+        </div>
+        <div>
+          <input type="checkbox" onchange="toggleLogKey('${l.key}', this.checked)">
+        </div>
+      </div>`;
+    }).join('');
   }
-});
+  const details = document.getElementById('log-details');
+  if (details) details.textContent = '';
+}
 
+function toggleLogKey(key, checked) {
+  if (checked) __selectedLogKeys.add(key);
+  else __selectedLogKeys.delete(key);
+}
+
+async function selectLog(key) {
+  if (typeof window.needLogin === 'function' && window.needLogin()) return;
+
+  // ВАЖНО: как у вас — повторно грузим список по тем же фильтрам и ищем элемент по key
+  const type = document.getElementById('logs-type')?.value || '';
+  const from = readDTLocal('logs-from');
+  const to   = readDTLocal('logs-to');
+  const pkey = (document.getElementById('logs-pkey')?.value || '').trim();
+  const pop  = document.getElementById('logs-pop')?.value || '';
+  const pval = (document.getElementById('logs-pval')?.value || '').trim();
+
+  const url = new URL(API + '/admin/logs');
+  if (type) url.searchParams.set('type', type);
+  if (from) url.searchParams.set('from', from);
+  if (to)   url.searchParams.set('to', to);
+  if (pkey) url.searchParams.set('pkey', pkey);
+  if (pop)  url.searchParams.set('pop',  pop);
+  if (pval) url.searchParams.set('pval', pval);
+  url.searchParams.set('limit', '100');
+
+  const resp = await fetch(url, { headers:{ ...authHeader() } });
+  if (!ensureAuthedOrLogin(resp)) return;
+
+  const data = await resp.json().catch(()=> ({}));
+  const it = (data.items||[]).find(x => x.key === key);
+  const details = document.getElementById('log-details');
+  if (details) details.textContent = it ? JSON.stringify(it, null, 2) : 'Не найден';
+}
+
+async function deleteSelectedLogs() {
+  if (!__selectedLogKeys.size) { alert('Не выбрано ни одного лога'); return; }
+  if (!confirm(`Удалить ${__selectedLogKeys.size} логов?`)) return;
+
+  const res = await fetch(API + '/admin/logs/delete', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify({ keys: Array.from(__selectedLogKeys) })
+  });
+  if (!ensureAuthedOrLogin(res)) return;
+
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка удаления: ' + (data?.error||res.status)); return; }
+  alert('Удалено');
+  loadLogs();
+}
+
+async function exportLogs(fmt) {
+  if (typeof window.needLogin === 'function' && window.needLogin()) return;
+
+  const type = document.getElementById('logs-type')?.value || '';
+  const from = readDTLocal('logs-from');
+  const to   = readDTLocal('logs-to');
+  const pkey = (document.getElementById('logs-pkey')?.value || '').trim();
+  const pop  = document.getElementById('logs-pop')?.value || '';
+  const pval = (document.getElementById('logs-pval')?.value || '').trim();
+
+  const url = new URL(API + '/admin/logs/export');
+  url.searchParams.set('format', fmt || 'csv');
+  if (type) url.searchParams.set('type', type);
+  if (from) url.searchParams.set('from', from);
+  if (to)   url.searchParams.set('to', to);
+  if (pkey) url.searchParams.set('pkey', pkey);
+  if (pop)  url.searchParams.set('pop',  pop);
+  if (pval) url.searchParams.set('pval', pval);
+  url.searchParams.set('limit', '20000');
+
+  const res = await fetch(url, { headers:{ ...authHeader() }});
+  if (!ensureAuthedOrLogin(res)) return;
+
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `logs-${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.${fmt==='ndjson'?'ndjson':'csv'}`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+// ——— Экспорт на window (для onclick в HTML) ———
+window.loadLogs = loadLogs;
+window.toggleLogKey = toggleLogKey;
+window.selectLog = selectLog;
+window.deleteSelectedLogs = deleteSelectedLogs;
+window.exportLogs = exportLogs;
