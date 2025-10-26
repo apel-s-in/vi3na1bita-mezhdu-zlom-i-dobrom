@@ -10837,6 +10837,75 @@ console.log('Application initialized. Version:', VERSION);
   </div>
 </body>
 </html>
+<script>
+// ========== DEMO сценарий: КЛИЕНТСКАЯ интеграция ==========
+
+const DEMO_BACKEND = 'https://vr-backend.apel-s-in.workers.dev';
+let demoScenarioInterval = null;
+
+window.demoScenarioShow = function() {
+  document.getElementById('demo-scenario-ui').style.display = '';
+  demoScenarioPoll(); // сразу показать статус
+  if (!demoScenarioInterval) demoScenarioInterval = setInterval(demoScenarioPoll, 2500);
+};
+window.demoScenarioHide = function() {
+  document.getElementById('demo-scenario-ui').style.display = 'none';
+  if (demoScenarioInterval) { clearInterval(demoScenarioInterval); demoScenarioInterval = null; }
+};
+window.demoScenarioReset = async function() {
+  if (!confirm('Сбросить текущий DEMO-прогресс?')) return;
+  const sid = localStorage.getItem('vr_sid');
+  if (!sid) return NotificationSystem.warning('Вы не вошли как DEMO-тестер!');
+  // Узнать свой tg_id
+  const tgId = localStorage.getItem('tg_id');
+  if (!tgId) return NotificationSystem.warning('tg_id не определён');
+  await fetch(`${DEMO_BACKEND}/admin/demo/scenario/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Session': sid },
+    body: JSON.stringify({ tgId }),
+    credentials: 'include'
+  });
+  NotificationSystem.success('DEMO сброшен');
+  setTimeout(demoScenarioPoll, 1400);
+};
+
+// ПОЛЛИНГ статуса автосценария
+async function demoScenarioPoll() {
+  try {
+    const sid = localStorage.getItem('vr_sid');
+    if (!sid || !localStorage.getItem('tg_id')) return;
+    // Получаем текущий статус сценария
+    const res = await fetch(`${DEMO_BACKEND}/demo/progress`, {
+      headers: { 'X-Session': sid }
+    });
+    if (!res.ok) return;
+    const d = await res.json();
+    if (!d || !d.ok) return;
+    document.getElementById('demo-scenario-ui').style.display = '';
+    document.getElementById('demo-scenario-stage').textContent = d.currentStage || '…';
+    document.getElementById('demo-scenario-ach').textContent = d.progress?.completedCount || 0;
+
+    // При необходимости здесь можно оживить UI или сигнализировать действия пользователя (например, ожидается выбор приза)
+    // if (d.currentStage === 'stage2_claim_first') { ... }
+  } catch (e) { /* Тихо */ }
+}
+
+// ВКЛЮЧИТЬ панель DEMO для теста (можно комментировать в релизе)
+setTimeout(() => {
+  const isDemo = window.location.hash === '#demo' || window.location.search.includes('demo') || localStorage.getItem('tg_id') === 'ВАШ_DEMO_TGID';
+  if (isDemo) window.demoScenarioShow();
+}, 2000);
+</script>
+<!-- DEMO ПРОГРЕСС (Только для тестирования) -->
+<div id="demo-scenario-ui" style="position:fixed;right:12px;bottom:12px;background:#222b;padding:16px;border-radius:12px;box-shadow:0 2px 12px #000a;z-index:10000;color:#fff;max-width:310px;font-size:.98em;display:none;">
+  <div><b>DEMO-режим</b> — автосценарий <span id="demo-scenario-stage">…</span></div>
+  <div style="margin:6px 0;">Прогресс: <span id="demo-scenario-ach">0</span></div>
+  <div style="margin:7px 0;">
+    <button onclick="window.demoScenarioReset()" style="background:#8a2a2a;color:#fff;padding:6px 12px;border:none;border-radius:6px;font-weight:700;">Сбросить DEMO</button>
+    <button onclick="window.demoScenarioHide()" style="margin-left:7px;">Скрыть</button>
+  </div>
+</div>
+<button onclick="window.demoScenarioShow()" style="position:fixed;left:12px;bottom:12px;z-index:10000;padding:6px 14px;border-radius:10px;background:#3a53b4;color:#fff;font-weight:800;">DEMO тест</button>
 
 </body>
 </html>
