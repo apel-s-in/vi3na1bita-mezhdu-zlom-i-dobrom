@@ -39,16 +39,13 @@
     .footer{padding:10px;text-align:center;color:#9aa8c4}
     .search{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 
-    /* простые бары для  графиков в статистике */
     .chart-row{display:grid;grid-template-columns:34px 1fr 40px;gap:8px;align-items:center;margin:2px 0}
     .chart-row .bar{background:#101522;border:1px solid #2b3955;border-radius:6px;height:10px;overflow:hidden}
     .chart-row .fill{background:#4daaff;height:100%}
 
-    /* чекбоксы для DEMO */
     .checkbox-container{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
     .checkbox-container input[type="checkbox"]{width:16px;height:16px}
 
-    /* DEMO: таблица ачивок */
     .ach-grid{display:grid;grid-template-columns:1fr;gap:6px}
     .ach-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
     .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1e2638;border:1px solid #2b3955;color:#cfe3ff;font-size:.85em}
@@ -322,7 +319,6 @@
 
   <!-- DEMO -->
   <main id="view-demo" style="display:none">
-    <!-- Левая колонка: настройки и чек‑лист -->
     <div class="card">
       <div class="search" style="gap:8px;">
         <input id="demo-tg" placeholder="tg_id" value="118759359" style="min-width:160px;">
@@ -371,13 +367,10 @@
 
         <div id="demo-hint" class="muted" style="margin-bottom:8px;">—</div>
 
-        <div id="demo-ach-box" class="list" style="max-height:60vh; padding-right:6px;">
-          <!-- сюда подставится чек‑лист всех 34 -->
-        </div>
+        <div id="demo-ach-box" class="list" style="max-height:60vh; padding-right:6px;"></div>
       </div>
     </div>
 
-    <!-- Отдельная карточка: DEMO‑заявки -->
     <div class="card">
       <div style="font-weight:700;margin-bottom:8px;">DEMO‑заявки</div>
       <div class="flex" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
@@ -442,7 +435,6 @@
       </div>
     </div>
 
-    <!-- Правая колонка: краткая инструкция -->
     <div class="right-col">
       <div style="font-weight:700;margin-bottom:8px;">Как пользоваться DEMO</div>
       <div class="hint">
@@ -452,20 +444,12 @@
         <ol>
           <li>Укажите <span class="kbd">tg_id</span> и нажмите <span class="kbd">Загрузить</span>.</li>
           <li>Включите тумблер <span class="kbd">DEMO</span> и задайте «Имя в DEMO» (по умолчанию “VR Admin”). Нажмите <span class="kbd">Сохранить режим</span>.</li>
-          <li>Выберите нужные достижения галочками или используйте пресеты:
-            <ul>
-              <li><b>5 уровней</b> — достаточно, чтобы в приложении появилось предложение создать имя.</li>
-              <li><b>Для 1‑го приза</b> — отмечает все видимые достижения. В приложении можно сразу подавать заявку.</li>
-              <li><b>Для 2‑го приза</b> — отмечает видимые и секретные достижения. Чтобы появилась кнопка “ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ”, нужна доставленная DEMO‑заявка (см. ниже).</li>
-            </ul>
-          </li>
+          <li>Выберите нужные достижения галочками или используйте пресеты.</li>
           <li>Нажмите <span class="kbd">Сохранить DEMO‑бэкап</span>. Откройте приложение под этим tg_id — прогресс загрузится автоматически.</li>
         </ol>
         <div class="hr"></div>
         <p><b>Заявки в DEMO:</b> создавайте их в приложении как обычно. В DEMO события /event не портят глобальные счётчики, заявка сохраняется в песочнице.</p>
-        <p>Чтобы “ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ” стало активно, сделайте заявку и отметьте её как <i>доставленную</i> (нужны DEMO‑методы на бэкенде: /admin/demo/claim/tracking → shipped и /admin/demo/claim/delivered → delivered).</p>
-        <div class="hr"></div>
-        <p><b>Индикатор уровня</b> справа от имени показывает текущий прогресс: X / 34 (по демо‑бэкапу, если он уже сохранён; иначе — по отмеченным галочкам).</p>
+        <p><b>Индикатор уровня</b> справа от имени показывает текущий прогресс: X / 34.</p>
       </div>
     </div>
   </main>
@@ -527,325 +511,7 @@
     </div>
   </div>
 
-<script>
-// Общие константы и авторизация
-const API = 'https://vr-backend.apel-s-in.workers.dev';
-const authKey = 'vr_admin_auth';
-
-function authHeader() {
-  const tok = sessionStorage.getItem(authKey);
-  return tok ? { 'Authorization': tok } : {};
-}
-
-// Показываем/прячем интерфейс
-function guardApp() {
-  const authed = !!sessionStorage.getItem(authKey);
-  document.querySelectorAll('header, main, .footer').forEach(el => {
-    if (!el) return;
-    el.style.display = authed ? '' : 'none';
-  });
-  const login = document.getElementById('login');
-  if (login) login.style.display = authed ? 'none' : '';
-  return authed;
-}
-function needLogin(show = true) {
-  const has = !!sessionStorage.getItem(authKey);
-  if (!has && show) guardApp();
-  return !has;
-}
-function adminLogin() {
-  const u = document.getElementById('adm-user').value.trim();
-  const p = document.getElementById('adm-pass').value.trim();
-  if (!u || !p) {
-    document.getElementById('login-err').textContent = 'Введите логин и пароль';
-    return;
-  }
-  const token = 'Basic ' + btoa(u + ':' + p);
-  sessionStorage.setItem(authKey, token);
-  if (guardApp()) loadClaims(); // loadClaims предоставляется модулем claims-admin.js
-}
-document.addEventListener('keydown', (e) => {
-  const loginShown = document.getElementById('login')?.style.display !== 'none';
-  if (!loginShown) return;
-  if (e.key === 'Enter') adminLogin();
-});
-
-// Переключение вкладок (без "Достижений")
-function switchTab(tab) {
-  const tabs = ['claims','devices','backups','logs','stats','demo','fb','prizes'];
-  tabs.forEach(t => document.getElementById('tab-'+t)?.classList.toggle('active', tab===t));
-  tabs.forEach(t => document.getElementById('view-'+t)?.style && (document.getElementById('view-'+t).style.display = (tab===t)?'':'none'));
-  if (tab==='prizes') loadPrizesAdmin();   // из prizes-admin.js
-  if (tab==='devices') loadDevices();      // inline
-  if (tab==='backups') loadBackups();      // inline
-  if (tab==='logs') loadLogs();            // из logs-admin.js
-  if (tab==='stats') { loadMetrics(); loadGsConfig(); } // inline
-  if (tab==='demo') loadDemoPanel();       // из demo-admin.js
-  if (tab==='fb') loadThreads();           // inline
-}
-document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
-document.getElementById('tab-devices').onclick = ()=>switchTab('devices');
-document.getElementById('tab-backups').onclick = ()=>switchTab('backups');
-document.getElementById('tab-logs').onclick = ()=>switchTab('logs');
-document.getElementById('tab-stats').onclick = ()=>switchTab('stats');
-document.getElementById('tab-demo').onclick = ()=>switchTab('demo');
-document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
-document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
-document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
-
-// ===== Устройства =====
-function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-async function loadDevices() {
-  if (needLogin()) return;
-  const q = document.getElementById('dev-q').value.trim();
-  const url = new URL(API + '/admin/devices');
-  if (q) url.searchParams.set('q', q);
-  url.searchParams.set('limit', '100');
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('devices-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(d=>{
-    const dt1 = new Date(d.first_seen).toLocaleString();
-    const dt2 = new Date(d.last_seen).toLocaleString();
-    const claimStat = `T:${d.claims_total||0} • p:${d.claims_pending||0} • a:${d.claims_approved||0} • s:${d.claims_shipped||0} • d:${d.claims_delivered||0} • r:${d.claims_rejected||0}`;
-    const user = `${escapeHtml(d.user_name||'—')} ${d.tg_id?('· tg:'+String(d.tg_id)) : ''}`;
-    return `<div class="row" onclick="copyDeviceHash('${d.device_hash}')">
-      <div>
-        <div><b>dev:${escapeHtml(d.device_hash.slice(0,12))}…</b> · ${user}</div>
-        <div class="muted">${dt1} → ${dt2}</div>
-      </div>
-      <div class="muted">${claimStat}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('devices-details').textContent = '—';
-}
-function copyDeviceHash(hash) {
-  navigator.clipboard?.writeText(hash);
-  const box = document.getElementById('devices-details');
-  if (box) box.textContent = `Скопировано: ${hash}`;
-}
-
-// ===== Бэкапы =====
-async function loadBackups() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/backups/list', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('backups-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(b=>{
-    const when = b.exportedAt ? new Date(b.exportedAt).toLocaleString() : '—';
-    return `<div class="row">
-      <div>
-        <div><b>dev:${escapeHtml((b.device||'').slice(0,12))}…</b></div>
-        <div class="muted">${when}</div>
-      </div>
-      <div class="flex">
-        <div class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(b.checksum||'')}</div>
-        <button class="btn" onclick="viewBackup('${b.device}')">Открыть</button>
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('backup-viewer').textContent = '';
-}
-async function viewBackup(device) {
-  if (needLogin()) return;
-  const url = new URL(API + '/admin/backup/get');
-  url.searchParams.set('device', device);
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const pre = document.getElementById('backup-viewer');
-  if (!data?.ok) { pre.textContent = 'Ошибка'; return; }
-  pre.textContent = JSON.stringify(data.backup, null, 2);
-}
-
-// ===== Логи — реализованы в admin/logs-admin.js =====
-
-// ===== Сводная статистика =====
-async function loadMetrics() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/metrics/summary', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const box = document.getElementById('metrics-box');
-  if (!data?.ok) { box.textContent = 'Ошибка'; return; }
-  const byStatus = (data.claimsByStatus||[]).map(s=> `<div class="row"><div>${s.status}</div><div class="muted">${s.c}</div></div>`).join('');
-  box.innerHTML = `
-    <div class="row"><div>Пользователей</div><div class="muted">${data.users}</div></div>
-    <div class="row"><div>Устройств</div><div class="muted">${data.devices}</div></div>
-    <div class="row"><div>Заявок</div><div class="muted">${data.claims}</div></div>
-    <div class="row"><div>Диалогов обратной связи</div><div class="muted">${data.feedback_threads}</div></div>
-    <div class="row"><div>Сообщений</div><div class="muted">${data.feedback_messages}</div></div>
-    <div class="row"><div><b>Заявки по статусам</b></div><div></div></div>
-    ${byStatus || '<div class="muted">—</div>'}
-  `;
-}
-
-// ===== GS Config (управление глобальной статистикой) =====
-async function loadGsConfig() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/gs/config', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка конфигурации'); return; }
-  const c = data.config || {};
-  document.getElementById('gs-master').checked = !!c.masterEnabled;
-  document.getElementById('gs-send').checked = !!c.sendEnabled;
-  document.getElementById('gs-ui').checked = !!c.showUI;
-  document.getElementById('gs-ts').checked = !!c.requireTurnstile;
-  document.getElementById('gs-mon').checked = !!c.monitorEnabled;
-  document.getElementById('gs-cq').checked = !!c.collectClientQueue;
-
-  const monCard = document.getElementById('gs-health-card');
-  if (monCard) monCard.style.display = c.monitorEnabled ? '' : 'none';
-  if (c.monitorEnabled) loadGsHealth();
-}
-async function saveGsConfig() {
-  if (needLogin()) return;
-  const body = {
-    masterEnabled: document.getElementById('gs-master').checked,
-    sendEnabled: document.getElementById('gs-send').checked,
-    showUI: document.getElementById('gs-ui').checked,
-    requireTurnstile: document.getElementById('gs-ts').checked,
-    monitorEnabled: document.getElementById('gs-mon').checked,
-    collectClientQueue: document.getElementById('gs-cq').checked
-  };
-  const res = await fetch(API + '/admin/gs/config', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify(body)
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
-  alert('Сохранено');
-  loadGsConfig();
-}
-async function loadGsHealth() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/gs/health', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(()=> ({}));
-  if (!res.ok || !d?.ok) { alert('Монитор недоступен'); return; }
-  document.getElementById('m-ok').textContent    = d.okCount || 0;
-  document.getElementById('m-403').textContent   = d.denied403 || 0;
-  document.getElementById('m-429').textContent   = d.rateLimited || 0;
-  document.getElementById('m-other').textContent = d.otherDenied || 0;
-  document.getElementById('m-q-avg').textContent = (d.queue?.avg ?? 0);
-  document.getElementById('m-q-max').textContent = (d.queue?.max ?? 0);
-}
-
-// ===== Feedback =====
-let currentThread = null;
-async function loadThreads() {
-  if (needLogin()) return;
-  const q = document.getElementById('fb-q').value.trim();
-  const url = new URL(API + '/admin/feedback/threads');
-  if (q) url.searchParams.set('q', q);
-  url.searchParams.set('limit','100');
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('thread-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(t=>{
-    const dt = new Date(t.last_message_at).toLocaleString();
-    const st = t.status || 'open';
-    return `<div class="row" onclick="openThread('${t.id}','${t.code}','${st}')">
-      <div>
-        <div><b>#${t.code}</b> · ${t.user_name||'Пользователь'} · <span class="pill">${st}</span></div>
-        <div class="muted">dev:${(t.device_hash||'').slice(0,8)} · ${new Date(t.created_at).toLocaleDateString()}</div>
-      </div>
-      <div class="muted">${dt}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('thread-head').textContent = 'Выберите тред слева';
-  document.getElementById('msg-list').innerHTML = '';
-  currentThread = null;
-}
-async function openThread(id, code, status='open') {
-  currentThread = { id, code, status };
-  const head = document.getElementById('thread-head');
-  head.innerHTML = `Диалог <b>#${code}</b> · <span class="pill">${status}</span>
-    <button class="btn" style="margin-left:8px" onclick="toggleThreadStatus()">${status==='closed'?'Открыть':'Закрыть'}</button>`;
-  await loadMessages();
-}
-async function toggleThreadStatus() {
-  if (!currentThread) return;
-  const next = currentThread.status === 'closed' ? 'open' : 'closed';
-  const res = await fetch(API + '/admin/feedback/close', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ threadId: currentThread.id, status: next })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  currentThread.status = next; openThread(currentThread.id, currentThread.code, currentThread.status);
-}
-async function loadMessages() {
-  if (!currentThread) return;
-  const url = new URL(API + '/admin/feedback/messages');
-  url.searchParams.set('thread', currentThread.id);
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('msg-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(m=>{
-    const dt = new Date(m.created_at).toLocaleString();
-    const cls = m.sender==='admin'?'msg admin':'msg user';
-    return `<div class="${cls}"><div>${escapeHtml(m.text)}</div><div class="muted" style="font-size:.8em;margin-top:4px">${dt}</div></div>`;
-  }).join('');
-  list.scrollTop = list.scrollHeight;
-}
-async function sendReply() {
-  const inp = document.getElementById('fb-reply');
-  const text = (inp.value||'').trim();
-  if (!text || !currentThread) return;
-  const res = await fetch(API+'/admin/feedback/reply', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ threadId: currentThread.id, text })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Не отправлено: '+(data?.error||res.status)); return; }
-  inp.value = ''; loadMessages();
-}
-
-// Автологин-проверка и авто-открытие
-window.addEventListener('load', () => {
-  if (needLogin(true)) return;
-  guardApp();
-  loadClaims(); // из claims-admin.js
-
-  // Авто-открытие нужной вкладки и подстановка tg из URL
-  try {
-    const u = new URL(window.location.href);
-    const tab = (u.searchParams.get('tab') || '').trim();
-    const tg  = (u.searchParams.get('tg') || '').trim();
-    if (tg) {
-      const inp = document.getElementById('demo-tg');
-      if (inp) inp.value = tg;
-    }
-    if (tab && document.getElementById('tab-' + tab)) {
-      switchTab(tab);
-      if (tab === 'demo') {
-        // подгрузим панель DEMO сразу (функция из demo-admin.js)
-        loadDemoPanel();
-      }
-    }
-  } catch (e) {}
-});
-</script>
-
-<!-- ВАЖНО: подключаем только модули (никаких дублирующих inline-функций больше нет) -->
-<script type="module" src="admin/prizes-admin.js"></script>
-<script type="module" src="admin/logs-admin.js"></script>
-<script type="module" src="admin/demo-admin.js"></script>
-<script type="module" src="admin/claims-admin.js"></script>
+  <!-- Один главный модуль -->
+  <script type="module" src="admin/main-admin.js"></script>
 </body>
 </html>
