@@ -73,7 +73,6 @@
       <button class="tab" id="tab-backups">Бэкапы</button>
       <button class="tab" id="tab-logs">Логи</button>
       <button class="tab" id="tab-stats">Статистика</button>
-      <button class="tab" id="tab-ach">Достижения</button>
       <button class="tab" id="tab-demo">DEMO</button>
       <button class="tab" id="tab-fb">Обратная связь</button>
       <button class="tab" id="tab-prizes">Призы</button>
@@ -321,38 +320,6 @@
     </div>
   </main>
 
-  <!-- Достижения -->
-  <main id="view-ach" style="display:none">
-    <div class="card">
-      <div class="search" style="gap:8px;">
-        <button class="btn" onclick="loadAchList()">Обновить</button>
-        <button class="btn" onclick="newAchItem()">Новый</button>
-        <button class="btn warn" onclick="deleteAch()">Удалить</button>
-        <button class="btn" onclick="copyAch()">Копировать</button>
-      </div>
-      <div class="list" id="ach-list"></div>
-    </div>
-    <div class="card">
-      <div style="font-weight:700;margin-bottom:8px;">Редактор оверрайда</div>
-      <div class="flex" style="flex-direction:column;gap:6px;">
-        <input id="ach-id" placeholder="ID достижения (например, play_25_total)">
-        <div class="flex"><label class="muted" style="min-width:120px;">Скрытое</label><input type="checkbox" id="ach-hidden"></div>
-        <div class="flex"><label class="muted" style="min-width:120px;">Core</label><input type="checkbox" id="ach-core"></div>
-        <div class="flex"><label class="muted" style="min-width:120px;">Tier</label><input id="ach-tier" placeholder="число"></div>
-        <input id="ach-title" placeholder="Заголовок (title)">
-        <input id="ach-short" placeholder="Коротко (short)">
-        <textarea id="ach-desc" class="w100" placeholder="Описание (desc)"></textarea>
-        <textarea id="ach-how" class="w100" placeholder="Как выполнить (howTo)"></textarea>
-        <div class="muted">Порог (thresholds) — для конкретных ID. Пример JSON: {"play_25_total":20,"time_listened_1h":3000}</div>
-        <textarea id="ach-thresholds" class="w100" placeholder='{"play_25_total":20,"time_listened_1h":3000}'></textarea>
-        <div class="flex">
-          <button class="btn ok" onclick="saveAch()">Сохранить</button>
-          <button class="btn" onclick="loadAchList()">Сбросить</button>
-        </div>
-      </div>
-    </div>
-  </main>
-
   <!-- DEMO -->
   <main id="view-demo" style="display:none">
     <!-- Левая колонка: настройки и чек‑лист -->
@@ -428,22 +395,22 @@
         <button class="btn warn" onclick="resetDemoClaims()">Очистить DEMO‑заявки</button>
       <div class="card" style="margin-top:8px;">
         <div style="font-weight:700;margin-bottom:8px;">🎬 Автосценарий</div>
-        
+
         <div class="row">
           <div>Статус</div>
           <div id="scenario-status" class="badge">не запущен</div>
         </div>
-        
+
         <div class="row">
           <div>Текущий этап</div>
           <div id="scenario-stage" class="muted">—</div>
         </div>
-        
+
         <div class="row">
           <div>Выполнено достижений</div>
           <div id="scenario-achievements" class="muted">0</div>
         </div>
-        
+
         <div class="flex" style="margin-top:8px; flex-wrap:wrap; gap:6px;">
           <label>Скорость:</label>
           <select id="scenario-speed">
@@ -453,20 +420,20 @@
             <option value="10">10x</option>
             <option value="0">Мгновенно</option>
           </select>
-          
+
           <label class="checkbox-container">
             <input type="checkbox" id="scenario-auto-prizes">
             <span>Авто-выбор призов</span>
           </label>
         </div>
-        
+
         <div class="flex" style="margin-top:8px; flex-wrap:wrap; gap:6px;">
           <button class="btn ok" onclick="startScenario()">▶️ Запустить</button>
           <button class="btn" onclick="pauseScenario()">⏸ Пауза</button>
           <button class="btn warn" onclick="resetScenario()">🔄 Сбросить</button>
           <button class="btn" onclick="refreshScenarioStatus()">Обновить статус</button>
         </div>
-        
+
         <div class="muted" id="scenario-hint" style="margin-top:8px;">
           Автосценарий последовательно выполняет все достижения с настраиваемой скоростью.
           После выполнения всех видимых достижений требуется выбор приза.
@@ -561,6 +528,7 @@
   </div>
 
 <script>
+// Общие константы и авторизация
 const API = 'https://vr-backend.apel-s-in.workers.dev';
 const authKey = 'vr_admin_auth';
 
@@ -594,7 +562,7 @@ function adminLogin() {
   }
   const token = 'Basic ' + btoa(u + ':' + p);
   sessionStorage.setItem(authKey, token);
-  if (guardApp()) loadClaims();
+  if (guardApp()) loadClaims(); // loadClaims предоставляется модулем claims-admin.js
 }
 document.addEventListener('keydown', (e) => {
   const loginShown = document.getElementById('login')?.style.display !== 'none';
@@ -602,288 +570,173 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') adminLogin();
 });
 
+// Переключение вкладок (без "Достижений")
 function switchTab(tab) {
-  const tabs = ['claims','devices','backups','logs','stats','ach','demo','fb','prizes'];
+  const tabs = ['claims','devices','backups','logs','stats','demo','fb','prizes'];
   tabs.forEach(t => document.getElementById('tab-'+t)?.classList.toggle('active', tab===t));
   tabs.forEach(t => document.getElementById('view-'+t)?.style && (document.getElementById('view-'+t).style.display = (tab===t)?'':'none'));
-  if (tab==='prizes') loadPrizesAdmin();
-  if (tab==='devices') loadDevices();
-  if (tab==='backups') loadBackups();
-  if (tab==='logs') loadLogs();
-  if (tab==='stats') { loadMetrics(); loadGsConfig(); }
-  if (tab==='ach') loadAchList();
-  if (tab==='demo') loadDemoPanel();
+  if (tab==='prizes') loadPrizesAdmin();   // из prizes-admin.js
+  if (tab==='devices') loadDevices();      // inline
+  if (tab==='backups') loadBackups();      // inline
+  if (tab==='logs') loadLogs();            // из logs-admin.js
+  if (tab==='stats') { loadMetrics(); loadGsConfig(); } // inline
+  if (tab==='demo') loadDemoPanel();       // из demo-admin.js
+  if (tab==='fb') loadThreads();           // inline
 }
 document.getElementById('tab-claims').onclick = ()=>switchTab('claims');
 document.getElementById('tab-devices').onclick = ()=>switchTab('devices');
 document.getElementById('tab-backups').onclick = ()=>switchTab('backups');
 document.getElementById('tab-logs').onclick = ()=>switchTab('logs');
 document.getElementById('tab-stats').onclick = ()=>switchTab('stats');
-document.getElementById('tab-ach').onclick = ()=>switchTab('ach');
 document.getElementById('tab-demo').onclick = ()=>switchTab('demo');
 document.getElementById('tab-fb').onclick = ()=>switchTab('fb');
 document.getElementById('tab-prizes').onclick = ()=>switchTab('prizes');
 document.getElementById('tab-logout').onclick = ()=>{ sessionStorage.removeItem(authKey); guardApp(); needLogin(true); };
 
-// ===== Заявки =====
-let currentClaim = null;
-let currentClaimUserId = null; // НОВОЕ: user_id выбранной заявки
-let currentClaimTgId = null;   // НОВОЕ: tg_id выбранной заявки
-let pageSize = 50;
-let currentOffset = 0;
+// ===== Устройства =====
+function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-function resetPaging() { currentOffset = 0; document.getElementById('claims-page-label').textContent = '1'; }
-function nextPage() { currentOffset += pageSize; loadClaims(); }
-function prevPage() {
-  currentOffset = Math.max(0, currentOffset - pageSize);
-  const curPage = Math.floor(currentOffset / pageSize) + 1;
-  document.getElementById('claims-page-label').textContent = String(curPage);
-  loadClaims();
-}
-function readDateInput(id) {
-  const v = document.getElementById(id)?.value;
-  if (!v) return null;
-  try {
-    const dt = new Date(v);
-    if (id === 'claims-to') dt.setHours(23,59,59,999);
-    return dt.toISOString();
-  } catch { return null; }
-}
-async function loadClaims() {
+async function loadDevices() {
   if (needLogin()) return;
-  const st  = document.getElementById('claims-status').value;
-  const from= readDateInput('claims-from');
-  const to  = readDateInput('claims-to');
-
-  const url = new URL(API + '/admin/claims');
-  if (st) url.searchParams.set('status', st);
-  if (from) url.searchParams.set('from', from);
-  if (to) url.searchParams.set('to', to);
-  url.searchParams.set('limit', String(pageSize));
-  url.searchParams.set('offset', String(currentOffset));
-
-  const res = await fetch(url, { headers: { ...authHeader() }});
+  const q = document.getElementById('dev-q').value.trim();
+  const url = new URL(API + '/admin/devices');
+  if (q) url.searchParams.set('q', q);
+  url.searchParams.set('limit', '100');
+  const res = await fetch(url, { headers:{ ...authHeader() }});
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('claims-list');
-  if (!data?.ok) { list.textContent = 'Ошибка загрузки'; return; }
-
-  const items = data.items || [];
-  const curPage = Math.floor(currentOffset / pageSize) + 1;
-  document.getElementById('claims-page-label').textContent = String(curPage);
-
-  list.innerHTML = items.map(c=>{
-    const dt = new Date(c.created_at).toLocaleString();
-    const stClass = `status-${c.status}`;
-    const tgShort = c.tg_id ? ` · tg:${String(c.tg_id).slice(0,8)}…` : '';
-    const attrs = `data-user="${escapeHtml(c.user_id||'')}" data-tg="${escapeHtml(c.tg_id||'')}"`;
-    return `<div class="row" ${attrs} onclick="selectClaim('${c.id}', this)">
+  const list = document.getElementById('devices-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(d=>{
+    const dt1 = new Date(d.first_seen).toLocaleString();
+    const dt2 = new Date(d.last_seen).toLocaleString();
+    const claimStat = `T:${d.claims_total||0} • p:${d.claims_pending||0} • a:${d.claims_approved||0} • s:${d.claims_shipped||0} • d:${d.claims_delivered||0} • r:${d.claims_rejected||0}`;
+    const user = `${escapeHtml(d.user_name||'—')} ${d.tg_id?('· tg:'+String(d.tg_id)) : ''}`;
+    return `<div class="row" onclick="copyDeviceHash('${d.device_hash}')">
       <div>
-        <div><span class="pill ${stClass}">${c.status}</span> <b>${escapeHtml(c.user_name||'Пользователь')}</b></div>
-        <div class="muted">#${c.id.slice(0,8)} · dev:${(c.device_hash||'').slice(0,8)}${tgShort} · lvl:${c.level} · cyc:${c.cycle}</div>
+        <div><b>dev:${escapeHtml(d.device_hash.slice(0,12))}…</b> · ${user}</div>
+        <div class="muted">${dt1} → ${dt2}</div>
       </div>
-      <div class="muted">${dt}</div>
+      <div class="muted">${claimStat}</div>
     </div>`;
   }).join('');
-
-  if (items.length === 0 && currentOffset > 0) prevPage();
-
-  document.getElementById('claim-details').textContent = 'Ничего не выбрано';
-  document.getElementById('claim-actions').style.display = 'none';
-  currentClaim = null;
+  document.getElementById('devices-details').textContent = '—';
 }
-async function selectClaim(id, rowEl) {
-  const el = document.getElementById('claim-details');
-  el.innerHTML = `Заявка <b>#${id}</b><br><span class="muted">Статус меняется кнопками ниже</span>`;
-  currentClaim = id;
-
-  // НОВОЕ: сохраним user_id и tg_id для VIP-инструмента
-  try {
-    currentClaimUserId = rowEl?.getAttribute('data-user') || null;
-    currentClaimTgId = rowEl?.getAttribute('data-tg') || null;
-    // автоподставим в поля формы VIP
-    const fTg = document.getElementById('vip-tg'); if (fTg && currentClaimTgId) fTg.value = currentClaimTgId;
-    const fUid = document.getElementById('vip-user-id'); if (fUid && currentClaimUserId) fUid.value = currentClaimUserId;
-  } catch(e){}
-
-  document.getElementById('claim-actions').style.display = '';
-  loadClaimMeta();
-  loadClaimEvents();
+function copyDeviceHash(hash) {
+  navigator.clipboard?.writeText(hash);
+  const box = document.getElementById('devices-details');
+  if (box) box.textContent = `Скопировано: ${hash}`;
 }
 
-async function loadClaimMeta() {
-  if (!currentClaim) return;
-  const metaBox = document.getElementById('claim-meta');
-  try {
-    const url = new URL(API + '/admin/claim/meta/get');
-    url.searchParams.set('id', currentClaim);
-    const res = await fetch(url, { headers:{ ...authHeader() }});
-    if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-    const data = await res.json().catch(()=> ({}));
-    if (!res.ok || !data?.ok) { metaBox.textContent = 'Мета недоступна'; return; }
-    const m = data.meta || {};
-    document.getElementById('adm-color').value = m.color || '';
-    document.getElementById('adm-tags').value = (Array.isArray(m.tags) ? m.tags.join(', ') : '');
-    document.getElementById('adm-note').value = m.note || '';
-    if (m.dueAt) {
-      const dt = new Date(m.dueAt);
-      const iso = dt.toISOString().slice(0,16);
-      document.getElementById('adm-due').value = iso;
-    } else document.getElementById('adm-due').value = '';
-    metaBox.innerHTML = `dev/tg и прочие данные в списке слева · <span class="muted">модиф.: ${m.updatedAt?new Date(m.updatedAt).toLocaleString():'—'}</span>`;
-  } catch {
-    if (metaBox) metaBox.textContent = 'Ошибка загрузки мета';
-  }
-}
-async function saveClaimMeta() {
+// ===== Бэкапы =====
+async function loadBackups() {
   if (needLogin()) return;
-  if (!currentClaim) return;
-  const color = document.getElementById('adm-color').value;
-  const tags = (document.getElementById('adm-tags').value || '').split(',').map(s=>s.trim()).filter(Boolean);
-  const note = document.getElementById('adm-note').value || '';
-  const dueStr = document.getElementById('adm-due').value;
-  let dueAt = null; try { if (dueStr) dueAt = new Date(dueStr).getTime(); } catch(e){}
-  const res = await fetch(API + '/admin/claim/meta/set', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id: currentClaim, color, tags, note, dueAt })
-  });
+  const res = await fetch(API + '/admin/backups/list', { headers:{ ...authHeader() }});
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
   const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Мета не сохранена: '+(data?.error||res.status)); return; }
-  alert('Мета сохранена'); loadClaimMeta();
+  const list = document.getElementById('backups-list');
+  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
+  list.innerHTML = (data.items||[]).map(b=>{
+    const when = b.exportedAt ? new Date(b.exportedAt).toLocaleString() : '—';
+    return `<div class="row">
+      <div>
+        <div><b>dev:${escapeHtml((b.device||'').slice(0,12))}…</b></div>
+        <div class="muted">${when}</div>
+      </div>
+      <div class="flex">
+        <div class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(b.checksum||'')}</div>
+        <button class="btn" onclick="viewBackup('${b.device}')">Открыть</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('backup-viewer').textContent = '';
 }
-async function loadClaimEvents() {
-  if (!currentClaim) return;
-  const box = document.getElementById('claim-events');
-  try {
-    const url = new URL(API + '/admin/claim/events');
-    url.searchParams.set('id', currentClaim);
-    const res = await fetch(url, { headers:{ ...authHeader() }});
-    if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-    const data = await res.json().catch(()=> ({}));
-    if (!res.ok || !data?.ok) { box.textContent = 'История недоступна'; return; }
-    const items = data.items || [];
-    if (!items.length) { box.textContent = 'Пусто'; return; }
-    box.innerHTML = items.map(ev=>{
-      const dt = new Date(ev.at).toLocaleString();
-      return `<div class="row"><div><b>${ev.type}</b></div><div class="muted">${dt}</div></div>`;
-    }).join('');
-  } catch { box.textContent = 'Ошибка истории'; }
-}
-async function deleteClaim() {
-  if (!currentClaim) return;
-  if (!confirm('Удалить эту заявку без возможности восстановления?')) return;
-  const res = await fetch(API + '/admin/claim/delete', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() }, body: JSON.stringify({ id: currentClaim })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Не удалось удалить: '+(data?.error||res.status)); return; }
-  alert('Удалено'); currentClaim = null; document.getElementById('claim-actions').style.display = 'none'; loadClaims();
-}
-async function updateClaim(next) {
-  if (!currentClaim) return;
-  const reason = document.getElementById('claim-reason').value.trim();
-  const res = await fetch(API+'/admin/claim/update', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id: currentClaim, status: next, reason: (next==='rejected'?reason:null) })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Готово: '+next); loadClaims();
-}
-async function setTracking() {
-  if (!currentClaim) return;
-  const tracking = document.getElementById('claim-tracking').value.trim();
-  if (!tracking) { alert('Введите трек‑номер'); return; }
-  const res = await fetch(API+'/admin/claim/tracking', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id: currentClaim, tracking })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Статус: shipped, трек установлен'); loadClaims();
-}
-async function markDelivered() {
-  if (!currentClaim) return;
-  const res = await fetch(API+'/admin/claim/delivered', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ id: currentClaim })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка: '+(data?.error||res.status)); return; }
-  alert('Статус: delivered'); loadClaims();
-}
-async function exportClaimsCSV() {
+async function viewBackup(device) {
   if (needLogin()) return;
-  const st  = document.getElementById('claims-status').value;
-  const from= readDateInput('claims-from');
-  const to  = readDateInput('claims-to');
-
-  const url = new URL(API + '/admin/claims/export');
-  if (st) url.searchParams.set('status', st);
-  if (from) url.searchParams.set('from', from);
-  if (to) url.searchParams.set('to', to);
-
-  const res = await fetch(url, { headers: { ...authHeader() }});
+  const url = new URL(API + '/admin/backup/get');
+  url.searchParams.set('device', device);
+  const res = await fetch(url, { headers:{ ...authHeader() }});
   if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `claims-${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  const data = await res.json().catch(()=> ({}));
+  const pre = document.getElementById('backup-viewer');
+  if (!data?.ok) { pre.textContent = 'Ошибка'; return; }
+  pre.textContent = JSON.stringify(data.backup, null, 2);
 }
 
-// ===== Admin VIP wallet ops =====
-async function adminVipAdjust(sign = 1) {
+// ===== Логи — реализованы в admin/logs-admin.js =====
+
+// ===== Сводная статистика =====
+async function loadMetrics() {
   if (needLogin()) return;
-  const tg = (document.getElementById('vip-tg')?.value || '').trim();
-  const userId = (document.getElementById('vip-user-id')?.value || '').trim();
-  const deltaStr = (document.getElementById('vip-delta')?.value || '').trim();
-  const reason = (document.getElementById('vip-reason')?.value || '').trim() || (sign>0?'bonus':'penalty');
-  const msg = document.getElementById('vip-tx-msg');
-
-  let delta = Number(deltaStr);
-  if (!Number.isFinite(delta) || delta === 0) {
-    if (msg) msg.textContent = 'Укажите ненулевое число для Δ коины';
-    return;
-  }
-  delta = Math.abs(delta) * (sign >= 0 ? 1 : -1);
-
-  if (!tg && !userId) {
-    if (msg) msg.textContent = 'Укажите tg_id или user_id';
-    return;
-  }
-
-  try {
-    const body = { delta, reason };
-    if (userId) body.userId = userId;
-    else body.tgId = tg;
-
-    const res = await fetch(API + '/admin/vip/tx', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', ...authHeader() },
-      body: JSON.stringify(body)
-    });
-    const d = await res.json().catch(()=> ({}));
-    if (!res.ok || !d?.ok) {
-      if (msg) msg.textContent = 'Ошибка: ' + (d?.error || res.status);
-      return;
-    }
-    if (msg) msg.textContent = `Готово. Баланс: ${d.balance}`;
-    alert('Операция выполнена. Новый баланс: ' + d.balance);
-  } catch (e) {
-    if (msg) msg.textContent = 'Сеть недоступна';
-  }
+  const res = await fetch(API + '/admin/metrics/summary', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  const box = document.getElementById('metrics-box');
+  if (!data?.ok) { box.textContent = 'Ошибка'; return; }
+  const byStatus = (data.claimsByStatus||[]).map(s=> `<div class="row"><div>${s.status}</div><div class="muted">${s.c}</div></div>`).join('');
+  box.innerHTML = `
+    <div class="row"><div>Пользователей</div><div class="muted">${data.users}</div></div>
+    <div class="row"><div>Устройств</div><div class="muted">${data.devices}</div></div>
+    <div class="row"><div>Заявок</div><div class="muted">${data.claims}</div></div>
+    <div class="row"><div>Диалогов обратной связи</div><div class="muted">${data.feedback_threads}</div></div>
+    <div class="row"><div>Сообщений</div><div class="muted">${data.feedback_messages}</div></div>
+    <div class="row"><div><b>Заявки по статусам</b></div><div></div></div>
+    ${byStatus || '<div class="muted">—</div>'}
+  `;
 }
-function quickVipBonus(val) {
-  const inp = document.getElementById('vip-delta');
-  if (inp) inp.value = String(val);
-  adminVipAdjust(1);
+
+// ===== GS Config (управление глобальной статистикой) =====
+async function loadGsConfig() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/gs/config', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Ошибка конфигурации'); return; }
+  const c = data.config || {};
+  document.getElementById('gs-master').checked = !!c.masterEnabled;
+  document.getElementById('gs-send').checked = !!c.sendEnabled;
+  document.getElementById('gs-ui').checked = !!c.showUI;
+  document.getElementById('gs-ts').checked = !!c.requireTurnstile;
+  document.getElementById('gs-mon').checked = !!c.monitorEnabled;
+  document.getElementById('gs-cq').checked = !!c.collectClientQueue;
+
+  const monCard = document.getElementById('gs-health-card');
+  if (monCard) monCard.style.display = c.monitorEnabled ? '' : 'none';
+  if (c.monitorEnabled) loadGsHealth();
+}
+async function saveGsConfig() {
+  if (needLogin()) return;
+  const body = {
+    masterEnabled: document.getElementById('gs-master').checked,
+    sendEnabled: document.getElementById('gs-send').checked,
+    showUI: document.getElementById('gs-ui').checked,
+    requireTurnstile: document.getElementById('gs-ts').checked,
+    monitorEnabled: document.getElementById('gs-mon').checked,
+    collectClientQueue: document.getElementById('gs-cq').checked
+  };
+  const res = await fetch(API + '/admin/gs/config', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...authHeader() },
+    body: JSON.stringify(body)
+  });
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
+  alert('Сохранено');
+  loadGsConfig();
+}
+async function loadGsHealth() {
+  if (needLogin()) return;
+  const res = await fetch(API + '/admin/gs/health', { headers:{ ...authHeader() }});
+  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
+  const d = await res.json().catch(()=> ({}));
+  if (!res.ok || !d?.ok) { alert('Монитор недоступен'); return; }
+  document.getElementById('m-ok').textContent    = d.okCount || 0;
+  document.getElementById('m-403').textContent   = d.denied403 || 0;
+  document.getElementById('m-429').textContent   = d.rateLimited || 0;
+  document.getElementById('m-other').textContent = d.otherDenied || 0;
+  document.getElementById('m-q-avg').textContent = (d.queue?.avg ?? 0);
+  document.getElementById('m-q-max').textContent = (d.queue?.max ?? 0);
 }
 
 // ===== Feedback =====
@@ -963,830 +816,11 @@ async function sendReply() {
   inp.value = ''; loadMessages();
 }
 
-// ===== Устройства =====
-async function loadDevices() {
-  if (needLogin()) return;
-  const q = document.getElementById('dev-q').value.trim();
-  const url = new URL(API + '/admin/devices');
-  if (q) url.searchParams.set('q', q);
-  url.searchParams.set('limit', '100');
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('devices-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(d=>{
-    const dt1 = new Date(d.first_seen).toLocaleString();
-    const dt2 = new Date(d.last_seen).toLocaleString();
-    const claimStat = `T:${d.claims_total||0} • p:${d.claims_pending||0} • a:${d.claims_approved||0} • s:${d.claims_shipped||0} • d:${d.claims_delivered||0} • r:${d.claims_rejected||0}`;
-    const user = `${escapeHtml(d.user_name||'—')} ${d.tg_id?('· tg:'+String(d.tg_id)) : ''}`;
-    return `<div class="row" onclick="copyDeviceHash('${d.device_hash}')">
-      <div>
-        <div><b>dev:${escapeHtml(d.device_hash.slice(0,12))}…</b> · ${user}</div>
-        <div class="muted">${dt1} → ${dt2}</div>
-      </div>
-      <div class="muted">${claimStat}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('devices-details').textContent = '—';
-}
-function copyDeviceHash(hash) {
-  navigator.clipboard?.writeText(hash);
-  const box = document.getElementById('devices-details');
-  if (box) box.textContent = `Скопировано: ${hash}`;
-}
-
-// ===== Бэкапы =====
-async function loadBackups() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/backups/list', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('backups-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-  list.innerHTML = (data.items||[]).map(b=>{
-    const when = b.exportedAt ? new Date(b.exportedAt).toLocaleString() : '—';
-    return `<div class="row">
-      <div>
-        <div><b>dev:${escapeHtml((b.device||'').slice(0,12))}…</b></div>
-        <div class="muted">${when}</div>
-      </div>
-      <div class="flex">
-        <div class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(b.checksum||'')}</div>
-        <button class="btn" onclick="viewBackup('${b.device}')">Открыть</button>
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('backup-viewer').textContent = '';
-}
-async function viewBackup(device) {
-  if (needLogin()) return;
-  const url = new URL(API + '/admin/backup/get');
-  url.searchParams.set('device', device);
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const pre = document.getElementById('backup-viewer');
-  if (!data?.ok) { pre.textContent = 'Ошибка'; return; }
-  pre.textContent = JSON.stringify(data.backup, null, 2);
-}
-
-// ===== Логи =====
-let __selectedLogKeys = new Set();
-function readDTLocal(id) {
-  const v = document.getElementById(id)?.value;
-  if (!v) return null;
-  try { return new Date(v).toISOString(); } catch { return null; }
-}
-async function loadLogs() {
-  if (needLogin()) return;
-  __selectedLogKeys = new Set();
-  const type = document.getElementById('logs-type').value;
-  const from = readDTLocal('logs-from');
-  const to   = readDTLocal('logs-to');
-  const pkey = document.getElementById('logs-pkey').value.trim();
-  const pop  = document.getElementById('logs-pop').value;
-  const pval = document.getElementById('logs-pval').value.trim();
-
-  const url = new URL(API + '/admin/logs');
-  if (type) url.searchParams.set('type', type);
-  if (from) url.searchParams.set('from', from);
-  if (to) url.searchParams.set('to', to);
-  if (pkey) url.searchParams.set('pkey', pkey);
-  if (pop)  url.searchParams.set('pop', pop);
-  if (pval) url.searchParams.set('pval', pval);
-  url.searchParams.set('limit', '100');
-
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const list = document.getElementById('logs-list');
-  if (!data?.ok) { list.textContent = 'Ошибка'; return; }
-
-  list.innerHTML = (data.items||[]).map(l=>{
-    const when = l.ts ? new Date(l.ts).toLocaleString() : '—';
-    const payloadShort = escapeHtml(JSON.stringify(l.payload||{})).slice(0,120);
-    return `<div class="row">
-      <div onclick="selectLog('${l.key}')">
-        <div><span class="pill">${escapeHtml(l.type||'log')}</span> <b>${when}</b></div>
-        <div class="muted">${payloadShort}</div>
-      </div>
-      <div>
-        <input type="checkbox" onchange="toggleLogKey('${l.key}', this.checked)">
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('log-details').textContent = '';
-}
-function toggleLogKey(key, checked) {
-  if (checked) __selectedLogKeys.add(key); else __selectedLogKeys.delete(key);
-}
-async function selectLog(key) {
-  if (needLogin()) return;
-  const type = document.getElementById('logs-type').value;
-  const from = readDTLocal('logs-from');
-  const to   = readDTLocal('logs-to');
-  const pkey = document.getElementById('logs-pkey').value.trim();
-  const pop  = document.getElementById('logs-pop').value;
-  const pval = document.getElementById('logs-pval').value.trim();
-  const url = new URL(API + '/admin/logs');
-  if (type) url.searchParams.set('type', type);
-  if (from) url.searchParams.set('from', from);
-  if (to) url.searchParams.set('to', to);
-  if (pkey) url.searchParams.set('pkey', pkey);
-  if (pop)  url.searchParams.set('pop', pop);
-  if (pval) url.searchParams.set('pval', pval);
-  url.searchParams.set('limit', '100');
-  const resp = await fetch(url, { headers:{ ...authHeader() }});
-  const data = await resp.json().catch(()=> ({}));
-  const it = (data.items||[]).find(x => x.key === key);
-  document.getElementById('log-details').textContent = it ? JSON.stringify(it, null, 2) : 'Не найден';
-}
-async function deleteSelectedLogs() {
-  if (!__selectedLogKeys.size) { alert('Не выбрано ни одного лога'); return; }
-  if (!confirm(`Удалить ${__selectedLogKeys.size} логов?`)) return;
-  const res = await fetch(API + '/admin/logs/delete', {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ keys: Array.from(__selectedLogKeys) })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка удаления: ' + (data?.error||res.status)); return; }
-  alert('Удалено'); loadLogs();
-}
-async function exportLogs(fmt) {
-  if (needLogin()) return;
-  const type = document.getElementById('logs-type').value;
-  const from = readDTLocal('logs-from');
-  const to   = readDTLocal('logs-to');
-  const pkey = document.getElementById('logs-pkey').value.trim();
-  const pop  = document.getElementById('logs-pop').value;
-  const pval = document.getElementById('logs-pval').value.trim();
-
-  const url = new URL(API + '/admin/logs/export');
-  url.searchParams.set('format', fmt || 'csv');
-  if (type) url.searchParams.set('type', type);
-  if (from) url.searchParams.set('from', from);
-  if (to)   url.searchParams.set('to', to);
-  if (pkey) url.searchParams.set('pkey', pkey);
-  if (pop)  url.searchParams.set('pop', pop);
-  if (pval) url.searchParams.set('pval', pval);
-  url.searchParams.set('limit', '20000');
-
-  const res = await fetch(url, { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `logs-${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.${fmt==='ndjson'?'ndjson':'csv'}`;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
-}
-
-// ===== Сводная статистика =====
-async function loadMetrics() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/metrics/summary', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  const box = document.getElementById('metrics-box');
-  if (!data?.ok) { box.textContent = 'Ошибка'; return; }
-  const byStatus = (data.claimsByStatus||[]).map(s=> `<div class="row"><div>${s.status}</div><div class="muted">${s.c}</div></div>`).join('');
-  box.innerHTML = `
-    <div class="row"><div>Пользователей</div><div class="muted">${data.users}</div></div>
-    <div class="row"><div>Устройств</div><div class="muted">${data.devices}</div></div>
-    <div class="row"><div>Заявок</div><div class="muted">${data.claims}</div></div>
-    <div class="row"><div>Диалогов обратной связи</div><div class="muted">${data.feedback_threads}</div></div>
-    <div class="row"><div>Сообщений</div><div class="muted">${data.feedback_messages}</div></div>
-    <div class="row"><div><b>Заявки по статусам</b></div><div></div></div>
-    ${byStatus || '<div class="muted">—</div>'}
-  `;
-}
-
-// ===== GS Config (управление глобальной статистикой) =====
-async function loadGsConfig() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/gs/config', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Ошибка конфигурации'); return; }
-  const c = data.config || {};
-  document.getElementById('gs-master').checked = !!c.masterEnabled;
-  document.getElementById('gs-send').checked = !!c.sendEnabled;
-  document.getElementById('gs-ui').checked = !!c.showUI;
-  document.getElementById('gs-ts').checked = !!c.requireTurnstile;
-  document.getElementById('gs-mon').checked = !!c.monitorEnabled;
-  document.getElementById('gs-cq').checked = !!c.collectClientQueue;
-
-  const monCard = document.getElementById('gs-health-card');
-  if (monCard) monCard.style.display = c.monitorEnabled ? '' : 'none';
-  if (c.monitorEnabled) loadGsHealth();
-}
-async function saveGsConfig() {
-  if (needLogin()) return;
-  const body = {
-    masterEnabled: document.getElementById('gs-master').checked,
-    sendEnabled: document.getElementById('gs-send').checked,
-    showUI: document.getElementById('gs-ui').checked,
-    requireTurnstile: document.getElementById('gs-ts').checked,
-    monitorEnabled: document.getElementById('gs-mon').checked,
-    collectClientQueue: document.getElementById('gs-cq').checked
-  };
-  const res = await fetch(API + '/admin/gs/config', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify(body)
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(()=> ({}));
-  if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
-  alert('Сохранено');
-  loadGsConfig();
-}
-async function loadGsHealth() {
-  if (needLogin()) return;
-  const res = await fetch(API + '/admin/gs/health', { headers:{ ...authHeader() }});
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(()=> ({}));
-  if (!res.ok || !d?.ok) { alert('Монитор недоступен'); return; }
-  document.getElementById('m-ok').textContent    = d.okCount || 0;
-  document.getElementById('m-403').textContent   = d.denied403 || 0;
-  document.getElementById('m-429').textContent   = d.rateLimited || 0;
-  document.getElementById('m-other').textContent = d.otherDenied || 0;
-  document.getElementById('m-q-avg').textContent = (d.queue?.avg ?? 0);
-  document.getElementById('m-q-max').textContent = (d.queue?.max ?? 0);
-}
-
-// ===== Admin: Achievements overrides =====
-let __achItems = [];
-let __achSelectedId = null;
-
-async function loadAchList() {
-  if (needLogin()) return;
-  const list = document.getElementById('ach-list');
-  list.innerHTML = 'Загрузка...';
-
-  const [baseRes, ovRes] = await Promise.all([
-    fetch(API + '/admin/ach/base', { headers:{ ...authHeader() } }),
-    fetch(API + '/admin/achievements', { headers:{ ...authHeader() } })
-  ]);
-  if (baseRes.status === 401 || ovRes.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const base = await baseRes.json().catch(()=> ({}));
-  const data = await ovRes.json().catch(()=> ({}));
-  if (!base?.ok || !data?.ok) {
-    list.textContent = 'Ошибка загрузки';
-    return;
-  }
-
-  const baseItems = (base.items || []).map(x => ({ ...x, _kind: 'base' }));
-  __achItems = (data.items || []).map(x => ({ ...x, _kind: 'override' }));
-
-  // индекс оверрайдов по id
-  const ovById = new Map(__achItems.map(x => [x.id, x]));
-
-  // оверрайды — сверху
-  const overHtml = __achItems.map(it => {
-    const id = String(it.id || '');
-    const t = escapeHtml(it.title || '');
-    const th = it.thresholds ? escapeHtml(JSON.stringify(it.thresholds)) : '';
-    const meta = [
-      it.hidden ? 'hidden' : '',
-      (typeof it.tier === 'number') ? ('tier:' + it.tier) : '',
-      it.core ? 'core' : ''
-    ].filter(Boolean).join(' · ');
-    return `<div class="row" onclick="editAch('${escapeHtml(id)}')">
-      <div><b>${escapeHtml(id)}</b> ${meta ? ('· ' + escapeHtml(meta)) : ''}<div class="muted">${t}</div></div>
-      <div class="muted" style="max-width:240px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${th}</div>
-    </div>`;
-  }).join('');
-
-  // база — серым, только те, по которым ещё нет оверрайда
-  const baseHtml = baseItems
-    .filter(b => !ovById.has(b.id))
-    .map(b => {
-      const meta = [
-        b.hidden ? 'hidden' : '',
-        (typeof b.tier === 'number') ? ('tier:' + b.tier) : '',
-        b.core ? 'core' : ''
-      ].filter(Boolean).join(' · ');
-      return `<div class="row" onclick="prefillFromBase('${escapeHtml(String(b.id))}')">
-        <div><span class="muted">${escapeHtml(String(b.id))}</span> ${meta ? ('· <span class="muted">' + escapeHtml(meta) + '</span>') : ''}
-          <div class="muted">${escapeHtml(b.title || '')}</div>
-        </div>
-        <div class="muted">нет оверрайда</div>
-      </div>`;
-    }).join('');
-
-  list.innerHTML = `
-    <div class="muted" style="margin:6px 0 4px 0;">Оверрайды</div>
-    ${overHtml || '<div class="muted">— пока нет сохранённых оверрайдов</div>'}
-    <div class="muted" style="margin:10px 0 4px 0;">База (кликните, чтобы предзаполнить редактор)</div>
-    ${baseHtml || '<div class="muted">—</div>'}
-  `;
-
-  clearAchEditor();
-}
-
-function prefillFromBase(id) {
-  // Предзаполняем редактор из базового элемента (id/title/tier/core/hidden)
-  fetch(API + '/admin/ach/base', { headers: { ...authHeader() } })
-    .then(r => r.json())
-    .then(d => {
-      const base = (d.items || []).find(x => String(x.id) === String(id));
-      if (!base) return;
-      __achSelectedId = id;
-      document.getElementById('ach-id').value = base.id || '';
-      document.getElementById('ach-hidden').checked = !!base.hidden;
-      document.getElementById('ach-core').checked = !!base.core;
-      document.getElementById('ach-tier').value = (typeof base.tier === 'number') ? String(base.tier) : '';
-      document.getElementById('ach-title').value = base.title || '';
-      document.getElementById('ach-short').value = '';
-      document.getElementById('ach-desc').value = '';
-      document.getElementById('ach-how').value = '';
-      document.getElementById('ach-thresholds').value = '';
-    }).catch(() => { /* ignore */ });
-}
-
-function clearAchEditor() {
-  __achSelectedId = null;
-  document.getElementById('ach-id').value = '';
-  document.getElementById('ach-hidden').checked = false;
-  document.getElementById('ach-core').checked = false;
-  document.getElementById('ach-tier').value = '';
-  document.getElementById('ach-title').value = '';
-  document.getElementById('ach-short').value = '';
-  document.getElementById('ach-desc').value = '';
-  document.getElementById('ach-how').value = '';
-  document.getElementById('ach-thresholds').value = '';
-}
-
-function newAchItem() {
-  clearAchEditor();
-  document.getElementById('ach-id').focus();
-}
-
-function editAch(id) {
-  const it = __achItems.find(x => String(x.id) === String(id));
-  if (!it) return;
-  __achSelectedId = id;
-  document.getElementById('ach-id').value = it.id || '';
-  document.getElementById('ach-hidden').checked = !!it.hidden;
-  document.getElementById('ach-core').checked = !!it.core;
-  document.getElementById('ach-tier').value = (typeof it.tier === 'number') ? String(it.tier) : '';
-  document.getElementById('ach-title').value = it.title || '';
-  document.getElementById('ach-short').value = it.short || '';
-  document.getElementById('ach-desc').value = it.desc || '';
-  document.getElementById('ach-how').value = it.howTo || '';
-  document.getElementById('ach-thresholds').value = it.thresholds ? JSON.stringify(it.thresholds, null, 2) : '';
-}
-
-async function saveAch() {
-  if (needLogin()) return;
-  const id = document.getElementById('ach-id').value.trim();
-  if (!id) { alert('Укажите ID'); return; }
-
-  let thresholds = null;
-  const t = document.getElementById('ach-thresholds').value.trim();
-  if (t) {
-    try { thresholds = JSON.parse(t); }
-    catch { alert('thresholds: некорректный JSON'); return; }
-  }
-
-  // корректная обработка tier: если поле пустое — не отправляем число
-  const tierStr = (document.getElementById('ach-tier').value || '').trim();
-  const tierVal = tierStr === '' ? undefined : Number(tierStr);
-  if (tierVal !== undefined && !Number.isFinite(tierVal)) {
-    alert('Tier: укажите число'); return;
-  }
-
-  const body = {
-    id,
-    hidden: document.getElementById('ach-hidden').checked,
-    core: document.getElementById('ach-core').checked,
-    title: document.getElementById('ach-title').value,
-    short: document.getElementById('ach-short').value,
-    desc: document.getElementById('ach-desc').value,
-    howTo: document.getElementById('ach-how').value,
-    thresholds
-  };
-  if (tierVal !== undefined) body.tier = tierVal;
-
-  const res = await fetch(API + '/admin/achievement/upsert', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify(body)
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) { alert('Не сохранено'); return; }
-  alert('Сохранено');
-  loadAchList();
-}
-
-async function deleteAch() {
-  if (needLogin()) return;
-  const id = (document.getElementById('ach-id').value || '').trim();
-  if (!id) { alert('Сначала выберите элемент'); return; }
-  if (!confirm(`Удалить оверрайд "${id}"?`)) return;
-
-  const res = await fetch(API + '/admin/achievement/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ id })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) { alert('Не удалено'); return; }
-  alert('Удалено');
-  loadAchList();
-}
-
-async function copyAch() {
-  if (needLogin()) return;
-  const fromId = (document.getElementById('ach-id').value || '').trim();
-  if (!fromId) { alert('Выберите, что копировать'); return; }
-  const toId = prompt('Новый ID (копия из ' + fromId + ')');
-  if (!toId) return;
-
-  const res = await fetch(API + '/admin/achievement/copy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ fromId, toId })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) { alert('Не скопировано'); return; }
-  alert('Скопировано');
-  loadAchList();
-}
-
-// ===== Admin: DEMO helpers and panel =====
-
-// Рендер всех достижений (видимые + секретные) в виде чек-листа
-function renderDemoAchList(items) {
-  const box = document.getElementById('demo-ach-box');
-  if (!box) return;
-
-  const sorted = [...items].sort((a, b) => {
-    if (!!a.hidden !== !!b.hidden) return a.hidden ? 1 : -1; // видимые первыми
-    if ((a.tier || 0) !== (b.tier || 0)) return (a.tier || 0) - (b.tier || 0);
-    return String(a.title || a.id).localeCompare(String(b.title || b.id), 'ru');
-  });
-
-  const visible = sorted.filter(x => !x.hidden);
-  const secret = sorted.filter(x => x.hidden);
-
-  const rows = (arr) => arr.map(a => `
-    <div class="ach-row">
-      <label class="checkbox-container">
-        <input type="checkbox" data-ach="${escapeHtml(String(a.id))}" onchange="updateDemoCountsAndLevel()">
-        <span>${escapeHtml(a.title || a.id)} <span class="ach-id">(${escapeHtml(String(a.id))})</span></span>
-      </label>
-      <span class="muted">${a.tier ? 'tier:'+a.tier : ''}</span>
-    </div>
-  `).join('');
-
-  box.innerHTML = `
-    <div class="group-title">Видимые</div>
-    ${rows(visible) || '<div class="muted">—</div>'}
-    <div class="group-title">Секретные</div>
-    ${rows(secret) || '<div class="muted">—</div>'}
-  `;
-
-  // обновим бейджи "всего/видимых/секретных"
-  document.getElementById('demo-total').textContent = String(items.length);
-  document.getElementById('demo-visible-badge').textContent = `Видимых: ${visible.length}`;
-  document.getElementById('demo-secret-badge').textContent = `Секретных: ${secret.length}`;
-
-  updateDemoCountsAndLevel();
-}
-
-function getCheckedIds() {
-  return Array.from(document.querySelectorAll('#demo-ach-box input[type="checkbox"][data-ach]'))
-    .filter(c => c.checked)
-    .map(c => c.getAttribute('data-ach'));
-}
-
-function markAll(mark) {
-  const boxes = document.querySelectorAll('#demo-ach-box input[type="checkbox"][data-ach]');
-  boxes.forEach(b => { b.checked = !!mark; });
-  updateDemoCountsAndLevel();
-}
-
-let __demoHiddenById = new Map();
-function setDemoHiddenMap(items) {
-  __demoHiddenById = new Map(items.map(x => [String(x.id), !!x.hidden]));
-}
-function markAllVisible(mark) {
-  const boxes = document.querySelectorAll('#demo-ach-box input[type="checkbox"][data-ach]');
-  boxes.forEach(b => {
-    const id = b.getAttribute('data-ach');
-    const isHidden = __demoHiddenById.get(String(id));
-    if (!isHidden) b.checked = !!mark;
-  });
-  updateDemoCountsAndLevel();
-}
-function markAllSecret(mark) {
-  const boxes = document.querySelectorAll('#demo-ach-box input[type="checkbox"][data-ach]');
-  boxes.forEach(b => {
-    const id = b.getAttribute('data-ach');
-    const isHidden = __demoHiddenById.get(String(id));
-    if (isHidden) b.checked = !!mark;
-  });
-  updateDemoCountsAndLevel();
-}
-
-function preset5() {
-  // отметить первые 5 видимых
-  const ids = [];
-  const boxes = Array.from(document.querySelectorAll('#demo-ach-box input[type="checkbox"][data-ach]'));
-  for (const b of boxes) {
-    const id = b.getAttribute('data-ach');
-    const isHidden = __demoHiddenById.get(String(id));
-    if (!isHidden) ids.push(b);
-    if (ids.length >= 5) break;
-  }
-  markAll(false);
-  ids.forEach(b => b.checked = true);
-  updateDemoCountsAndLevel();
-}
-
-function presetFirstPrize() {
-  // все видимые (без секретных)
-  markAll(false);
-  markAllVisible(true);
-}
-
-function presetSecondPrize() {
-  // все видимые + все секретные
-  markAll(true);
-}
-
-function updateDemoCountsAndLevel() {
-  const boxes = Array.from(document.querySelectorAll('#demo-ach-box input[type="checkbox"][data-ach]'));
-  const checked = boxes.filter(b => b.checked);
-  const checkedIds = checked.map(b => b.getAttribute('data-ach'));
-
-  const total = boxes.length;
-  const visibleTotal = Array.from(__demoHiddenById.values()).filter(v => !v).length;
-  const secretTotal = total - visibleTotal;
-
-  let visibleDone = 0, secretDone = 0;
-  checkedIds.forEach(id => {
-    if (__demoHiddenById.get(String(id))) secretDone++;
-    else visibleDone++;
-  });
-
-  document.getElementById('demo-checked').textContent = String(checked.length);
-
-  // Индикатор уровня = выполнено видимых
-  const pill = document.getElementById('demo-level-pill');
-  if (pill) pill.textContent = `Уровень: ${visibleDone} / ${visibleTotal}`;
-
-  // подсказка: если все видимые отмечены — можно брать 1-й приз
-  const hint = document.getElementById('demo-hint');
-  if (visibleDone >= visibleTotal) {
-    if (secretDone > 0) {
-      hint.textContent = 'Готово для 1-го приза. Секретные отмечены: ' + secretDone + ' / ' + secretTotal;
-    } else {
-      hint.textContent = 'Готово для 1-го приза (видимые: все).';
-    }
-  } else {
-    hint.textContent = 'Отметьте видимые достижения для 1-го приза или используйте пресет.';
-  }
-}
-
-async function loadDemoPanel() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return alert('Введите tg_id');
-
-  // Получаем настройки тестера
-  const res = await fetch(`${API}/admin/demo/tester?tg=${encodeURIComponent(tg)}`, { headers: { ...authHeader() } });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) { alert('Не удалось загрузить'); return; }
-
-  document.getElementById('demo-mode').checked = (d.tester?.mode === 'demo');
-  document.getElementById('demo-dn').value = d.tester?.displayNameDemo || 'VR Admin';
-  document.getElementById('demo-hint').textContent = d.hasDemo ? 'Демо-бэкап сохранён' : 'Демо-бэкап не настроен';
-
-  // База достижений
-  const base = await fetch(API + '/admin/ach/base', { headers: { ...authHeader() } }).then(r => r.json()).catch(() => ({}));
-  const items = (base.items || []);
-  setDemoHiddenMap(items);
-  renderDemoAchList(items);
-
-  // Автозагрузка списка DEMO‑заявок для наглядности
-  try { await demoLoadClaims(); } catch(e){}
-}
-
-async function saveDemoMode() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  const mode = document.getElementById('demo-mode').checked ? 'demo' : 'live';
-  const displayNameDemo = document.getElementById('demo-dn').value.trim() || 'VR Admin';
-  const res = await fetch(API + '/admin/demo/tester', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ tg, mode, displayNameDemo })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) return alert('Не сохранено');
-  alert('Сохранено');
-}
-
-async function buildAndSaveDemoBackup() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return alert('Введите tg_id');
-
-  const now = Date.now();
-  const checkedIds = getCheckedIds();
-
-  // Статистика/ачивки
-  const stats = {
-    schema: 2,
-    deviceHash: 'demo_device',
-    createdAt: now,
-    totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 },
-    perTrack: Array.from({ length: 16 }, () => ({
-      validPlays: 0, fullPlays: 0, totalSeconds: 0, lastPlayedAt: 0,
-      byHour: Array(24).fill(0), byWeekday: Array(7).fill(0)
-    })),
-    uniqueTracksPlayed: [],
-    byDay: {},
-    streak: { current: 0, max: 0, lastDay: null },
-    likedCount: 0,
-    achievements: {},
-    lastMajorAchAt: 0,
-    backups: { dates: [] },
-    socialsVisited: {},
-    sleepTimerStops: 0
-  };
-  checkedIds.forEach(id => { stats.achievements[id] = { unlockedAt: now, tier: 1 }; });
-
-  // Подсчёты видимых/секретных из карты
-  const allIds = Array.from(__demoHiddenById.keys());
-  const visibleTotal = allIds.filter(id => !__demoHiddenById.get(id)).length;
-  const secretTotal = allIds.length - visibleTotal;
-  const visibleDone = checkedIds.filter(id => !__demoHiddenById.get(id)).length;
-  const secretDone = checkedIds.filter(id => __demoHiddenById.get(id)).length;
-
-  const payload = {
-    appVersion: 'demo',
-    buildDate: new Date().toISOString().slice(0, 10),
-    exportedAt: new Date().toISOString(),
-    deviceHash: 'demo_device',
-    profile: { displayName: document.getElementById('demo-dn').value.trim() || 'VR Admin', tgId: tg, tgUsername: null },
-    favorites: [],
-    knownDevices: ['demo_device'],
-    achOverview: {
-      normalTotal: visibleTotal,
-      normalDone: visibleDone,
-      secretTotal: secretTotal,
-      secretDoneFromStart: secretDone,
-      secretStartAt: secretDone ? now : null
-    },
-    stats,
-    statsInsights: null
-  };
-
-  // checksum
-  const checksum = await (async (s) => {
-    const enc = new TextEncoder().encode(JSON.stringify(s));
-    const h = await crypto.subtle.digest('SHA-256', enc);
-    return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('');
-  })(payload);
-
-  const file = { kind: 'vr_backup_v1', checksum, payload };
-
-  const res = await fetch(API + '/admin/demo/backup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ tg, file })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) return alert('Демо-бэкап не сохранён');
-
-  document.getElementById('demo-hint').textContent = 'Демо-бэкап сохранён';
-  updateDemoCountsAndLevel();
-  alert('Демо‑бэкап сохранён. Откройте приложение под этим tg_id — прогресс загрузится автоматически.');
-}
-async function demoLoadClaims() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  const device = document.getElementById('demo-device').value.trim();
-  if (!tg) return alert('Введите tg_id');
-  const url = new URL(`${API}/admin/demo/claims`);
-  url.searchParams.set('tg', tg);
-  if (device) url.searchParams.set('device', device);
-  const res = await fetch(url, { headers:{ ...authHeader() } });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(()=> ({}));
-  const box = document.getElementById('demo-claims-list');
-  if (!res.ok || !d?.ok) { box.textContent = 'Ошибка'; return; }
-  const items = d.items || [];
-  if (!items.length) { box.textContent = 'Заявок нет'; return; }
-  box.innerHTML = items.map(c=>{
-    const when = c.created_at ? new Date(c.created_at).toLocaleString() : '—';
-    const devShort = (c.device_hash||'').slice(0,8);
-    return `<div class="row" onclick="(function(){document.getElementById('demo-claim-id').value='${c.id}';document.getElementById('demo-device').value='${c.device_hash||''}';})()">
-      <div>
-        <div><b>#${c.id.slice(0,8)}</b> · dev:${devShort} · <span class="pill">${c.status}</span></div>
-        <div class="muted">${when} · ${escapeHtml(c.prize_title||'')}</div>
-      </div>
-      <div class="muted">${c.tracking_code?('trk:'+escapeHtml(c.tracking_code)):'—'}</div>
-    </div>`;
-  }).join('');
-}
-
-async function demoSetShipped() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  let device = document.getElementById('demo-device').value.trim();
-  const id = document.getElementById('demo-claim-id').value.trim();
-  const tracking = document.getElementById('demo-tracking').value.trim();
-  if (!tg || !id || !tracking) return alert('tg/claim/tracking');
-
-  // если device пуст — попытаемся найти его по id
-  if (!device) {
-    try {
-      const url = new URL(`${API}/admin/demo/claims`);
-      url.searchParams.set('tg', tg);
-      const resList = await fetch(url, { headers:{ ...authHeader() } });
-      const data = await resList.json().catch(()=> ({}));
-      const it = (data.items||[]).find(x => x.id === id);
-      if (it?.device_hash) device = it.device_hash;
-    } catch(e){}
-  }
-  if (!device) return alert('Не удалось определить device_hash для этой заявки');
-
-  const res = await fetch(`${API}/admin/demo/claim/tracking`, {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ tg, device, id, tracking })
-  });
-  const d = await res.json().catch(()=> ({}));
-  if (!res.ok || !d?.ok) return alert('Не удалось: '+(d?.error||res.status));
-  alert('Статус: shipped');
-  demoLoadClaims();
-}
-
-async function demoSetDelivered() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  let device = document.getElementById('demo-device').value.trim();
-  const id = document.getElementById('demo-claim-id').value.trim();
-  if (!tg || !id) return alert('tg/claim');
-
-  if (!device) {
-    try {
-      const url = new URL(`${API}/admin/demo/claims`);
-      url.searchParams.set('tg', tg);
-      const resList = await fetch(url, { headers:{ ...authHeader() } });
-      const data = await resList.json().catch(()=> ({}));
-      const it = (data.items||[]).find(x => x.id === id);
-      if (it?.device_hash) device = it.device_hash;
-    } catch(e){}
-  }
-  if (!device) return alert('Не удалось определить device_hash для этой заявки');
-
-  const res = await fetch(`${API}/admin/demo/claim/delivered`, {
-    method:'POST', headers:{ 'Content-Type':'application/json', ...authHeader() },
-    body: JSON.stringify({ tg, device, id })
-  });
-  const d = await res.json().catch(()=> ({}));
-  if (!res.ok || !d?.ok) return alert('Не удалось: '+(d?.error||res.status));
-  alert('Статус: delivered');
-  demoLoadClaims();
-}
-
-async function resetDemoClaims() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return;
-  if (!confirm('Очистить DEMO‑заявки для этого tg_id?')) return;
-  const res = await fetch(API + '/admin/demo/claims/reset', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ tg })
-  });
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) return alert('Не очищено');
-  alert('DEMO‑заявки очищены');
-}
-
-// ===== utils =====
-function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-// Автологин-проверка
+// Автологин-проверка и авто-открытие
 window.addEventListener('load', () => {
   if (needLogin(true)) return;
   guardApp();
-  loadClaims();
+  loadClaims(); // из claims-admin.js
 
   // Авто-открытие нужной вкладки и подстановка tg из URL
   try {
@@ -1800,172 +834,18 @@ window.addEventListener('load', () => {
     if (tab && document.getElementById('tab-' + tab)) {
       switchTab(tab);
       if (tab === 'demo') {
-        // подгрузим панель DEMO сразу
+        // подгрузим панель DEMO сразу (функция из demo-admin.js)
         loadDemoPanel();
-      }
-      if (tab === 'ach') {
-        loadAchList();
       }
     }
   } catch (e) {}
 });
-// ===== Автосценарий DEMO =====
-let scenarioInterval = null;
-
-async function startScenario() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return alert('Введите tg_id');
-  
-  const speed = document.getElementById('scenario-speed').value;
-  const autoClaimPrizes = document.getElementById('scenario-auto-prizes').checked;
-  
-  const res = await fetch(`${API}/admin/demo/scenario/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ tgId: tg, speed, autoClaimPrizes })
-  });
-  
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) return alert('Не удалось запустить: ' + (d?.error || res.status));
-  
-  alert('Автосценарий запущен! Откройте приложение для просмотра прогресса.');
-  refreshScenarioStatus();
-  
-  // Запускаем периодическое обновление статуса
-  if (scenarioInterval) clearInterval(scenarioInterval);
-  scenarioInterval = setInterval(refreshScenarioStatus, 2000);
-}
-
-async function pauseScenario() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return alert('Введите tg_id');
-  
-  const res = await fetch(`${API}/admin/demo/scenario/settings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ tgId: tg, paused: true })
-  });
-  
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) return alert('Не удалось поставить на паузу');
-  
-  alert('Сценарий поставлен на паузу');
-  refreshScenarioStatus();
-}
-
-async function resetScenario() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return alert('Введите tg_id');
-  
-  if (!confirm('Сбросить автосценарий и весь прогресс?')) return;
-  
-  const res = await fetch(`${API}/admin/demo/scenario/reset`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ tgId: tg })
-  });
-  
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d?.ok) return alert('Не удалось сбросить');
-  
-  // Останавливаем периодическое обновление
-  if (scenarioInterval) {
-    clearInterval(scenarioInterval);
-    scenarioInterval = null;
-  }
-  
-  alert('Сценарий сброшен');
-  refreshScenarioStatus();
-  
-  // Перезагружаем панель
-  loadDemoPanel();
-}
-
-async function refreshScenarioStatus() {
-  if (needLogin()) return;
-  const tg = document.getElementById('demo-tg').value.trim();
-  if (!tg) return;
-  
-  const res = await fetch(`${API}/admin/demo/scenario/status?tgId=${encodeURIComponent(tg)}`, {
-    headers: { ...authHeader() }
-  });
-  
-  if (res.status === 401) { sessionStorage.removeItem(authKey); return needLogin(); }
-  const d = await res.json().catch(() => ({}));
-  
-  if (!res.ok || !d?.ok) return;
-  
-  const statusEl = document.getElementById('scenario-status');
-  const stageEl = document.getElementById('scenario-stage');
-  const achEl = document.getElementById('scenario-achievements');
-  const hintEl = document.getElementById('scenario-hint');
-  
-  if (d.hasScenario && d.hasProgress) {
-    statusEl.textContent = d.paused ? 'на паузе' : 'запущен';
-    statusEl.className = d.paused ? 'badge' : 'badge ok';
-    
-    if (d.currentStage) {
-      stageEl.textContent = `${d.currentStage} (${d.currentStageIndex + 1}/${d.totalStages})`;
-    } else {
-      stageEl.textContent = 'завершён';
-    }
-    
-    achEl.textContent = `${d.completedAchievements.length}`;
-    
-    // Обновляем настройки скорости
-    if (d.settings?.speed !== undefined) {
-      document.getElementById('scenario-speed').value = String(d.settings.speed);
-    }
-    if (d.settings?.autoClaimPrizes !== undefined) {
-      document.getElementById('scenario-auto-prizes').checked = d.settings.autoClaimPrizes;
-    }
-    
-    // Подсказка
-    if (d.currentStage === 'stage2_claim_first' || d.currentStage === 'stage4_claim_second') {
-      hintEl.textContent = '⚠️ Требуется действие: выберите приз в приложении';
-      hintEl.style.color = '#ffb84d';
-    } else if (d.currentStageIndex >= d.totalStages) {
-      hintEl.textContent = '✅ Сценарий завершён. Можно сбросить для повторного прохождения.';
-      hintEl.style.color = '#6df59a';
-    } else {
-      hintEl.textContent = 'Автосценарий последовательно выполняет все достижения с настраиваемой скоростью.';
-      hintEl.style.color = '';
-    }
-  } else {
-    statusEl.textContent = 'не запущен';
-    statusEl.className = 'badge';
-    stageEl.textContent = '—';
-    achEl.textContent = '0';
-    hintEl.textContent = 'Автосценарий последовательно выполняет все достижения с настраиваемой скоростью.';
-    hintEl.style.color = '';
-  }
-}
-
-// Обновим функцию loadDemoPanel, чтобы загружать статус сценария
-const originalLoadDemoPanel = loadDemoPanel;
-loadDemoPanel = async function() {
-  await originalLoadDemoPanel();
-  await refreshScenarioStatus();
-};
-
-// Автоматическая остановка интервала при переключении вкладок
-const originalSwitchTab = switchTab;
-switchTab = function(tab) {
-  // Останавливаем интервал при уходе с вкладки DEMO
-  if (scenarioInterval) {
-    clearInterval(scenarioInterval);
-    scenarioInterval = null;
-  }
-  originalSwitchTab(tab);
-};
 </script>
+
+<!-- ВАЖНО: подключаем только модули (никаких дублирующих inline-функций больше нет) -->
 <script type="module" src="admin/prizes-admin.js"></script>
 <script type="module" src="admin/logs-admin.js"></script>
+<script type="module" src="admin/demo-admin.js"></script>
+<script type="module" src="admin/claims-admin.js"></script>
 </body>
 </html>
