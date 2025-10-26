@@ -1,14 +1,12 @@
 // admin/prizes-admin.js
-// Небольшой изолированный модуль для вкладки "Призы" в админке.
-// Ничего не ломает, добавляет недостающие функции и экспортирует их на window.
+// Модуль админки для вкладки "Призы": список, редактирование, сохранение, удаление.
+// Полностью совместим с вашим admin.html: те же id и семантика.
+// Функции экспортируются на window: loadPrizesAdmin, savePrize, deletePrize, editAdmPrize, clearAdmPrizeEditor.
 
-// ВАЖНО: ниже эндпоинт совпадает с тем, что у вас в admin.html.
-// Если в будущем захотите, можно брать API с window.API, но его нет на window.
-// Поэтому дублируем сюда ту же строку.
 const API = 'https://vr-backend.apel-s-in.workers.dev';
 const authKey = 'vr_admin_auth';
 
-// Лёгкие хелперы (локальные, не конфликтуют с остальными)
+// ——— Helpers ———
 function authHeader() {
   const tok = sessionStorage.getItem(authKey);
   return tok ? { Authorization: tok } : {};
@@ -17,9 +15,8 @@ function ensureAuthedOrLogin(res) {
   if (res.status === 401) {
     sessionStorage.removeItem(authKey);
     try {
-      // если в странице уже есть guardApp — подсветит форму входа
-      // но на случай отсутствия — перезагрузим страницу
-      if (typeof window.guardApp === 'function') window.guardApp();
+      if (typeof window.needLogin === 'function') window.needLogin(true);
+      else if (typeof window.guardApp === 'function') window.guardApp();
     } catch {}
     return false;
   }
@@ -27,11 +24,14 @@ function ensureAuthedOrLogin(res) {
 }
 function escapeHtml(s) {
   return String(s || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 
-// ————— Рендер и взаимодействия —————
+// ——— Рендер списка ———
 function paintPrizesList(items = []) {
   const box = document.getElementById('adm-prizes-list');
   if (!box) return;
@@ -46,14 +46,22 @@ function paintPrizesList(items = []) {
     const title = escapeHtml(it.title || '');
     const short = escapeHtml(it.short || '');
     const img = escapeHtml(it.img || '');
-    const attrs = `data-id="${id}" data-title="${title}" data-short="${short}" data-long="${escapeHtml(it.long || '')}" data-img="${img}"`;
+    // Для предзаполнения редактора сохраним все нужные поля как data-атрибуты
+    const attrs = [
+      ['data-id', id],
+      ['data-title', title],
+      ['data-short', short],
+      ['data-long', escapeHtml(it.long || '')],
+      ['data-img', img]
+    ].map(([k,v]) => `${k}="${v}"`).join(' ');
+
     return `
       <div class="row" ${attrs} onclick="editAdmPrize(this)">
         <div>
-          <div><b>${title}</b> <span class="muted">(#${id})</span></div>
+          <div><b>${title || '(без названия)'}</b> <span class="muted">${id ? `(#${id})` : ''}</span></div>
           <div class="muted">${short || '—'}</div>
         </div>
-        <div class="muted" style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${img}</div>
+        <div class="muted" style="max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${img}</div>
       </div>
     `;
   }).join('');
@@ -93,9 +101,9 @@ function clearAdmPrizeEditor() {
   if (fImg) fImg.value = '';
 }
 
-// ————— Публичные функции (экспорт на window) —————
+// ——— API ———
 
-// Загрузка списка призов
+// Список призов
 async function loadPrizesAdmin() {
   try {
     const res = await fetch(API + '/admin/prizes', { headers: { ...authHeader() } });
@@ -103,15 +111,14 @@ async function loadPrizesAdmin() {
     const d = await res.json().catch(() => ({}));
     const items = Array.isArray(d?.items) ? d.items : [];
     paintPrizesList(items);
-    // Не стираем редактор, чтобы не терять введённое — только при первой загрузке можно явно очищать
-    // clearAdmPrizeEditor();
+    // Редактор не очищаем, чтобы не потерять ввод
   } catch (e) {
     const box = document.getElementById('adm-prizes-list');
     if (box) box.innerHTML = '<div class="muted">Ошибка загрузки</div>';
   }
 }
 
-// Клик по элементу списка — предзаполняем редактор
+// Клик по строке — предзаполнить редактор
 function editAdmPrize(rowEl) {
   if (!rowEl) return;
   fillEditorFromAttrs(rowEl);
@@ -141,10 +148,12 @@ async function savePrize() {
       return;
     }
     alert('Сохранено');
-    // Обновляем список и редактор под новый/актуальный id
+
+    // Обновим список и подставим актуальный id (если создан новый)
     await loadPrizesAdmin();
     if (d.id) {
-      document.getElementById('adm-prize-id').value = d.id;
+      const fId = document.getElementById('adm-prize-id');
+      if (fId) fId.value = d.id;
     }
   } catch (e) {
     alert('Сеть недоступна');
@@ -177,10 +186,19 @@ async function deletePrize() {
   }
 }
 
-// ————— Экспортируем на window для inline-обработчиков в admin.html —————
+// ——— Экспорт в window для inline onclick ———
 window.loadPrizesAdmin = loadPrizesAdmin;
 window.savePrize = savePrize;
 window.deletePrize = deletePrize;
-window.editAdmPrize = editAdmPrize;           // клики по строкам в списке
+window.editAdmPrize = editAdmPrize;
 window.clearAdmPrizeEditor = clearAdmPrizeEditor;
 
+// ——— Необязательная автоинициализация ———
+// Если список присутствует в DOM (вкладка открыта), можно подгрузить его при загрузке страницы.
+// Безопасно: если элементов нет — ничего не делаем.
+document.addEventListener('DOMContentLoaded', () => {
+  const box = document.getElementById('adm-prizes-list');
+  if (box) {
+    loadPrizesAdmin();
+  }
+});
