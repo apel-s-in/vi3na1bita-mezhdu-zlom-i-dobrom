@@ -17,7 +17,7 @@
       "title": "Рулетка",
       "audio": "audio/01.mp3",
       "lyrics": "lyrics/01.json",
-      "size": 12.10,
+      "size": 8.37,
       "fulltext": "lyrics/01.txt"
     },
     {
@@ -25,7 +25,7 @@
       "title": "Дыхание 24/7",
       "audio": "audio/02.mp3",
       "lyrics": "lyrics/02.json",
-      "size": 13.58,
+      "size": 9.88,
       "fulltext": "lyrics/02.txt"
     },
     {
@@ -33,7 +33,7 @@
       "title": "Витрина разбита",
       "audio": "audio/03.mp3",
       "lyrics": "lyrics/03.json",
-      "size": 12.64,
+      "size": 8.91,
       "fulltext": "lyrics/03.txt"
     },
     {
@@ -41,7 +41,7 @@
       "title": "Кошки-мышки",
       "audio": "audio/04.mp3",
       "lyrics": "lyrics/04.json",
-      "size": 12.49,
+      "size": 8.76,
       "fulltext": "lyrics/04.txt"
     },
     {
@@ -49,7 +49,7 @@
       "title": "Всё включено",
       "audio": "audio/05.mp3",
       "lyrics": "lyrics/05.json",
-      "size": 12.03,
+      "size": 8.28,
       "fulltext": "lyrics/05.txt"
     },
     {
@@ -57,7 +57,7 @@
       "title": "Вырвать сердце",
       "audio": "audio/06.mp3",
       "lyrics": "lyrics/06.json",
-      "size": 12.45,
+      "size": 8.71,
       "fulltext": "lyrics/06.txt"
     },
     {
@@ -65,7 +65,7 @@
       "title": "Все там будем",
       "audio": "audio/07.mp3",
       "lyrics": "lyrics/07.json",
-      "size": 13.14,
+      "size": 9.41,
       "fulltext": "lyrics/07.txt"
     },
     {
@@ -73,7 +73,7 @@
       "title": "Зачем цветы с корнями вырываем",
       "audio": "audio/08.mp3",
       "lyrics": "lyrics/08.json",
-      "size": 12.83,
+      "size": 9.11,
       "fulltext": "lyrics/08.txt"
     },
     {
@@ -81,7 +81,7 @@
       "title": "Память",
       "audio": "audio/09.mp3",
       "lyrics": "lyrics/09.json",
-      "size": 12.44,
+      "size": 8.71,
       "fulltext": "lyrics/09.txt"
     },
     {
@@ -89,7 +89,7 @@
       "title": "Маша",
       "audio": "audio/10.mp3",
       "lyrics": "lyrics/10.json",
-      "size": 15.37,
+      "size": 11.71,
       "fulltext": "lyrics/10.txt"
     },
     {
@@ -97,7 +97,7 @@
       "title": "Остановись, Планета",
       "audio": "audio/11.mp3",
       "lyrics": "lyrics/11.json",
-      "size": 12.35,
+      "size": 8.62,
       "fulltext": "lyrics/11.txt"
     },
     {
@@ -105,7 +105,7 @@
       "title": "Прости, я не фейк",
       "audio": "audio/12.mp3",
       "lyrics": "lyrics/12.json",
-      "size": 10.64,
+      "size": 6.87,
       "fulltext": "lyrics/12.txt"
     },
     {
@@ -113,7 +113,7 @@
       "title": "Оля у моря",
       "audio": "audio/13.mp3",
       "lyrics": "lyrics/13.json",
-      "size": 12.32,
+      "size": 8.58,
       "fulltext": "lyrics/13.txt"
     },
     {
@@ -121,7 +121,7 @@
       "title": "Лови свой миг",
       "audio": "audio/14.mp3",
       "lyrics": "lyrics/14.json",
-      "size": 12.57,
+      "size": 8.84,
       "fulltext": "lyrics/14.txt"
     },
     {
@@ -129,7 +129,7 @@
       "title": "Призрак",
       "audio": "audio/15.mp3",
       "lyrics": "lyrics/15.json",
-      "size": 12.83,
+      "size": 9.11,
       "fulltext": "lyrics/15.txt"
     },
     {
@@ -137,7 +137,7 @@
       "title": "Между злом и добром",
       "audio": "audio/16.mp3",
       "lyrics": "lyrics/16.json",
-      "size": 11.75,
+      "size": 7.99,
       "fulltext": "lyrics/16.txt"
     }
   ]
