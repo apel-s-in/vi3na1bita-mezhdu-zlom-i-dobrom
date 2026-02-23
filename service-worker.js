@@ -1,5 +1,5 @@
-// service-worker.js - v6.6.11
-const VERSION = '6.6.11';
+// service-worker.js - v6.3.2
+const VERSION = '6.3.2'; // Обновили версию для сброса старого кэша
 const CACHE_NAME = `album-cache-v${VERSION}`;
 const OFFLINE_CACHE = 'album-offline-v1';
 
@@ -19,14 +19,13 @@ const SKIP_CACHE_PATTERNS = [
 const STATIC_CACHE_URLS = [
   './',
   './index.html',
-  './admin.html',
   './manifest.json',
   './config.json',
   './img/logo.png',
   './img/star.png',
   './img/star2.png',
   './Cover.png'
-];
+]; // Убрали несуществующий admin.html
 
 let offlineMode = false;
 
