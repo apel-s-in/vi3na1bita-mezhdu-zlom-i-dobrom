@@ -1195,1153 +1195,461 @@ const Prize = {
     } catch { NotificationSystem.error('Ошибка подтверждения'); }
   },
 };
-// ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ====
+[cite_start]// ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ==== [cite: 352]
 const GS_Q_KEY = 'vr_gs_queue_v1';
-
 const GlobalStats = {
-  period: 'all',
-  sending: false,
-  errorOnce: false,
-  _retryAt: 0,
-  _failCount: 0,
-
-  async fetchConfig() {
-    if (!GLOBAL_STATS_URL) return { masterEnabled:true, sendEnabled:false, showUI:true, requireTurnstile:true };
-    const res = await fetch(`${GLOBAL_STATS_URL}/gs/config`, { mode:'cors' });
-    const data = await res.json().catch(()=> ({}));
-    if (!res.ok || !data?.ok) return { masterEnabled:true, sendEnabled:true, showUI:true, requireTurnstile:true };
-    return data.config || { masterEnabled:true, sendEnabled:true, showUI:true, requireTurnstile:true };
+  period: 'all', sending: false, errorOnce: false, _retryAt: 0, _failCount: 0,
+  [cite_start]async fetchConfig() { [cite: 353]
+    if (!GLOBAL_STATS_URL) return { masterEnabled: true, sendEnabled: false, showUI: true, requireTurnstile: true };
+    try {
+      [cite_start]const res = await fetch(`${GLOBAL_STATS_URL}/gs/config`, { mode: 'cors' }); [cite: 354]
+      const data = await res.json();
+      [cite_start]return (res.ok && data?.ok && data.config) ? data.config : { masterEnabled: true, sendEnabled: true, showUI: true, requireTurnstile: true }; [cite: 355]
+    } catch { return { masterEnabled: true, sendEnabled: true, showUI: true, requireTurnstile: true }; }
   },
-
   init() {
-    if (!FeatureFlags.globalStatsUI) return;
+    [cite_start]if (!FeatureFlags.globalStatsUI) return; [cite: 356]
     this.root = document.getElementById('global-stats-root');
     this.body = document.getElementById('global-stats-body');
     this.toggleBtn = document.getElementById('global-stats-toggle');
-    if (!this.root || !this.body || !this.toggleBtn) return;
-
+    [cite_start]if (!this.root || !this.body || !this.toggleBtn) return; [cite: 357]
     const open = localStorage.getItem('globalStatsOpen') === '1';
-    this.toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    this.body.hidden = !open;
-
+    this.toggleBtn.setAttribute('aria-expanded', String(open));
+    [cite_start]this.body.hidden = !open; [cite: 358]
     this.toggleBtn.addEventListener('click', () => {
-      const expanded = this.toggleBtn.getAttribute('aria-expanded') === 'true';
-      const next = !expanded;
-      this.toggleBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
+      const next = this.toggleBtn.getAttribute('aria-expanded') !== 'true';
+      this.toggleBtn.setAttribute('aria-expanded', String(next));
       this.body.hidden = !next;
       localStorage.setItem('globalStatsOpen', next ? '1' : '0');
       if (next) this.fetchAndRender();
     });
-
-    // Период: Всего/Сегодня/Неделя/Месяц
-    ['all','today','week','month'].forEach(p=>{
-      const el = document.getElementById('gs-tab-'+p);
-      if (el) el.onclick = ()=>{
-        this.period = p;
-        ['all','today','week','month'].forEach(pp=>{
-          const btn = document.getElementById('gs-tab-'+pp);
-          if (btn) btn.classList.toggle('active', pp===p);
-        });
+    ['all', 'today', 'week', 'month'].forEach(p => {
+      document.getElementById('gs-tab-' + p)?.addEventListener('click', () => {
+        [cite_start]this.period = p; [cite: 359]
+        ['all', 'today', 'week', 'month'].forEach(pp => document.getElementById('gs-tab-' + pp)?.classList.toggle('active', pp === p));
         this.fetchAndRender(true);
-      };
+      });
     });
-
-    // Свёртки
-    const hT = document.getElementById('gs-hours-toggle');
-    const hB = document.getElementById('gs-hours-bars');
-    if (hT && hB) hT.onclick = ()=> hB.style.display = (hB.style.display==='none') ? '' : 'none';
-    const wT = document.getElementById('gs-week-toggle');
-    const wB = document.getElementById('gs-week-bars');
-    if (wT && wB) wT.onclick = ()=> wB.style.display = (wB.style.display==='none') ? '' : 'none';
-
-    // Удалённый конфиг
-    this.fetchConfig().then(cfg=>{
-      if (!cfg.showUI) {
-        const root = document.getElementById('global-stats-root');
-        if (root) root.style.display = 'none';
-      }
-      // включение/выключение отправки на клиентах
+    const hT = document.getElementById('gs-hours-toggle'), hB = document.getElementById('gs-hours-bars');
+    if (hT && hB) hT.onclick = () => hB.style.display = hB.style.display === 'none' ? [cite_start]'' : 'none'; [cite: 360, 361]
+    const wT = document.getElementById('gs-week-toggle'), wB = document.getElementById('gs-week-bars');
+    if (wT && wB) wT.onclick = () => wB.style.display = wB.style.display === 'none' ? [cite_start]'' : 'none'; [cite: 362]
+    this.fetchConfig().then(cfg => {
+      [cite_start]if (!cfg.showUI && this.root) this.root.style.display = 'none'; [cite: 363]
       localStorage.setItem('ff_global_stats_send', cfg.sendEnabled ? '1' : '0');
       FeatureFlags.globalStatsSend = cfg.sendEnabled;
-
-      const opened = this.toggleBtn.getAttribute('aria-expanded') === 'true';
-      if (opened) this.fetchAndRender();
-    }).catch(()=>{});
-
-    if (open) this.fetchAndRender();
-    this.flush(); // попробуем выгрузить очередь при старте
+      if (this.toggleBtn.getAttribute('aria-expanded') === 'true') this.fetchAndRender();
+    }).catch(() => {});
+    [cite_start]if (open) this.fetchAndRender(); [cite: 364]
+    this.flush();
   },
-
   enqueueEvent(ev) {
+    [cite_start]if (!FeatureFlags.globalStatsSend || !GLOBAL_STATS_URL) return; [cite: 365]
     try {
-      if (!FeatureFlags.globalStatsSend) return;
-      if (!GLOBAL_STATS_URL) return;
-      // положим событие в локальную очередь
       const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
-      q.push(ev);
+      [cite_start]q.push(ev); [cite: 366]
       localStorage.setItem(GS_Q_KEY, JSON.stringify(q));
-      // если онлайн — попробуем отправить сразу
-      if (navigator.onLine && q.length >= 5) {
-        this.flush();
-      }
-    } catch (e) {
-      // молча игнорируем — событие останется в очереди
-    }
+      [cite_start]if (navigator.onLine && q.length >= 5) this.flush(); [cite: 367]
+    } catch {}
   },
-
   async flush() {
-    if (!FeatureFlags.globalStatsSend) return;
-    if (!GLOBAL_STATS_URL) return;
-    if (this.sending) return;
-    if (Date.now() < this._retryAt) return;
-
-    // Троттлинг: не чаще одного запроса раз в 8 секунд
-    this._lastSendAt = this._lastSendAt || 0;
-    if (Date.now() - this._lastSendAt < 8000) return;
-
+    [cite_start]if (!FeatureFlags.globalStatsSend || !GLOBAL_STATS_URL || this.sending || Date.now() < this._retryAt) return; [cite: 368]
+    [cite_start]if (Date.now() - (this._lastSendAt || 0) < 8000) return; [cite: 369, 370]
     const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
     if (!q.length) return;
-
     this.sending = true;
     try {
-      const payload = {
-        deviceHash: getDeviceHash(),
-        appVersion: VERSION,
-        platform: navigator.userAgent,
-        events: q
-      };
-
-      // Получаем одноразовый токен Turnstile; добавляем заголовок только если он есть
-      const headers = { 'Content-Type': 'application/json' };
-      try {
-        const __tsToken = await getTurnstileToken('send_event');
-        if (__tsToken) headers['CF-TURNSTILE-RESPONSE'] = __tsToken;
-      } catch(e) { /* тихо: сервер примет, если requireTurnstile=false */ }
-
-      const res = await fetch(`${GLOBAL_STATS_URL}/event`, {
-        method: 'POST',
-        headers,
-        mode: 'cors',
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        throw new Error(`event_send_failed_${res.status}`);
-      }
-
-      localStorage.setItem(GS_Q_KEY, JSON.stringify([]));
-      this._failCount = 0;
-      this._retryAt = 0;
-      this._lastSendAt = Date.now();
-    } catch (e) {
-      this._failCount = Math.min(this._failCount + 1, 10);
-      const delay = Math.min(5 * 60 * 1000, Math.pow(2, this._failCount) * 1000);
-      this._retryAt = Date.now() + delay;
-      if (!this.errorOnce) {
-        this.errorOnce = true;
-        NotificationSystem.warning('Глобальная статистика недоступна, повторим позже');
-      }
-    } finally {
-      this.sending = false;
-    }
+      [cite_start]const payload = { deviceHash: getDeviceHash(), appVersion: VERSION, platform: navigator.userAgent, events: q }; [cite: 371]
+      [cite_start]const headers = { 'Content-Type': 'application/json' }; [cite: 372]
+      try { const token = await getTurnstileToken('send_event'); if (token) headers['CF-TURNSTILE-RESPONSE'] = token; [cite_start]} catch {} [cite: 373, 374]
+      const res = await fetch(`${GLOBAL_STATS_URL}/event`, { method: 'POST', headers, mode: 'cors', body: JSON.stringify(payload) });
+      [cite_start]if (!res.ok) throw new Error(`event_send_failed_${res.status}`); [cite: 375, 376]
+      localStorage.setItem(GS_Q_KEY, '[]');
+      this._failCount = 0; this._retryAt = 0; this._lastSendAt = Date.now();
+    } catch {
+      [cite_start]this._failCount = Math.min(this._failCount + 1, 10); [cite: 377]
+      [cite_start]this._retryAt = Date.now() + Math.min(300000, Math.pow(2, this._failCount) * 1000); [cite: 378]
+      if (!this.errorOnce) { this.errorOnce = true; NotificationSystem.warning('Глобальная статистика недоступна, повторим позже'); [cite_start]} [cite: 379]
+    } finally { this.sending = false; [cite_start]} [cite: 380, 381]
   },
-
-  async fetchAndRender(force=false) {
-    if (!FeatureFlags.globalStatsUI) return;
-    if (!this.root || this.body.hidden) return;
-    const errEl = document.getElementById('gs-error');
-    const topL = document.getElementById('gs-top-listens');
-    const topT = document.getElementById('gs-top-time');
-    const upd  = document.getElementById('gs-updated');
-
+  async fetchAndRender() {
+    if (!FeatureFlags.globalStatsUI || !this.root || this.body.hidden) return;
+    [cite_start]const errEl = document.getElementById('gs-error'), topL = document.getElementById('gs-top-listens'), topT = document.getElementById('gs-top-time'), upd = document.getElementById('gs-updated'); [cite: 382]
     if (!GLOBAL_STATS_URL) {
-      if (errEl) { errEl.style.display = ''; errEl.textContent = 'Не настроен сервер глобальной статистики.'; }
-      if (topL) topL.innerHTML = '';
-      if (topT) topT.innerHTML = '';
-      if (upd)  upd.textContent = '—';
+      if (errEl) { errEl.style.display = ''; errEl.textContent = 'Не настроен сервер глобальной статистики.'; [cite_start]} [cite: 383, 384]
+      [cite_start]if (topL) topL.innerHTML = ''; if (topT) topT.innerHTML = ''; if (upd) upd.textContent = '—'; [cite: 385]
       return;
     }
-
     try {
-      if (errEl) errEl.style.display = 'none';
-      const res = await fetch(`${GLOBAL_STATS_URL}/top?period=${this.period}`, { mode: 'cors' });
+      [cite_start]if (errEl) errEl.style.display = 'none'; [cite: 386]
+      [cite_start]const res = await fetch(`${GLOBAL_STATS_URL}/top?period=${this.period}`, { mode: 'cors' }); [cite: 387]
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      // УБИРАЕМ БАННЕР ОШИБКИ, ЕСЛИ БЫЛ
-      try {
-        const err = document.getElementById('gs-error');
-        if (err) err.style.display = 'none';
-      } catch(e){}
-      this.renderLists(data);
-    } catch (e) {
-      if (errEl) errEl.style.display = '';
-      if (!this.errorOnce) {
-        this.errorOnce = true;
-        NotificationSystem.warning('Глобальная статистика недоступна');
-      }
+      [cite_start]this.renderLists(await res.json()); [cite: 388, 389]
+    } catch {
+      [cite_start]if (errEl) errEl.style.display = ''; [cite: 390]
+      if (!this.errorOnce) { this.errorOnce = true; NotificationSystem.warning('Глобальная статистика недоступна'); [cite_start]} [cite: 391]
     }
   },
-
   renderLists(data) {
-    const topL = document.getElementById('gs-top-listens');
-    const topT = document.getElementById('gs-top-time');
-    const upd  = document.getElementById('gs-updated');
-    const topC = document.getElementById('gs-top-cities');
-    const topU = document.getElementById('gs-top-users');
-    const barsH= document.getElementById('gs-hours-bars');
-    const barsW= document.getElementById('gs-week-bars');
     if (!config) return;
-
-    const toTitle = (idx)=> (config?.tracks?.[idx]?.title || `Трек ${(idx+1)}`);
-
-    const list1 = (data.top_listens||[]).slice(0,5).map(x=>(`<li><span>${toTitle(x.idx)}</span><span>${x.count||0}</span></li>`)).join('');
-    const list2 = (data.top_time||[]).slice(0,5).map(x=>{
-      const mins = Math.round((x.seconds||0)/60);
-      return `<li><span>${toTitle(x.idx)}</span><span>${mins}</span></li>`;
-    }).join('');
-
-    if (topL) topL.innerHTML = list1 || '<li><span>—</span><span>0</span></li>';
-    if (topT) topT.innerHTML = list2 || '<li><span>—</span><span>0</span></li>';
-    if (upd)  upd.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—';
-
-    // Топ городов
-    if (topC) {
-      const arr = (data.top_cities||[]).slice(0,10);
-      topC.innerHTML = arr.length ? arr.map(c=>{
-        const flag = getFlagEmoji(c.cc);
-        return `<li><span>${flag} ${escapeHtml(c.city)}</span><span>${c.users}</span></li>`;
-      }).join('') : '<li><span>—</span><span>0</span></li>';
-    }
-
-    // Топ пользователей
-    if (topU) {
-      const arr = (data.top_users||[]).slice(0,10);
-      topU.innerHTML = arr.length ? arr.map(u=>{
-        const name = escapeHtml(u.name||`@user_${String(u.tgId).slice(-4)}`);
-        const span = (typeof u.spanSec==='number') ? formatSpan(u.spanSec) : '—';
-        return `<li><span>${name}</span><span>${u.count||0} • ${span}</span></li>`;
-      }).join('') : '<li><span>—</span><span>0</span></li>';
-    }
-
-    // Гистограммы
-    if (barsH) {
-      const max = Math.max(1, ...((data.by_hour||[])));
-      barsH.innerHTML = (data.by_hour||[]).map((v,h)=>(
-        `<div class="chart-row">
-           <div class="label">${String(h).padStart(2,'0')}</div>
-           <div class="bar"><div class="fill" style="width:${Math.round((v/max)*100)}%"></div></div>
-           <div class="val">${v}</div>
-         </div>`
-      )).join('');
-    }
-    if (barsW) {
-      const labels = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб']; // /top: 0..6 = Вс..Сб
-      const arr = data.by_weekday||[];
+    const $el = id => document.getElementById(id);
+    [cite_start]const topL = $el('gs-top-listens'), topT = $el('gs-top-time'), upd = $el('gs-updated'), topC = $el('gs-top-cities'), topU = $el('gs-top-users'), barsH = $el('gs-hours-bars'), barsW = $el('gs-week-bars'); [cite: 392, 393, 394]
+    const toTitle = idx => config?.tracks?.[idx]?.title || `Трек ${idx + 1}`;
+    const buildList = arr => arr.length ? arr.join('') : '<li><span>—</span><span>0</span></li>';
+    [cite_start]if (topL) topL.innerHTML = buildList((data.top_listens || []).slice(0, 5).map(x => `<li><span>${toTitle(x.idx)}</span><span>${x.count || 0}</span></li>`)); [cite: 394, 396]
+    [cite_start]if (topT) topT.innerHTML = buildList((data.top_time || []).slice(0, 5).map(x => `<li><span>${toTitle(x.idx)}</span><span>${Math.round((x.seconds || 0) / 60)}</span></li>`)); [cite: 395, 396]
+    [cite_start]if (upd) upd.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—'; [cite: 397]
+    [cite_start]if (topC) topC.innerHTML = buildList((data.top_cities || []).slice(0, 10).map(c => `<li><span>${getFlagEmoji(c.cc)} ${escapeHtml(c.city)}</span><span>${c.users}</span></li>`)); [cite: 398, 399]
+    [cite_start]if (topU) topU.innerHTML = buildList((data.top_users || []).slice(0, 10).map(u => `<li><span>${escapeHtml(u.name || `@user_${String(u.tgId).slice(-4)}`)}</span><span>${u.count || 0} • ${typeof u.spanSec === 'number' ? formatSpan(u.spanSec) : '—'}</span></li>`)); [cite: 400, 401]
+    const renderBars = (arr, labels) => {
       const max = Math.max(1, ...arr);
-      barsW.innerHTML = arr.map((v,d)=>(
-        `<div class="chart-row">
-           <div class="label">${labels[d]||d}</div>
-           <div class="bar"><div class="fill" style="width:${Math.round((v/max)*100)}%"></div></div>
-           <div class="val">${v}</div>
-         </div>`
-      )).join('');
-    }
+      return arr.map((v, i) => `<div class="chart-row"><div class="label">${labels ? labels[i] : String(i).padStart(2, '0')}</div><div class="bar"><div class="fill" style="width:${Math.round((v / max) * 100)}%"></div></div><div class="val">${v}</div></div>`).join('');
+    };
+    [cite_start]if (barsH) barsH.innerHTML = renderBars(data.by_hour || []); [cite: 402, 403, 404]
+    [cite_start]if (barsW) barsW.innerHTML = renderBars(data.by_weekday || [], ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']); [cite: 405, 406]
   }
 };
 
-// ==== Animated Noto Emoji (Lottie + WebP+PNG fallback) ====
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
-  disable: (localStorage.getItem('emoji_anim_disable') === '1')
-           || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-
-  map: {
-    info:        { id: 'loudspeaker',       txt: '📢' },
-    success:     { id: 'white_check_mark',  txt: '✅' },
-    error:       { id: 'cross_mark',        txt: '❌' },
-    warning:     { id: 'warning',           txt: '⚠️' },
-    offline:     { id: 'satellite_antenna', txt: '📡' },
-    achievement: { id: 'trophy',            txt: '🏆' },
-    sparkles:    { id: 'sparkles',          txt: '✨' }, // для подсказки в bubble
-  },
-
+  [cite_start]disable: localStorage.getItem('emoji_anim_disable') === '1' || window.matchMedia('(prefers-reduced-motion: reduce)').matches, [cite: 407]
+  [cite_start]map: { info: { id: 'loudspeaker', txt: '📢' }, success: { id: 'white_check_mark', txt: '✅' }, error: { id: 'cross_mark', txt: '❌' }, warning: { id: 'warning', txt: '⚠️' }, offline: { id: 'satellite_antenna', txt: '📡' }, achievement: { id: 'trophy', txt: '🏆' }, sparkles: { id: 'sparkles', txt: '✨' } }, [cite: 408, 409]
   async ensureLottie() {
     if (this._lottie) return this._lottie;
-    await new Promise((res, rej)=>{
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js';
-      s.onload = res; s.onerror = rej; document.head.appendChild(s);
-    });
-    this._lottie = window.lottie;
-    return this._lottie;
+    await new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    [cite_start]}); [cite: 410]
+    [cite_start]return (this._lottie = window.lottie); [cite: 411]
   },
-
-  chooseKey(type, message) {
-    if (type === 'success' && message && /^🏆/.test(message)) return 'achievement';
-    return (type in this.map) ? type : 'info';
-  },
-
-  async mount(container, type, message, size=24, sid) {
+  chooseKey(type, message) { return (type === 'success' && message && /^🏆/.test(message)) ? 'achievement' : (this.map[type] ? type : 'info'); [cite_start]}, [cite: 412]
+  async mount(container, type, message, size = 24, sid) {
     if (!container) return;
-    const key = sid ? sid : this.chooseKey(type, message);
-    const meta = this.map[key] || this.map.info;
-    const id = meta.id;
-    container.textContent = '';
-    container.style.width = container.style.height = size + 'px';
-
+    [cite_start]const meta = this.map[sid || this.chooseKey(type, message)] || this.map.info; [cite: 413]
+    [cite_start]container.textContent = ''; container.style.width = container.style.height = `${size}px`; [cite: 414]
     if (this.disable) {
-      const img = document.createElement('img');
-      img.alt = ''; img.width = img.height = size;
-      img.src = `${this.base}/static/${id}.png`;
-      img.onerror = () => { container.textContent = meta.txt; };
-      container.appendChild(img);
-      return;
+      [cite_start]const img = document.createElement('img'); img.alt = ''; img.width = img.height = size; img.src = `${this.base}/static/${meta.id}.png`; [cite: 415, 416]
+      img.onerror = () => container.textContent = meta.txt;
+      container.appendChild(img); return;
     }
-
     try {
-      await this.ensureLottie();
-      const anim = window.lottie.loadAnimation({
-        container,
-        renderer: 'svg',
-        loop: false,
-        autoplay: true,
-        path: `${this.base}/animated/${id}.json`
-      });
-      setTimeout(()=>{ try { anim.stop(); } catch(e){} }, 1200);
-      return;
-    } catch (e) {}
-
-    // fallback
-    const img = document.createElement('img');
-    img.alt = ''; img.width = img.height = size;
-    img.src = `${this.base}/fallback/${id}.webp`;
-    img.onerror = () => {
-      img.src = `${this.base}/fallback/${id}.png`;
-      img.onerror = () => { container.textContent = meta.txt; };
-    };
-    container.appendChild(img);
+      [cite_start]await this.ensureLottie(); [cite: 417]
+      [cite_start]const anim = window.lottie.loadAnimation({ container, renderer: 'svg', loop: false, autoplay: true, path: `${this.base}/animated/${meta.id}.json` }); [cite: 418]
+      [cite_start]setTimeout(() => { try { anim.stop(); } catch {} }, 1200); [cite: 419]
+    } catch {
+      [cite_start]const img = document.createElement('img'); img.alt = ''; img.width = img.height = size; img.src = `${this.base}/fallback/${meta.id}.webp`; [cite: 420]
+      img.onerror = () => { img.src = `${this.base}/fallback/${meta.id}.png`; img.onerror = () => container.textContent = meta.txt; [cite_start]}; [cite: 421, 422]
+      container.appendChild(img);
+    }
   }
 };
-// ==== Бэкап: экспорт/импорт ====
+
 async function backupExport(levelForName) {
   try {
-    const payload = {
-      appVersion: VERSION,
-      buildDate: BUILD_DATE,
-      exportedAt: new Date().toISOString(),
-      deviceHash: getDeviceHash(),
-      stats: StatsStore.s,
-      statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
-    };
+    const payload = { appVersion: VERSION, buildDate: BUILD_DATE, exportedAt: new Date().toISOString(), deviceHash: getDeviceHash(), stats: StatsStore.s, statsInsights: MyStats?.insights ? [cite_start]MyStats.insights() : null }; [cite: 423, 424]
     const checksum = await sha256String(JSON.stringify(payload));
-    const file = { kind: 'vr_backup_v1', checksum, payload };
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-
-    const date = new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
-    const lvl = (typeof levelForName === 'number') ? `-lvl${levelForName}` : '';
-    const fname = `vitrina-backup-${date}${lvl}.json`;
-
+    [cite_start]const blob = new Blob([JSON.stringify({ kind: 'vr_backup_v1', checksum, payload }, null, 2)], { type: 'application/json' }); [cite: 425]
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = fname;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-      a.remove();
-    }, 500);
-
-    // учёт ачивок backup_*
+    a.download = `vitrina-backup-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}${typeof levelForName === 'number' ? [cite_start]`-lvl${levelForName}` : ''}.json`; [cite: 426, 427]
+    document.body.appendChild(a); a.click();
+    [cite_start]setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); [cite: 428]
     const dayKey = localDayKey(Date.now());
-    if (!StatsStore.s.backups.dates.includes(dayKey)) {
-      StatsStore.s.backups.dates.push(dayKey);
-    }
+    if (!StatsStore.s.backups.dates.includes(dayKey)) { StatsStore.s.backups.dates.push(dayKey); [cite_start]} [cite: 429]
     StatsStore.save();
     Ach.unlock('backup_first');
-    if (StatsStore.s.backups.dates.length >= 3) Ach.unlock('backup_3_days');
-    if (StatsStore.s.lastMajorAchAt && (Date.now() - StatsStore.s.lastMajorAchAt) <= 24*60*60*1000) {
-      Ach.unlock('backup_after_major');
-    }
+    [cite_start]if (StatsStore.s.backups.dates.length >= 3) Ach.unlock('backup_3_days'); [cite: 430]
+    [cite_start]if (StatsStore.s.lastMajorAchAt && (Date.now() - StatsStore.s.lastMajorAchAt) <= 86400000) Ach.unlock('backup_after_major'); [cite: 431]
     NotificationSystem.success('Бэкап сохранён');
-  } catch (e) {
-    console.error(e);
-    NotificationSystem.error('Не удалось создать бэкап');
-  }
+  } catch { NotificationSystem.error('Не удалось создать бэкап'); [cite_start]} [cite: 432]
 }
+
 async function backupShare() {
   try {
-    const payload = {
-      appVersion: VERSION,
-      buildDate: BUILD_DATE,
-      exportedAt: new Date().toISOString(),
-      deviceHash: getDeviceHash(),
-      stats: StatsStore.s,
-      statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
-    };
-    const checksum = await sha256String(JSON.stringify(payload));
-    const file = { kind: 'vr_backup_v1', checksum, payload };
-    const jsonText = JSON.stringify(file, null, 2);
-
-    if (navigator.canShare && window.File && navigator.canShare({ files: [new File([""],"a.json")] })) {
-      const blob = new Blob([jsonText], { type: 'application/json' });
-      const fname = `vitrina-backup-${new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)}.json`;
-      const f = new File([blob], fname, { type: 'application/json' });
+    const payload = { appVersion: VERSION, buildDate: BUILD_DATE, exportedAt: new Date().toISOString(), deviceHash: getDeviceHash(), stats: StatsStore.s, statsInsights: MyStats?.insights ? [cite_start]MyStats.insights() : null }; [cite: 433, 434]
+    [cite_start]const jsonText = JSON.stringify({ kind: 'vr_backup_v1', checksum: await sha256String(JSON.stringify(payload)), payload }, null, 2); [cite: 435]
+    [cite_start]if (navigator.canShare && window.File && navigator.canShare({ files: [new File([""], "a.json")] })) { [cite: 436]
+      [cite_start]const f = new File([new Blob([jsonText], { type: 'application/json' })], `vitrina-backup-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.json`, { type: 'application/json' }); [cite: 437]
       await navigator.share({ title: 'Бэкап достижений', text: 'Мой прогресс и ачивки', files: [f] });
-      NotificationSystem.success('Бэкап отправлен');
+      [cite_start]NotificationSystem.success('Бэкап отправлен'); [cite: 438]
     } else if (navigator.share) {
       await navigator.share({ title: 'Бэкап достижений', text: jsonText });
-      NotificationSystem.success('Бэкап отправлен как текст');
+      [cite_start]NotificationSystem.success('Бэкап отправлен как текст'); [cite: 439, 440]
     } else {
       await navigator.clipboard.writeText(jsonText);
-      NotificationSystem.success('JSON бэкапа скопирован в буфер');
+      [cite_start]NotificationSystem.success('JSON бэкапа скопирован в буфер'); [cite: 441]
     }
-  } catch(e) {
-    NotificationSystem.error('Не удалось отправить бэкап');
-  }
+  } catch { NotificationSystem.error('Не удалось отправить бэкап'); [cite_start]} [cite: 442]
 }
-// === Общий конструктор payload/файла для бэкапа ===
+
 async function buildBackupFile() {
-  const u = Prize?.state?.user || {};
-  const lsTgId = localStorage.getItem('tg_id');
-  const lsTgUsername = localStorage.getItem('tg_username');
-  const lsProfileName = localStorage.getItem('profile_name');
-
-  // Известные устройства (локальные + из /me)
-  const knownSet = new Set();
-  try {
-    const localKnown = JSON.parse(localStorage.getItem('known_devices') || '[]');
-    localKnown.forEach(d => knownSet.add(String(d)));
-  } catch(e){}
-  try {
-    const meDev = JSON.parse(localStorage.getItem('me_devices') || '[]');
-    meDev.forEach(d => knownSet.add(String(d)));
-  } catch(e){}
-  knownSet.add(getDeviceHash());
-  const knownDevices = Array.from(knownSet).slice(0, 50);
-
-  // Избранные
-  const favorites = getLiked();
-
-  // Обзор достижений
-  const ach = StatsStore.s?.achievements || {};
-  const normalTotal = Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length;
-  const normalDone  = Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length;
-
-  const secretTotal = Object.keys(ACH_META).filter(id => !!ACH_META[id]?.hidden).length;
-  const secretStartAtStr = localStorage.getItem('secret_start_at');
-  const secretStartAt = secretStartAtStr ? parseInt(secretStartAtStr, 10) : null;
+  const u = Prize?.state?.user || [cite_start]{}; [cite: 443]
+  [cite_start]const knownSet = new Set([...JSON.parse(localStorage.getItem('known_devices') || '[]'), ...JSON.parse(localStorage.getItem('me_devices') || '[]'), getDeviceHash()]); [cite: 445, 446]
+  const ach = StatsStore.s?.achievements || [cite_start]{}; [cite: 448]
+  [cite_start]const secretStartAt = parseInt(localStorage.getItem('secret_start_at'), 10) || null; [cite: 450]
   let secretDoneFromStart = 0;
-  if (secretStartAt && Number.isFinite(secretStartAt)) {
-    for (const [id, info] of Object.entries(ach)) {
-      if (ACH_META[id]?.hidden) {
-        const t = Number(info?.unlockedAt || 0);
-        if (t && t >= secretStartAt) secretDoneFromStart++;
-      }
-    }
+  if (secretStartAt) {
+    [cite_start]for (const [id, info] of Object.entries(ach)) if (ACH_META[id]?.hidden && Number(info?.unlockedAt || 0) >= secretStartAt) secretDoneFromStart++; [cite: 451, 452]
   }
-
   const payload = {
-    appVersion: VERSION,
-    buildDate: BUILD_DATE,
-    exportedAt: new Date().toISOString(),
-    deviceHash: getDeviceHash(),
-    profile: {
-      displayName: u?.display_name || lsProfileName || null,
-      tgId: u?.tg_id || lsTgId || null,
-      tgUsername: lsTgUsername || null
-    },
-    favorites,
-    knownDevices,
+    appVersion: VERSION, buildDate: BUILD_DATE, exportedAt: new Date().toISOString(), deviceHash: getDeviceHash(),
+    [cite_start]profile: { displayName: u?.display_name || localStorage.getItem('profile_name') || null, tgId: u?.tg_id || localStorage.getItem('tg_id') || null, tgUsername: localStorage.getItem('tg_username') || null }, [cite: 453, 454]
+    favorites: getLiked(), knownDevices: Array.from(knownSet).slice(0, 50),
     achOverview: {
-      normalTotal,
-      normalDone,
-      secretTotal,
-      secretDoneFromStart,
-      secretStartAt: secretStartAt || null
+      normalTotal: Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length,
+      [cite_start]normalDone: Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length, [cite: 449]
+      secretTotal: Object.keys(ACH_META).filter(id => !!ACH_META[id]?.hidden).length,
+      [cite_start]secretDoneFromStart, secretStartAt [cite: 455]
     },
-    stats: StatsStore.s,
-    statsInsights: MyStats && MyStats.insights ? MyStats.insights() : null
+    stats: StatsStore.s, statsInsights: MyStats?.insights ? [cite_start]MyStats.insights() : null [cite: 456]
   };
-
-  const checksum = await sha256String(JSON.stringify(payload));
-  const file = { kind: 'vr_backup_v1', checksum, payload };
-  return file;
-}
-// Сохранение в облако (disabled)
-async function backupSaveToCloud() {
-  NotificationSystem.info('Облачный бэкап — скоро будет');
+  [cite_start]return { kind: 'vr_backup_v1', checksum: await sha256String(JSON.stringify(payload)), payload }; [cite: 457]
 }
 
-// Восстановление из облака (disabled)
-async function backupImportFromCloud() {
-  NotificationSystem.info('Облачный бэкап — скоро будет');
-}
+async function backupSaveToCloud() { NotificationSystem.info('Облачный бэкап — скоро будет'); [cite_start]} [cite: 458]
+async function backupImportFromCloud() { NotificationSystem.info('Облачный бэкап — скоро будет'); [cite_start]} [cite: 459]
 
-/**
- * Невидимый автосейв с перезаписью (overwrite) в облаке.
- * Троттлинг: не чаще 60 сек; дубли по одному и тому же checksum не отправляются.
- * Успех => скрываем кнопки, ужимаем блок, ставим CLOUD_SAVED_OK=1.
- */
-const CLOUD_SAVED_OK_KEY  = 'CLOUD_SAVED_OK';
-const CLOUD_SAVED_CRC_KEY = 'CLOUD_SAVED_CRC';
-const CLOUD_SAVED_AT_KEY  = 'CLOUD_SAVED_AT';
-
-async function backupSaveToCloudOverwriteSilent() {
-  // cloud removed
-}
-// Гарантируем CLOUД_SAVED_OK: если нет — делаем тихий overwrite и ждём до timeoutMs
-async function ensureCloudBackupReady(timeoutMs = 2000) {
-  // cloud removed
-  return false;
-}
-
-/**
- * Вызывается после каждого открытия достижения.
- * Можно расширить условия (например, автосейв только после Tier>=3).
- */
-function backupAutoSaveIfNeeded() {
-  // cloud removed
-}
+[cite_start]const CLOUD_SAVED_OK_KEY = 'CLOUD_SAVED_OK', CLOUD_SAVED_CRC_KEY = 'CLOUD_SAVED_CRC', CLOUD_SAVED_AT_KEY = 'CLOUD_SAVED_AT'; [cite: 461]
+[cite_start]async function backupSaveToCloudOverwriteSilent() { /* cloud removed */ } [cite: 462]
+async function ensureCloudBackupReady(timeoutMs = 2000) { return false; [cite_start]} /* cloud removed */ [cite: 463]
+[cite_start]function backupAutoSaveIfNeeded() { /* cloud removed */ } [cite: 464]
 
 async function backupImportFromFile(file) {
   if (!file) return;
   try {
-    const text = await file.text();
-    const json = JSON.parse(text);
-    if (json?.kind !== 'vr_backup_v1' || !json?.payload) {
-      NotificationSystem.error('Неверный формат файла');
-      return;
-    }
-    const calc = await sha256String(JSON.stringify(json.payload));
-    if (calc !== json.checksum) {
-      NotificationSystem.error('Файл повреждён (checksum mismatch)');
-      return;
-    }
+    [cite_start]const json = JSON.parse(await file.text()); [cite: 465]
+    [cite_start]if (json?.kind !== 'vr_backup_v1' || !json?.payload) return NotificationSystem.error('Неверный формат файла'); [cite: 466, 467]
+    [cite_start]if (await sha256String(JSON.stringify(json.payload)) !== json.checksum) return NotificationSystem.error('Файл повреждён (checksum mismatch)'); [cite: 468]
     const incoming = json.payload;
-    if (incoming.deviceHash !== getDeviceHash()) {
-      NotificationSystem.error('Бэкап от другого устройства');
-      return;
-    }
-
-    // Защита от отката
-    const currentDone = Object.keys(StatsStore.s.achievements||{}).length;
-    const incomingDone = Object.keys(incoming.stats?.achievements||{}).length;
-    if (incomingDone < currentDone) {
-      if (!confirm('В бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) {
-        return;
-      }
-    }
-
+    [cite_start]if (incoming.deviceHash !== getDeviceHash()) return NotificationSystem.error('Бэкап от другого устройства'); [cite: 469]
+    [cite_start]if (Object.keys(incoming.stats?.achievements || {}).length < Object.keys(StatsStore.s.achievements || {}).length && !confirm('В бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) return; [cite: 470, 471]
     StatsStore.s = incoming.stats;
-    // миграции на всякий случай
-    if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
+    [cite_start]if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] }; [cite: 472]
     if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
-    if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
-        // миграция: perTrack.byHour / byWeekday для старых бэкапов
+    [cite_start]if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0; [cite: 473]
     if (Array.isArray(StatsStore.s.perTrack)) {
-      for (let i = 0; i < StatsStore.s.perTrack.length; i++) {
-        const pt = StatsStore.s.perTrack[i] || {};
-        if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
-        if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0);
-        StatsStore.s.perTrack[i] = pt;
-      }
+      StatsStore.s.perTrack.forEach((pt, i) => {
+        [cite_start]if (pt) { pt.byHour = pt.byHour || Array(24).fill(0); pt.byWeekday = pt.byWeekday || Array(7).fill(0); StatsStore.s.perTrack[i] = pt; } [cite: 474, 475]
+      });
     }
-
-    StatsStore.save();
-    AchProgress.updateFromStats();
-    // Снятие флага tamper и скрытие баннера после валидного импорта
-    localStorage.removeItem('tamper_detected');
-    hideTamperBanner();
-
-    NotificationSystem.success('Бэкап импортирован');
-  } catch (e) {
-    console.error(e);
-    NotificationSystem.error('Не удалось импортировать бэкап');
-  }
+    StatsStore.save(); [cite_start]AchProgress.updateFromStats(); [cite: 476]
+    localStorage.removeItem('tamper_detected'); hideTamperBanner();
+    [cite_start]NotificationSystem.success('Бэкап импортирован'); [cite: 477]
+  } catch { NotificationSystem.error('Не удалось импортировать бэкап'); [cite_start]} [cite: 478]
 }
-function openResetModal(){ document.getElementById('reset-modal')?.classList.add('active'); }
-function closeResetModal(){ document.getElementById('reset-modal')?.classList.remove('active'); }
-document.getElementById('reset-modal').onclick = function(e){ if (e.target === this) closeResetModal(); };
+
+const openResetModal = () => document.getElementById('reset-modal')?.classList.add('active');
+const closeResetModal = () => document.getElementById('reset-modal')?.classList.remove('active');
+document.getElementById('reset-modal').onclick = function(e) { if (e.target === this) closeResetModal(); [cite_start]}; [cite: 479]
 
 function promptReset(kind) {
-  const expect = kind==='all' ? 'Сбросить-ВСЁ' : (kind==='stats'?'Сбросить-СТАТЫ':'Сбросить-АЧИВКИ');
-  const code = prompt(`Для подтверждения введите: ${expect}`);
-  if (code !== expect) {
-    NotificationSystem.warning('Отменено');
-    return;
-  }
-
+  const expect = kind === 'all' ? [cite_start]'Сбросить-ВСЁ' : (kind === 'stats' ? 'Сбросить-СТАТЫ' : 'Сбросить-АЧИВКИ'); [cite: 480]
+  [cite_start]if (prompt(`Для подтверждения введите: ${expect}`) !== expect) return NotificationSystem.warning('Отменено'); [cite: 481]
   if (kind === 'stats' || kind === 'all') {
-    const dev = getDeviceHash(); // device сохраняем
-    localStorage.removeItem(STATS_LS_KEY);
-    StatsStore.init();
-    StatsStore.s.deviceHash = dev;
-    StatsStore.save();
+    [cite_start]const dev = getDeviceHash(); [cite: 482]
+    localStorage.removeItem(STATS_LS_KEY); StatsStore.init(); StatsStore.s.deviceHash = dev; StatsStore.save();
   }
   if (kind === 'ach' || kind === 'all') {
-    StatsStore.s.achievements = {};
-    StatsStore.s.lastMajorAchAt = 0;
-    StatsStore.save();
+    StatsStore.s.achievements = {}; StatsStore.s.lastMajorAchAt = 0; [cite_start]StatsStore.save(); [cite: 483, 484]
   }
-
-  AchProgress.updateFromStats();
-  NotificationSystem.success('Сброс выполнен. Можно начать заново.');
+  AchProgress.updateFromStats(); NotificationSystem.success('Сброс выполнен. Можно начать заново.');
 }
 
-// SHA-256 строки (UTF-8)
 async function sha256String(str) {
-  const enc = new TextEncoder().encode(str);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  [cite_start]const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); [cite: 485]
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
-function openBackupPrompt() {
-  const el = document.getElementById('modal-backup-prompt');
-  if (!el) return;
-  // Сбрасываем одноразовый порог, если он уже достигнут
-  try {
-    const nextAtStr = localStorage.getItem('backup_prompt_next');
-    const nextAt = nextAtStr ? parseInt(nextAtStr, 10) : null;
-    const cur = getVisibleAchievementsCount();
-    if (Number.isInteger(nextAt) && cur >= nextAt) {
-      localStorage.removeItem('backup_prompt_next');
-    }
-  } catch {}
-  el.classList.add('active');
-}
-function openBackupActions(){ document.getElementById('backup-actions-modal')?.classList.add('active'); }
-function closeBackupActions(){ document.getElementById('backup-actions-modal')?.classList.remove('active'); }
-document.getElementById('backup-actions-modal')?.addEventListener('click', (e)=>{
-  if (e.target === e.currentTarget) closeBackupActions();
-});
 
-function closeBackupPrompt() {
-  document.getElementById('modal-backup-prompt')?.classList.remove('active');
+function openBackupPrompt() {
+  [cite_start]const el = document.getElementById('modal-backup-prompt'); if (!el) return; [cite: 486]
+  try {
+    [cite_start]const nextAt = parseInt(localStorage.getItem('backup_prompt_next'), 10); [cite: 487]
+    [cite_start]if (Number.isInteger(nextAt) && getVisibleAchievementsCount() >= nextAt) localStorage.removeItem('backup_prompt_next'); [cite: 488]
+  } catch {}
+  [cite_start]el.classList.add('active'); [cite: 489]
 }
-// Решение: показывать ли подсказку бэкапа при данном количестве выполненных достижений
+
+const openBackupActions = () => document.getElementById('backup-actions-modal')?.classList.add('active');
+const closeBackupActions = () => document.getElementById('backup-actions-modal')?.classList.remove('active');
+document.getElementById('backup-actions-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeBackupActions(); });
+[cite_start]const closeBackupPrompt = () => document.getElementById('modal-backup-prompt')?.classList.remove('active'); [cite: 490]
+
 function shouldShowBackupPrompt(doneVisible) {
   try {
-    // Всегда показываем перед последним достижением (игнорируем настройки)
-    const totalVisible = Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length;
-    if (doneVisible === totalVisible - 1) return true;
-
-    // Считать настройки
-    const mode = localStorage.getItem('backup_prompt_mode'); // 'never' | null
-    const nextAtStr = localStorage.getItem('backup_prompt_next'); // число в строке
-    const nextAt = nextAtStr ? parseInt(nextAtStr, 10) : null;
-
-    if (mode === 'never') return false;
-    if (Number.isInteger(nextAt)) {
-      // показываем только когда достигнут порог nextAt
-      return doneVisible >= nextAt;
-    }
-    // По умолчанию — показываем (если другие условия Ach.unlock сработали)
-    return true;
-  } catch {
-    return true;
-  }
+    [cite_start]if (doneVisible === Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length - 1) return true; [cite: 491]
+    [cite_start]if (localStorage.getItem('backup_prompt_mode') === 'never') return false; [cite: 492, 494]
+    [cite_start]const nextAt = parseInt(localStorage.getItem('backup_prompt_next'), 10); [cite: 493]
+    [cite_start]return Number.isInteger(nextAt) ? doneVisible >= nextAt : true; [cite: 495]
+  } catch { return true; [cite_start]} [cite: 496]
 }
 
-// Применяем выбор пользователя из галочек при закрытии
 function closeBackupPromptWithChoice() {
   try {
-    const never = document.getElementById('backup-opt-never')?.checked;
-    const plus5 = document.getElementById('backup-opt-5')?.checked;
-
-    if (never) {
-      localStorage.setItem('backup_prompt_mode', 'never');
-      localStorage.removeItem('backup_prompt_next');
-    } else if (plus5) {
-      const cur = getVisibleAchievementsCount();
-      localStorage.setItem('backup_prompt_next', String(cur + 5));
-      localStorage.removeItem('backup_prompt_mode');
-    } else {
-      localStorage.removeItem('backup_prompt_mode');
-      localStorage.removeItem('backup_prompt_next');
-    }
+    if (document.getElementById('backup-opt-never')?.checked) {
+      [cite_start]localStorage.setItem('backup_prompt_mode', 'never'); localStorage.removeItem('backup_prompt_next'); [cite: 497, 498]
+    } else if (document.getElementById('backup-opt-5')?.checked) {
+      [cite_start]localStorage.setItem('backup_prompt_next', String(getVisibleAchievementsCount() + 5)); localStorage.removeItem('backup_prompt_mode'); [cite: 499]
+    } else { localStorage.removeItem('backup_prompt_mode'); localStorage.removeItem('backup_prompt_next'); }
   } catch {}
-  closeBackupPrompt();
+  [cite_start]closeBackupPrompt(); [cite: 500]
 }
 
-// === Anti‑tamper banner helpers ===
-function showTamperBanner() {
-  const el = document.getElementById('tamper-banner');
-  if (el) el.classList.remove('hidden');
-}
-function hideTamperBanner() {
-  const el = document.getElementById('tamper-banner');
-  if (el) el.classList.add('hidden');
-}
+[cite_start]const showTamperBanner = () => document.getElementById('tamper-banner')?.classList.remove('hidden'); [cite: 501]
+[cite_start]const hideTamperBanner = () => document.getElementById('tamper-banner')?.classList.add('hidden'); [cite: 502]
+[cite_start]const setCloudSavedUI = saved => document.getElementById('ach-progress-root')?.classList.toggle('cloud-saved', !!saved); [cite: 503, 504]
+[cite_start]const getVisibleAchievementsCount = () => Object.keys(StatsStore.s?.achievements || {}).filter(id => !ACH_META[id]?.hidden).length; [cite: 505]
+async function backupExportWithLevel() { closeBackupPrompt(); await backupExport(getVisibleAchievementsCount()); [cite_start]} [cite: 506]
 
-// === Cloud autosave UI helpers ===
-function setCloudSavedUI(saved) {
-  const root = document.getElementById('ach-progress-root');
-  if (!root) return;
-  if (saved) {
-    root.classList.add('cloud-saved');
-  } else {
-    root.classList.remove('cloud-saved');
-  }
-}
-  
-// Сколько видимых ачивок выполнено (без скрытых)
-function getVisibleAchievementsCount() {
-  const ach = StatsStore.s?.achievements || {};
-  return Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length;
-}
-
-// Экспорт с уровнем в имени файла
-async function backupExportWithLevel() {
-  closeBackupPrompt();
-  const lvl = getVisibleAchievementsCount();
-  await backupExport(lvl);
-}
-
-// ==================== СОХРАНЕНИЕ СОСТОЯНИЯ ====================
 class PlayerState {
   static save() {
-    const audio = document.getElementById('audio');
-    const state = {
-      trackIndex: currentTrack,
-      position: audio ? audio.currentTime : 0,
-      volume: audio ? normalizeVolume(audio.volume) : 1,
-      savedVolume: localStorage.getItem('playerVolume'),
-      liked: getLiked(),
-      timestamp: Date.now()
-    };
-    localStorage.setItem('playerState', JSON.stringify(state));
+    [cite_start]const audio = document.getElementById('audio'); [cite: 507]
+    localStorage.setItem('playerState', JSON.stringify({
+      [cite_start]trackIndex: currentTrack, position: audio ? audio.currentTime : 0, volume: audio ? normalizeVolume(audio.volume) : 1, [cite: 508, 509]
+      savedVolume: localStorage.getItem('playerVolume'), liked: getLiked(), timestamp: Date.now()
+    [cite_start]})); [cite: 510]
   }
-  
   static restore() {
     try {
-      const saved = localStorage.getItem('playerState');
-      if (!saved) return null;
-      
-      const state = JSON.parse(saved);
-      if (Date.now() - state.timestamp > 24 * 60 * 60 * 1000) {
-        return null;
-      }
-      return state;
-    } catch (e) {
-      return null;
-    }
+      [cite_start]const state = JSON.parse(localStorage.getItem('playerState')); [cite: 511]
+      [cite_start]return (state && Date.now() - state.timestamp <= 86400000) ? state : null; [cite: 512]
+    } catch { return null; [cite_start]} [cite: 513]
   }
-  
   static apply(state) {
-    if (!state || !config) return;
-    
-    if (state.savedVolume) {
-      localStorage.setItem('playerVolume', state.savedVolume);
-    }
-    
+    [cite_start]if (!state || !config) return; [cite: 514]
+    [cite_start]if (state.savedVolume) localStorage.setItem('playerVolume', state.savedVolume); [cite: 515]
     if (state.trackIndex >= 0 && state.trackIndex < config.tracks.length) {
       showTrack(state.trackIndex, false);
-      
       setTimeout(() => {
         const audio = document.getElementById('audio');
-        if (audio && state.position > 0) {
-          audio.currentTime = state.position;
-          audio.volume = normalizeVolume(state.volume);
-        }
-      }, 500);
+        if (audio && state.position > 0) { audio.currentTime = state.position; audio.volume = normalizeVolume(state.volume); }
+      [cite_start]}, 500); [cite: 516, 517]
     }
   }
 }
 
-// Автосохранение
-setInterval(() => {
-  const audio = document.getElementById('audio');
-  if (audio && !audio.paused) {
-    PlayerState.save();
-  }
-}, 5000);
+setInterval(() => { const a = document.getElementById('audio'); if (a && !a.paused) PlayerState.save(); }, 5000);
+[cite_start]window.addEventListener('beforeunload', () => PlayerState.save()); [cite: 518]
 
-window.addEventListener('beforeunload', () => {
-  PlayerState.save();
-});
-
-// ==================== НОВЫЙ КЛАСС УПРАВЛЕНИЯ ПОЗИЦИЯМИ ====================
 class PositionManager {
-  static save(trackId, position) {
-    // Сохраняем позицию ТОЛЬКО текущего трека
-    localStorage.setItem('current_track_position', JSON.stringify({
-      trackId,
-      position,
-      timestamp: Date.now()
-    }));
-  }
-  
+  static save(trackId, position) { localStorage.setItem('current_track_position', JSON.stringify({ trackId, position, timestamp: Date.now() })); [cite_start]} [cite: 519]
   static get(trackId) {
-    const saved = localStorage.getItem('current_track_position');
-    if (!saved) return null;
-    
     try {
-      const data = JSON.parse(saved);
-      
-      // Проверяем, что это тот же трек
-      if (data.trackId !== trackId) {
-        return null;
-      }
-      
-      // Проверяем TTL (1 час = 3600000 мс)
-      const age = Date.now() - data.timestamp;
-      if (age > 3600000) {
-        localStorage.removeItem('current_track_position');
-        return null;
-      }
-      
-      return data.position;
-    } catch (e) {
-      return null;
-    }
+      [cite_start]const data = JSON.parse(localStorage.getItem('current_track_position')); [cite: 520]
+      if (data?.trackId !== trackId || Date.now() - data.timestamp > 3600000) { localStorage.removeItem('current_track_position'); return null; [cite_start]} [cite: 521, 523, 524]
+      [cite_start]return data.position; [cite: 525]
+    } catch { return null; [cite_start]} [cite: 526]
   }
-  
-  static clear() {
-    localStorage.removeItem('current_track_position');
-  }
-  
-  static clearAll() {
-    // Очищаем все старые позиции (для обратной совместимости)
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith('position_') || key === 'current_track_position') {
-        localStorage.removeItem(key);
-      }
-    });
-  }
+  static clear() { localStorage.removeItem('current_track_position'); [cite_start]} [cite: 527]
+  static clearAll() { Object.keys(localStorage).forEach(k => { if (k.startsWith('position_') || k === 'current_track_position') localStorage.removeItem(k); }); [cite_start]} [cite: 528]
 }
 
-// ==================== ЗАГРУЗКА КОНФИГУРАЦИИ ====================
 (async function loadAppConfigWithFallback() {
-  const promoInp = document.getElementById('promo-inp');
-  const promoBtn = document.getElementById('promo-btn');
-
-  // Страховка: если за 3 сек. не подгрузится конфиг — включаем ручной режим
+  const promoInp = document.getElementById('promo-inp'), promoBtn = document.getElementById('promo-btn'), errBox = document.getElementById('promo-error');
   let fallbackArmed = true;
   const safetyTimer = setTimeout(() => {
     if (!configLoaded && fallbackArmed) {
-      console.warn('[config] safety fallback fired: enabling promo input');
-      if (promoInp) promoInp.disabled = false;
-      if (promoBtn) promoBtn.disabled = false;
-      const err = document.getElementById('promo-error');
-      if (err) err.textContent = 'Конфиг недоступен. Включен резервный режим входа.';
+      if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false;
+      [cite_start]if (errBox) errBox.textContent = 'Конфиг недоступен. Включен резервный режим входа.'; [cite: 530]
     }
   }, 3000);
-
   try {
     const resp = await fetch('./config.json', { cache: 'no-cache' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-
-    // Успех — снимаем страховку
-    clearTimeout(safetyTimer);
-    fallbackArmed = false;
-
-    config = data;
-    configLoaded = true;
-
-    if (promoInp) promoInp.disabled = false;
-    if (promoBtn) promoBtn.disabled = false;
-
+    [cite_start]config = await resp.json(); [cite: 531]
+    clearTimeout(safetyTimer); fallbackArmed = false; configLoaded = true;
+    if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false;
     if (localStorage.getItem('promoPassed') === '1') {
       promoPassed = true;
-      document.getElementById('main-block').classList.remove('hidden');
-      document.getElementById('promocode-block').classList.add('hidden');
+      [cite_start]document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden'); [cite: 532]
       initializeMainUi();
-
-      const savedState = PlayerState.restore();
-      if (savedState) {
-        PlayerState.apply(savedState);
-      }
-      parseDeepLink();
+      [cite_start]const savedState = PlayerState.restore(); if (savedState) PlayerState.apply(savedState); [cite: 533]
+      [cite_start]parseDeepLink(); [cite: 534]
     }
-  } catch (err) {
-    // Ошибка — включаем fallback: активируем поля и используем запасной промокод
-    console.error('Failed to load config:', err);
-    clearTimeout(safetyTimer);
-    fallbackArmed = false;
-
-    // Базовый минимальный конфиг, чтобы приложение не падало
-    config = {
-      albumName: 'Между Злом и Добром',
-      artist: 'Витрина Разбита',
-      albumYear: 2025,
-      tracks: [],              // пустые треки, UI всё равно инициализируется позже
-      socials: [],
-      promoCode: 'VITRINA2025',
-      donateLink: '#'
-    };
-    configLoaded = false; // помечаем как “резервный режим”
-
-    if (promoInp) promoInp.disabled = false;
-    if (promoBtn) promoBtn.disabled = false;
-
-    const errBox = document.getElementById('promo-error');
-    if (errBox) {
-      errBox.textContent = 'Конфиг не загружен. Включен резервный режим входа.';
-      errBox.style.color = '#ffa';
-    }
+  } catch {
+    [cite_start]clearTimeout(safetyTimer); fallbackArmed = false; configLoaded = false; [cite: 535, 536]
+    config = { albumName: 'Между Злом и Добром', artist: 'Витрина Разбита', albumYear: 2025, tracks: [], socials: [], promoCode: 'VITRINA2025', donateLink: '#' };
+    [cite_start]if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false; [cite: 537]
+    if (errBox) { errBox.textContent = 'Конфиг не загружен. Включен резервный режим входа.'; errBox.style.color = '#ffa'; [cite_start]} [cite: 538]
     NotificationSystem.warning('Конфигурация не загружена — резервный режим');
   }
 })();
 
-// ==================== ПРОМОКОД ====================
 function checkPromo() {
-  const inp = document.getElementById('promo-inp');
-  const err = document.getElementById('promo-error');
-  const val = (inp?.value || '').trim();
-
-  // Разрешаем вход в двух режимах:
-  // 1) Обычный: configLoaded=true и сверяем с config.promoCode
-  // 2) Резервный: configLoaded=false и сверяем с fallback-кодом (из config.promoCode, заданного в catch)
-  if (!val) {
-    if (err) err.innerText = "Введите промокод";
-    return;
-  }
-
-  const haveCfg = !!config && typeof config.promoCode === 'string';
-  const expected = haveCfg ? String(config.promoCode) : 'VITRINA2025';
-
-  if (val.toUpperCase() === expected.toUpperCase()) {
-    promoPassed = true;
-    localStorage.setItem('promoPassed', '1');
-    document.getElementById('main-block').classList.remove('hidden');
-    document.getElementById('promocode-block').classList.add('hidden');
-    initializeMainUi();
-    setOfflineUIState(offlineMode ? 'offline' : 'online');
-    autoPlayEnabled = true;
-  } else {
-    if (err) err.innerText = "Неверный промокод. Попробуйте ещё!";
-  }
+  [cite_start]const inp = document.getElementById('promo-inp'), err = document.getElementById('promo-error'), val = (inp?.value || '').trim(); [cite: 539, 540]
+  if (!val) { if (err) err.innerText = "Введите промокод"; return; [cite_start]} [cite: 541]
+  [cite_start]if (val.toUpperCase() === (config?.promoCode ? String(config.promoCode) : 'VITRINA2025').toUpperCase()) { [cite: 542]
+    promoPassed = true; localStorage.setItem('promoPassed', '1');
+    document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden');
+    [cite_start]initializeMainUi(); setOfflineUIState(offlineMode ? 'offline' : 'online'); autoPlayEnabled = true; [cite: 543]
+  [cite_start]} else if (err) err.innerText = "Неверный промокод. Попробуйте ещё!"; [cite: 544]
 }
+document.getElementById('promo-inp').addEventListener('keydown', e => { if (e.key === "Enter") checkPromo(); });
 
-document.getElementById('promo-inp').addEventListener('keydown', function(e) {
-  if (e.key === "Enter") checkPromo();
-});
-
-// ==================== ИНИЦИАЛИЗАЦИЯ UI ====================  
 function initializeMainUi() {
-  DOM.cover = document.getElementById('cover');
-  DOM.trackList = document.getElementById('track-list');
-  DOM.socialLinks = document.getElementById('social-links');
-
-  // НОВОЕ: загрузим оверрайды достижений ...
-  (async ()=>{ try { await loadAchOverrides(); } catch(e){} })();
-
-  // НОВОЕ: подготовка VIP‑клиента (сейчас bootstrap ничего не делает, но оставим вызов)
-  try { VipClient.bootstrap(); } catch(e){}
-
-  // ВАЖНО: патч localStorage уже активирован глобально DemoMode.bootstrap(),
-  // поэтому сразу инициализируем сторы с правильным префиксом.
-  setCoverImage(coverGalleryIdx);
-  buildSocials();
-  StatsStore.init();
-  AchProgress.init();
-  // Проверка целостности локальных данных + отображение баннера
-  Integrity.verifyOnBoot().then(ok => {
-    if (!ok || localStorage.getItem('tamper_detected') === '1') {
-      showTamperBanner();
-    } else {
-      hideTamperBanner();
-    }
-  });
-  // Восстановим компактный вид, если автосейв уже был подтверждён
-  setCloudSavedUI(localStorage.getItem('CLOUD_SAVED_OK') === '1');
-
-  // Моя статистика
-  MyStats.init();
-  // prizes removed
-  // global stats removed
-  // Открытие списка достижений по тапу на bubble
+  DOM.cover = document.getElementById('cover'); DOM.trackList = document.getElementById('track-list'); [cite_start]DOM.socialLinks = document.getElementById('social-links'); [cite: 545]
+  (async () => { try { await loadAchOverrides(); } catch {} })();
+  try { VipClient.bootstrap(); [cite_start]} catch {} [cite: 546]
+  [cite_start]setCoverImage(coverGalleryIdx); buildSocials(); [cite: 548]
+  StatsStore.init(); AchProgress.init();
+  Integrity.verifyOnBoot().then(ok => (!ok || localStorage.getItem('tamper_detected') === '1') ? showTamperBanner() : hideTamperBanner());
+  [cite_start]setCloudSavedUI(localStorage.getItem('CLOUD_SAVED_OK') === '1'); [cite: 549]
+  [cite_start]MyStats.init(); [cite: 550]
   const bubble = document.getElementById('ach-hint-bubble');
-  if (bubble) {
-    bubble.title = 'Открыть список достижений';
-    bubble.addEventListener('click', () => openAchievementsModal('all'));
-  }
-  // Закрытие модалки по клику на фон
+  if (bubble) { bubble.title = 'Открыть список достижений'; bubble.addEventListener('click', () => openAchievementsModal('all')); [cite_start]} [cite: 551]
   const achModalBg = document.getElementById('achievements-modal');
-  if (achModalBg) {
-    achModalBg.onclick = (e) => { if (e.target === achModalBg) closeAchievementsModal(); };
-  }
-
-  // Привязка кнопки "СОХРАНИТЬ ДОСТИЖЕНИЯ" (меню действий)
-  document.getElementById('backup-export-btn')?.addEventListener('click', openBackupActions);
+  if (achModalBg) achModalBg.onclick = e => { if (e.target === achModalBg) closeAchievementsModal(); [cite_start]}; [cite: 553]
+  [cite_start]document.getElementById('backup-export-btn')?.addEventListener('click', openBackupActions); [cite: 554]
   const importInput = document.getElementById('backup-file-input');
-  if (importInput) {
-    importInput.addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (file) backupImportFromFile(file);
-      importInput.value = '';
-    });
-  }
-
-  // support/donate: placeholder (no external services)
+  [cite_start]if (importInput) importInput.addEventListener('change', e => { const file = e.target.files?.[0]; if (file) backupImportFromFile(file); importInput.value = ''; }); [cite: 555]
   const supportBtn = document.getElementById('support-link');
-  if (supportBtn) supportBtn.onclick = () => NotificationSystem.info('Поддержка проекта — скоро будет');
-  
-  if (config.background) {
-    const bgUrl = String(config.background);
-    const img = new Image();
-    img.onload = () => {
-      document.body.style.background = `url(${bgUrl}) center/cover fixed #111`;
-    };
-    img.onerror = () => {
-      console.warn('[bg] missing:', bgUrl);
-      document.body.style.background = '#111';
-    };
-    img.src = bgUrl;
-  } else {
-    document.body.style.background = '#111';
-  }
-  
-  buildTrackList();
-  updateAvailableTracks();
-  
-  // НОВОЕ: Проверяем наличие клавиатуры и показываем кнопку горячих клавиш
-  if (hasKeyboard()) {
-    insertHotkeysButton();
-  }
-  
-  // Восстанавливаем состояние анимаций
-  restoreAnimationStates();
-  
-  // feedback: placeholder (no external services)
-  document.getElementById('feedback-link').onclick = () => {
-    NotificationSystem.info('Обратная связь в Telegram — скоро будет');
-  };
-  // feedback modal removed
-
-  document.getElementById('cover-gallery-arrow-left').onclick = function() {
-    setCoverImage(coverGalleryIdx - 1);
-    startCoverAutoPlay();
-  };
-  
-  document.getElementById('cover-gallery-arrow-right').onclick = function() {
-    setCoverImage(coverGalleryIdx + 1);
-    startCoverAutoPlay();
-  };
-  
+  [cite_start]if (supportBtn) supportBtn.onclick = () => NotificationSystem.info('Поддержка проекта — скоро будет'); [cite: 557]
+  document.body.style.background = config.background ? [cite_start]`url(${config.background}) center/cover fixed #111` : '#111'; [cite: 559, 561]
+  buildTrackList(); updateAvailableTracks();
+  [cite_start]if (hasKeyboard()) insertHotkeysButton(); [cite: 562]
+  [cite_start]restoreAnimationStates(); [cite: 563]
+  [cite_start]document.getElementById('feedback-link').onclick = () => NotificationSystem.info('Обратная связь в Telegram — скоро будет'); [cite: 564]
+  document.getElementById('cover-gallery-arrow-left').onclick = () => { setCoverImage(coverGalleryIdx - 1); startCoverAutoPlay(); [cite_start]}; [cite: 565]
+  document.getElementById('cover-gallery-arrow-right').onclick = () => { setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); [cite_start]}; [cite: 566]
   let startX = null;
   const el = document.getElementById('cover-wrap');
-  
-  el.addEventListener('touchstart', function(e) {
-    startX = e.touches[0].clientX;
-  });
-  
-  el.addEventListener('touchend', function(e) {
+  [cite_start]el.addEventListener('touchstart', e => startX = e.touches[0].clientX); [cite: 567]
+  el.addEventListener('touchend', e => {
     if (startX === null) return;
     const dx = e.changedTouches[0].clientX - startX;
-    if (Math.abs(dx) > 30) {
-      if (dx > 0) {
-        setCoverImage(coverGalleryIdx - 1);
-      } else {
-        setCoverImage(coverGalleryIdx + 1);
-      }
-      startCoverAutoPlay();
-    }
+    [cite_start]if (Math.abs(dx) > 30) { setCoverImage(coverGalleryIdx + (dx > 0 ? -1 : 1)); startCoverAutoPlay(); } [cite: 568]
     startX = null;
   });
-  
-  startCoverAutoPlay();
-  initializeAlbumDownloadCheckboxes();
-  detectIOSAndShowInstallGuide();
-  setOfflineUIState(offlineMode ? 'offline' : 'online');
-  
-  // Восстанавливаем режим отображения лирики
-  restoreLyricsViewMode();
-  
-  // Восстанавливаем фильтр избранных если был активен
-  if (localStorage.getItem('favoritesFilter') === '1') {
-    const liked = getLiked();
-    if (liked.length > 0) {
-      favoritesFilterActive = false;
-      setTimeout(() => {
-        toggleFavoritesFilter();
-      }, 500);
-    }
-  }
-  
-  // Добавляем слушатель событий для проверки sleep таймера при изменении видимости
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      checkSleepTimer();
-    }
-  });
-  
-  window.addEventListener('focus', checkSleepTimer);
+  [cite_start]startCoverAutoPlay(); initializeAlbumDownloadCheckboxes(); detectIOSAndShowInstallGuide(); [cite: 569]
+  setOfflineUIState(offlineMode ? 'offline' : 'online'); restoreLyricsViewMode();
+  if (localStorage.getItem('favoritesFilter') === '1' && getLiked().length > 0) { favoritesFilterActive = false; setTimeout(toggleFavoritesFilter, 500); [cite_start]} [cite: 570, 572]
+  [cite_start]document.addEventListener('visibilitychange', () => { if (!document.hidden) checkSleepTimer(); }); [cite: 573]
+  [cite_start]window.addEventListener('focus', checkSleepTimer); [cite: 574]
 }
 
-// ==================== НОВЫЕ ФУНКЦИИ ДЛЯ АНИМАЦИЙ ====================
-
-// Определение наличия клавиатуры
 function hasKeyboard() {
-  const isDesktop = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const hasPointer = window.matchMedia('(pointer: fine)').matches;
-  const canHover = window.matchMedia('(hover: hover)').matches;
-  const noTouch = navigator.maxTouchPoints === 0;
-  
-  return (isDesktop && hasPointer) || (canHover && noTouch);
+  [cite_start]const isDesktop = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); [cite: 575]
+  return (isDesktop && window.matchMedia('(pointer: fine)').matches) || (window.matchMedia('(hover: hover)[cite_start]').matches && navigator.maxTouchPoints === 0); [cite: 576]
 }
 
-// Вставка кнопки горячих клавиш
 function insertHotkeysButton() {
-  const feedbackLink = document.getElementById('feedback-link');
-  const downloadBtn = document.getElementById('download-album-main');
-  
-  if (feedbackLink && downloadBtn) {
-    const hotkeysBtn = document.getElementById('hotkeys-btn');
-    if (hotkeysBtn) {
-      hotkeysBtn.style.display = 'block';
-      // Вставляем между кнопкой скачивания и ссылкой обратной связи
-      downloadBtn.parentNode.insertBefore(hotkeysBtn, feedbackLink);
-    }
-  }
+  [cite_start]const feedbackLink = document.getElementById('feedback-link'), downloadBtn = document.getElementById('download-album-main'), hotkeysBtn = document.getElementById('hotkeys-btn'); [cite: 577, 578]
+  if (feedbackLink && downloadBtn && hotkeysBtn) { hotkeysBtn.style.display = 'block'; downloadBtn.parentNode.insertBefore(hotkeysBtn, feedbackLink); [cite_start]} [cite: 579]
 }
 
-// Показать модальное окно горячих клавиш
-function showHotkeysModal() {
-  document.getElementById('hotkeys-modal').classList.add('active');
-}
+const showHotkeysModal = () => document.getElementById('hotkeys-modal').classList.add('active');
+[cite_start]const closeHotkeysModal = () => document.getElementById('hotkeys-modal').classList.remove('active'); [cite: 580]
 
-function closeHotkeysModal() {
-  document.getElementById('hotkeys-modal').classList.remove('active');
-}
-
-// Обработчик клика по логотипу
 function handleLogoClick() {
-  if (!bitEnabled) return;
-  
-  // Циклически меняем интенсивность
-  if (bitIntensity === 100) {
-    bitIntensity = 50;
-  } else if (bitIntensity === 50) {
-    bitIntensity = 15;
-  } else {
-    bitIntensity = 100;
-  }
-  
+  [cite_start]if (!bitEnabled) return; [cite: 581]
+  bitIntensity = bitIntensity === 100 ? [cite_start]50 : (bitIntensity === 50 ? 15 : 100); [cite: 582, 583, 584]
   localStorage.setItem('bitIntensity', bitIntensity.toString());
-  NotificationSystem.info(`💿 Интенсивность пульсации: ${bitIntensity}%`);
+  [cite_start]NotificationSystem.info(`💿 Интенсивность пульсации: ${bitIntensity}%`); [cite: 585]
 }
 
-// Восстановление состояния анимаций
 function restoreAnimationStates() {
-  // Восстанавливаем состояние анимации лирики
-  const savedAnimation = localStorage.getItem('animationEnabled');
-  if (savedAnimation === '1') {
-    animationEnabled = true;
-  }
-  
-  // Восстанавливаем состояние пульсации
-  const savedBit = localStorage.getItem('bitEnabled');
-  if (savedBit === '1') {
-    bitEnabled = true;
-  }
-  
-  // Восстанавливаем интенсивность
+  [cite_start]if (localStorage.getItem('animationEnabled') === '1') animationEnabled = true; [cite: 586]
+  [cite_start]if (localStorage.getItem('bitEnabled') === '1') bitEnabled = true; [cite: 588]
   const savedIntensity = localStorage.getItem('bitIntensity');
-  if (savedIntensity) {
-    bitIntensity = parseInt(savedIntensity);
-  }
+  [cite_start]if (savedIntensity) bitIntensity = parseInt(savedIntensity); [cite: 590]
 }
 // ==================== ФУНКЦИИ АНИМАЦИИ ====================
 const $ = id => document.getElementById(id);
