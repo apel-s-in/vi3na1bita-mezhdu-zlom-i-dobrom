@@ -419,11 +419,10 @@ const FeatureFlags={
   statsCollect:(localStorage.getItem('ff_stats_collect')??'1')==='1',
   achievementsLogic:(localStorage.getItem('ff_achievements_logic')??'0')==='1'
 };
-// Открываем все секретные достижения по умолчанию
 localStorage.setItem('secret_start_at', '1');
 const DOM={};let config=null,promoPassed=!1,configLoaded=!1,coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'],coverGalleryIdx=0,coverAutoplay=null,currentTrack=-1,currentLyrics=[],autoPlayEnabled=!0,offlineMode=!1,offlineDownloading=!1,deferredPrompt=null,shuffleMode=!1,shuffledPlaylist=[],shuffleIndex=0,repeatMode=!1,favoritesOnlyMode=!1,availableTracks=[],favoritesFilterActive=!1,animationEnabled=!1,bitEnabled=!1,bitIntensity=100,audioContext=null,analyser=null,audioSource=null,animationFrame=null,hasShownAnimationWarning=!1,hasShownBitWarning=!1,downloadOptions={includeCovers:!0,includeLyrics:!0,onlyFavorites:!1,fullAlbum:!0},filesToDownload=[];
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').then(async r=>{console.log('Service Worker registered',r);await navigator.serviceWorker.ready;syncOfflineState();try{r.active&&r.active.postMessage({type:'REQUEST_OFFLINE_STATE'})}catch(e){}try{r.update()}catch(e){}setInterval(async()=>{try{const x=await navigator.serviceWorker.getRegistration();if(x)x.update()}catch(e){}},36e5);r.addEventListener('updatefound',()=>{const w=r.installing;w.addEventListener('statechange',()=>{if(w.state==='activated')NotificationSystem.info('Приложение обновлено')})})});let __swReloaded=!1;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(__swReloaded)return;__swReloaded=!0;try{NotificationSystem.info('Обновление применено, перезагрузка...')}catch(e){}setTimeout(()=>location.reload(),300)});navigator.serviceWorker.addEventListener('message',e=>{const m=e.data||{};if(m.type==='CACHE_UPDATED')console.log('Cache updated to version:',m.version);if(m.type==='OFFLINE_STATE'){offlineMode=!!m.value;setOfflineUIState(offlineMode?'offline':'online')}if(m.type==='CLEAR_ALL_POSITIONS')PositionManager.clearAll()})}function syncOfflineState(){offlineMode=localStorage.getItem('offlineMode')==='1';if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'SET_OFFLINE_MODE',value:offlineMode})}
-// ==================== СИСТЕМА УВЕДОМЛЕНИЙ ====================
+
 class NotificationSystem {
   static queue = []; static isShowing = false;
   static show(message, type = 'info', duration = 3000) {
@@ -473,7 +472,7 @@ const Integrity = {
       const saved = localStorage.getItem(CRC_LS_KEY), crc = await this.compute();
       if (saved && saved !== crc) {
         localStorage.setItem('tamper_detected', '1');
-        NotificationSystem.error('Обнаружены изменения данных. Для призов восстановите из бэкапа.');
+        NotificationSystem.error('Обнаружены изменения данных. Для восстановления используйте бэкап.');
         return false;
       }
       localStorage.removeItem('tamper_detected'); return true;
@@ -830,36 +829,34 @@ const MyStats = {
   }
 };
 
-[cite_start]// ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ==== [cite: 352]
-
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
-  [cite_start]disable: localStorage.getItem('emoji_anim_disable') === '1' || window.matchMedia('(prefers-reduced-motion: reduce)').matches, [cite: 407]
-  [cite_start]map: { info: { id: 'loudspeaker', txt: '📢' }, success: { id: 'white_check_mark', txt: '✅' }, error: { id: 'cross_mark', txt: '❌' }, warning: { id: 'warning', txt: '⚠️' }, offline: { id: 'satellite_antenna', txt: '📡' }, achievement: { id: 'trophy', txt: '🏆' }, sparkles: { id: 'sparkles', txt: '✨' } }, [cite: 408, 409]
+  disable: localStorage.getItem('emoji_anim_disable') === '1' || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  map: { info: { id: 'loudspeaker', txt: '📢' }, success: { id: 'white_check_mark', txt: '✅' }, error: { id: 'cross_mark', txt: '❌' }, warning: { id: 'warning', txt: '⚠️' }, offline: { id: 'satellite_antenna', txt: '📡' }, achievement: { id: 'trophy', txt: '🏆' }, sparkles: { id: 'sparkles', txt: '✨' } },
   async ensureLottie() {
     if (this._lottie) return this._lottie;
     await new Promise((res, rej) => {
       const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s);
-    [cite_start]}); [cite: 410]
-    [cite_start]return (this._lottie = window.lottie); [cite: 411]
+    });
+    return (this._lottie = window.lottie);
   },
-  chooseKey(type, message) { return (type === 'success' && message && /^🏆/.test(message)) ? 'achievement' : (this.map[type] ? type : 'info'); [cite_start]}, [cite: 412]
+  chooseKey(type, message) { return (type === 'success' && message && /^🏆/.test(message)) ? 'achievement' : (this.map[type] ? type : 'info'); },
   async mount(container, type, message, size = 24, sid) {
     if (!container) return;
-    [cite_start]const meta = this.map[sid || this.chooseKey(type, message)] || this.map.info; [cite: 413]
-    [cite_start]container.textContent = ''; container.style.width = container.style.height = `${size}px`; [cite: 414]
+    const meta = this.map[sid || this.chooseKey(type, message)] || this.map.info;
+    container.textContent = ''; container.style.width = container.style.height = `${size}px`;
     if (this.disable) {
-      [cite_start]const img = document.createElement('img'); img.alt = ''; img.width = img.height = size; img.src = `${this.base}/static/${meta.id}.png`; [cite: 415, 416]
+      const img = document.createElement('img'); img.alt = ''; img.width = img.height = size; img.src = `${this.base}/static/${meta.id}.png`;
       img.onerror = () => container.textContent = meta.txt;
       container.appendChild(img); return;
     }
     try {
-      [cite_start]await this.ensureLottie(); [cite: 417]
-      [cite_start]const anim = window.lottie.loadAnimation({ container, renderer: 'svg', loop: false, autoplay: true, path: `${this.base}/animated/${meta.id}.json` }); [cite: 418]
-      [cite_start]setTimeout(() => { try { anim.stop(); } catch {} }, 1200); [cite: 419]
+      await this.ensureLottie();
+      const anim = window.lottie.loadAnimation({ container, renderer: 'svg', loop: false, autoplay: true, path: `${this.base}/animated/${meta.id}.json` });
+      setTimeout(() => { try { anim.stop(); } catch {} }, 1200);
     } catch {
-      [cite_start]const img = document.createElement('img'); img.alt = ''; img.width = img.height = size; img.src = `${this.base}/fallback/${meta.id}.webp`; [cite: 420]
-      img.onerror = () => { img.src = `${this.base}/fallback/${meta.id}.png`; img.onerror = () => container.textContent = meta.txt; [cite_start]}; [cite: 421, 422]
+      const img = document.createElement('img'); img.alt = ''; img.width = img.height = size; img.src = `${this.base}/fallback/${meta.id}.webp`;
+      img.onerror = () => { img.src = `${this.base}/fallback/${meta.id}.png`; img.onerror = () => container.textContent = meta.txt; };
       container.appendChild(img);
     }
   }
@@ -867,193 +864,196 @@ const AnimatedEmoji = {
 
 async function backupExport(levelForName) {
   try {
-    const payload = { appVersion: VERSION, buildDate: BUILD_DATE, exportedAt: new Date().toISOString(), deviceHash: getDeviceHash(), stats: StatsStore.s, statsInsights: MyStats?.insights ? [cite_start]MyStats.insights() : null }; [cite: 423, 424]
-    const checksum = await sha256String(JSON.stringify(payload));
-    [cite_start]const blob = new Blob([JSON.stringify({ kind: 'vr_backup_v1', checksum, payload }, null, 2)], { type: 'application/json' }); [cite: 425]
+    const payload = await buildBackupFile();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `vitrina-backup-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}${typeof levelForName === 'number' ? [cite_start]`-lvl${levelForName}` : ''}.json`; [cite: 426, 427]
+    a.download = `vitrina-backup-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}${typeof levelForName === 'number' ? `-lvl${levelForName}` : ''}.json`;
     document.body.appendChild(a); a.click();
-    [cite_start]setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); [cite: 428]
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
     const dayKey = localDayKey(Date.now());
-    if (!StatsStore.s.backups.dates.includes(dayKey)) { StatsStore.s.backups.dates.push(dayKey); [cite_start]} [cite: 429]
+    if (!StatsStore.s.backups.dates.includes(dayKey)) { StatsStore.s.backups.dates.push(dayKey); }
     StatsStore.save();
     Ach.unlock('backup_first');
-    [cite_start]if (StatsStore.s.backups.dates.length >= 3) Ach.unlock('backup_3_days'); [cite: 430]
-    [cite_start]if (StatsStore.s.lastMajorAchAt && (Date.now() - StatsStore.s.lastMajorAchAt) <= 86400000) Ach.unlock('backup_after_major'); [cite: 431]
+    if (StatsStore.s.backups.dates.length >= 3) Ach.unlock('backup_3_days');
+    if (StatsStore.s.lastMajorAchAt && (Date.now() - StatsStore.s.lastMajorAchAt) <= 86400000) Ach.unlock('backup_after_major');
     NotificationSystem.success('Бэкап сохранён');
-  } catch { NotificationSystem.error('Не удалось создать бэкап'); [cite_start]} [cite: 432]
+  } catch { NotificationSystem.error('Не удалось создать бэкап'); }
 }
 
 async function backupShare() {
   try {
-    const payload = { appVersion: VERSION, buildDate: BUILD_DATE, exportedAt: new Date().toISOString(), deviceHash: getDeviceHash(), stats: StatsStore.s, statsInsights: MyStats?.insights ? [cite_start]MyStats.insights() : null }; [cite: 433, 434]
-    [cite_start]const jsonText = JSON.stringify({ kind: 'vr_backup_v1', checksum: await sha256String(JSON.stringify(payload)), payload }, null, 2); [cite: 435]
-    [cite_start]if (navigator.canShare && window.File && navigator.canShare({ files: [new File([""], "a.json")] })) { [cite: 436]
-      [cite_start]const f = new File([new Blob([jsonText], { type: 'application/json' })], `vitrina-backup-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.json`, { type: 'application/json' }); [cite: 437]
-      await navigator.share({ title: 'Бэкап достижений', text: 'Мой прогресс и ачивки', files: [f] });
-      [cite_start]NotificationSystem.success('Бэкап отправлен'); [cite: 438]
-    } else if (navigator.share) {
+    const payload = await buildBackupFile();
+    const jsonText = JSON.stringify(payload, null, 2);
+    if (navigator.canShare && window.File) {
+      const f = new File([new Blob([jsonText], { type: 'application/json' })], `vitrina-backup-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.json`, { type: 'application/json' });
+      if (navigator.canShare({ files: [f] })) {
+        await navigator.share({ title: 'Бэкап достижений', text: 'Мой прогресс и ачивки', files: [f] });
+        NotificationSystem.success('Бэкап отправлен');
+        return;
+      }
+    }
+    if (navigator.share) {
       await navigator.share({ title: 'Бэкап достижений', text: jsonText });
-      [cite_start]NotificationSystem.success('Бэкап отправлен как текст'); [cite: 439, 440]
+      NotificationSystem.success('Бэкап отправлен как текст');
     } else {
       await navigator.clipboard.writeText(jsonText);
-      [cite_start]NotificationSystem.success('JSON бэкапа скопирован в буфер'); [cite: 441]
+      NotificationSystem.success('JSON бэкапа скопирован в буфер');
     }
-  } catch { NotificationSystem.error('Не удалось отправить бэкап'); [cite_start]} [cite: 442]
+  } catch { NotificationSystem.error('Не удалось отправить бэкап'); }
 }
 
 async function buildBackupFile() {
-  const u = Prize?.state?.user || [cite_start]{}; [cite: 443]
-  [cite_start]const knownSet = new Set([...JSON.parse(localStorage.getItem('known_devices') || '[]'), ...JSON.parse(localStorage.getItem('me_devices') || '[]'), getDeviceHash()]); [cite: 445, 446]
-  const ach = StatsStore.s?.achievements || [cite_start]{}; [cite: 448]
-  [cite_start]const secretStartAt = parseInt(localStorage.getItem('secret_start_at'), 10) || null; [cite: 450]
+  const knownSet = new Set([...JSON.parse(localStorage.getItem('known_devices') || '[]'), ...JSON.parse(localStorage.getItem('me_devices') || '[]'), getDeviceHash()]);
+  const ach = StatsStore.s?.achievements || {};
+  const secretStartAt = parseInt(localStorage.getItem('secret_start_at'), 10) || null;
   let secretDoneFromStart = 0;
   if (secretStartAt) {
-    [cite_start]for (const [id, info] of Object.entries(ach)) if (ACH_META[id]?.hidden && Number(info?.unlockedAt || 0) >= secretStartAt) secretDoneFromStart++; [cite: 451, 452]
+    for (const [id, info] of Object.entries(ach)) {
+      if (ACH_META[id]?.hidden && Number(info?.unlockedAt || 0) >= secretStartAt) secretDoneFromStart++;
+    }
   }
   const payload = {
     appVersion: VERSION, buildDate: BUILD_DATE, exportedAt: new Date().toISOString(), deviceHash: getDeviceHash(),
-    [cite_start]profile: { displayName: u?.display_name || localStorage.getItem('profile_name') || null, tgId: u?.tg_id || localStorage.getItem('tg_id') || null, tgUsername: localStorage.getItem('tg_username') || null }, [cite: 453, 454]
     favorites: getLiked(), knownDevices: Array.from(knownSet).slice(0, 50),
     achOverview: {
       normalTotal: Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length,
-      [cite_start]normalDone: Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length, [cite: 449]
+      normalDone: Object.keys(ach).filter(id => !ACH_META[id]?.hidden).length,
       secretTotal: Object.keys(ACH_META).filter(id => !!ACH_META[id]?.hidden).length,
-      [cite_start]secretDoneFromStart, secretStartAt [cite: 455]
+      secretDoneFromStart, secretStartAt
     },
-    stats: StatsStore.s, statsInsights: MyStats?.insights ? [cite_start]MyStats.insights() : null [cite: 456]
+    stats: StatsStore.s, statsInsights: MyStats?.insights ? MyStats.insights() : null
   };
-  [cite_start]return { kind: 'vr_backup_v1', checksum: await sha256String(JSON.stringify(payload)), payload }; [cite: 457]
+  return { kind: 'vr_backup_v1', checksum: await sha256String(JSON.stringify(payload)), payload };
 }
 
 async function backupImportFromFile(file) {
   if (!file) return;
   try {
-    [cite_start]const json = JSON.parse(await file.text()); [cite: 465]
-    [cite_start]if (json?.kind !== 'vr_backup_v1' || !json?.payload) return NotificationSystem.error('Неверный формат файла'); [cite: 466, 467]
-    [cite_start]if (await sha256String(JSON.stringify(json.payload)) !== json.checksum) return NotificationSystem.error('Файл повреждён (checksum mismatch)'); [cite: 468]
+    const json = JSON.parse(await file.text());
+    if (json?.kind !== 'vr_backup_v1' || !json?.payload) return NotificationSystem.error('Неверный формат файла');
+    if (await sha256String(JSON.stringify(json.payload)) !== json.checksum) return NotificationSystem.error('Файл повреждён (checksum mismatch)');
     const incoming = json.payload;
-    [cite_start]if (incoming.deviceHash !== getDeviceHash()) return NotificationSystem.error('Бэкап от другого устройства'); [cite: 469]
-    [cite_start]if (Object.keys(incoming.stats?.achievements || {}).length < Object.keys(StatsStore.s.achievements || {}).length && !confirm('В бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) return; [cite: 470, 471]
+    if (incoming.deviceHash !== getDeviceHash()) return NotificationSystem.error('Бэкап от другого устройства');
+    if (Object.keys(incoming.stats?.achievements || {}).length < Object.keys(StatsStore.s.achievements || {}).length && !confirm('В бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) return;
     StatsStore.s = incoming.stats;
-    [cite_start]if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] }; [cite: 472]
+    if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
     if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
-    [cite_start]if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0; [cite: 473]
+    if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
     if (Array.isArray(StatsStore.s.perTrack)) {
       StatsStore.s.perTrack.forEach((pt, i) => {
-        [cite_start]if (pt) { pt.byHour = pt.byHour || Array(24).fill(0); pt.byWeekday = pt.byWeekday || Array(7).fill(0); StatsStore.s.perTrack[i] = pt; } [cite: 474, 475]
+        if (pt) { pt.byHour = pt.byHour || Array(24).fill(0); pt.byWeekday = pt.byWeekday || Array(7).fill(0); StatsStore.s.perTrack[i] = pt; }
       });
     }
-    StatsStore.save(); [cite_start]AchProgress.updateFromStats(); [cite: 476]
+    StatsStore.save(); AchProgress.updateFromStats();
     localStorage.removeItem('tamper_detected'); hideTamperBanner();
-    [cite_start]NotificationSystem.success('Бэкап импортирован'); [cite: 477]
-  } catch { NotificationSystem.error('Не удалось импортировать бэкап'); [cite_start]} [cite: 478]
+    NotificationSystem.success('Бэкап импортирован');
+  } catch { NotificationSystem.error('Не удалось импортировать бэкап'); }
 }
 
 const openResetModal = () => document.getElementById('reset-modal')?.classList.add('active');
 const closeResetModal = () => document.getElementById('reset-modal')?.classList.remove('active');
-document.getElementById('reset-modal').onclick = function(e) { if (e.target === this) closeResetModal(); [cite_start]}; [cite: 479]
+document.getElementById('reset-modal').onclick = function(e) { if (e.target === this) closeResetModal(); };
 
 function promptReset(kind) {
-  const expect = kind === 'all' ? [cite_start]'Сбросить-ВСЁ' : (kind === 'stats' ? 'Сбросить-СТАТЫ' : 'Сбросить-АЧИВКИ'); [cite: 480]
-  [cite_start]if (prompt(`Для подтверждения введите: ${expect}`) !== expect) return NotificationSystem.warning('Отменено'); [cite: 481]
+  const expect = kind === 'all' ? 'Сбросить-ВСЁ' : (kind === 'stats' ? 'Сбросить-СТАТЫ' : 'Сбросить-АЧИВКИ');
+  if (prompt(`Для подтверждения введите: ${expect}`) !== expect) return NotificationSystem.warning('Отменено');
   if (kind === 'stats' || kind === 'all') {
-    [cite_start]const dev = getDeviceHash(); [cite: 482]
+    const dev = getDeviceHash();
     localStorage.removeItem(STATS_LS_KEY); StatsStore.init(); StatsStore.s.deviceHash = dev; StatsStore.save();
   }
   if (kind === 'ach' || kind === 'all') {
-    StatsStore.s.achievements = {}; StatsStore.s.lastMajorAchAt = 0; [cite_start]StatsStore.save(); [cite: 483, 484]
+    StatsStore.s.achievements = {}; StatsStore.s.lastMajorAchAt = 0; StatsStore.save();
   }
   AchProgress.updateFromStats(); NotificationSystem.success('Сброс выполнен. Можно начать заново.');
 }
 
 async function sha256String(str) {
-  [cite_start]const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); [cite: 485]
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function openBackupPrompt() {
-  [cite_start]const el = document.getElementById('modal-backup-prompt'); if (!el) return; [cite: 486]
+  const el = document.getElementById('modal-backup-prompt'); if (!el) return;
   try {
-    [cite_start]const nextAt = parseInt(localStorage.getItem('backup_prompt_next'), 10); [cite: 487]
-    [cite_start]if (Number.isInteger(nextAt) && getVisibleAchievementsCount() >= nextAt) localStorage.removeItem('backup_prompt_next'); [cite: 488]
+    const nextAt = parseInt(localStorage.getItem('backup_prompt_next'), 10);
+    if (Number.isInteger(nextAt) && getVisibleAchievementsCount() >= nextAt) localStorage.removeItem('backup_prompt_next');
   } catch {}
-  [cite_start]el.classList.add('active'); [cite: 489]
+  el.classList.add('active');
 }
 
 const openBackupActions = () => document.getElementById('backup-actions-modal')?.classList.add('active');
 const closeBackupActions = () => document.getElementById('backup-actions-modal')?.classList.remove('active');
 document.getElementById('backup-actions-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeBackupActions(); });
-[cite_start]const closeBackupPrompt = () => document.getElementById('modal-backup-prompt')?.classList.remove('active'); [cite: 490]
+const closeBackupPrompt = () => document.getElementById('modal-backup-prompt')?.classList.remove('active');
 
 function shouldShowBackupPrompt(doneVisible) {
   try {
-    [cite_start]if (doneVisible === Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length - 1) return true; [cite: 491]
-    [cite_start]if (localStorage.getItem('backup_prompt_mode') === 'never') return false; [cite: 492, 494]
-    [cite_start]const nextAt = parseInt(localStorage.getItem('backup_prompt_next'), 10); [cite: 493]
-    [cite_start]return Number.isInteger(nextAt) ? doneVisible >= nextAt : true; [cite: 495]
-  } catch { return true; [cite_start]} [cite: 496]
+    if (doneVisible === Object.keys(ACH_META).filter(id => !ACH_META[id]?.hidden).length - 1) return true;
+    if (localStorage.getItem('backup_prompt_mode') === 'never') return false;
+    const nextAt = parseInt(localStorage.getItem('backup_prompt_next'), 10);
+    return Number.isInteger(nextAt) ? doneVisible >= nextAt : true;
+  } catch { return true; }
 }
 
 function closeBackupPromptWithChoice() {
   try {
     if (document.getElementById('backup-opt-never')?.checked) {
-      [cite_start]localStorage.setItem('backup_prompt_mode', 'never'); localStorage.removeItem('backup_prompt_next'); [cite: 497, 498]
+      localStorage.setItem('backup_prompt_mode', 'never'); localStorage.removeItem('backup_prompt_next');
     } else if (document.getElementById('backup-opt-5')?.checked) {
-      [cite_start]localStorage.setItem('backup_prompt_next', String(getVisibleAchievementsCount() + 5)); localStorage.removeItem('backup_prompt_mode'); [cite: 499]
+      localStorage.setItem('backup_prompt_next', String(getVisibleAchievementsCount() + 5)); localStorage.removeItem('backup_prompt_mode');
     } else { localStorage.removeItem('backup_prompt_mode'); localStorage.removeItem('backup_prompt_next'); }
   } catch {}
-  [cite_start]closeBackupPrompt(); [cite: 500]
+  closeBackupPrompt();
 }
 
-[cite_start]const showTamperBanner = () => document.getElementById('tamper-banner')?.classList.remove('hidden'); [cite: 501]
-[cite_start]const hideTamperBanner = () => document.getElementById('tamper-banner')?.classList.add('hidden'); [cite: 502]
-[cite_start]const setCloudSavedUI = saved => document.getElementById('ach-progress-root')?.classList.toggle('cloud-saved', !!saved); [cite: 503, 504]
-[cite_start]const getVisibleAchievementsCount = () => Object.keys(StatsStore.s?.achievements || {}).filter(id => !ACH_META[id]?.hidden).length; [cite: 505]
-async function backupExportWithLevel() { closeBackupPrompt(); await backupExport(getVisibleAchievementsCount()); [cite_start]} [cite: 506]
+const showTamperBanner = () => document.getElementById('tamper-banner')?.classList.remove('hidden');
+const hideTamperBanner = () => document.getElementById('tamper-banner')?.classList.add('hidden');
+const setCloudSavedUI = saved => document.getElementById('ach-progress-root')?.classList.toggle('cloud-saved', !!saved);
+const getVisibleAchievementsCount = () => Object.keys(StatsStore.s?.achievements || {}).filter(id => !ACH_META[id]?.hidden).length;
+async function backupExportWithLevel() { closeBackupPrompt(); await backupExport(getVisibleAchievementsCount()); }
 
 class PlayerState {
   static save() {
-    [cite_start]const audio = document.getElementById('audio'); [cite: 507]
+    const audio = document.getElementById('audio');
     localStorage.setItem('playerState', JSON.stringify({
-      [cite_start]trackIndex: currentTrack, position: audio ? audio.currentTime : 0, volume: audio ? normalizeVolume(audio.volume) : 1, [cite: 508, 509]
+      trackIndex: currentTrack, position: audio ? audio.currentTime : 0, volume: audio ? normalizeVolume(audio.volume) : 1,
       savedVolume: localStorage.getItem('playerVolume'), liked: getLiked(), timestamp: Date.now()
-    [cite_start]})); [cite: 510]
+    }));
   }
   static restore() {
     try {
-      [cite_start]const state = JSON.parse(localStorage.getItem('playerState')); [cite: 511]
-      [cite_start]return (state && Date.now() - state.timestamp <= 86400000) ? state : null; [cite: 512]
-    } catch { return null; [cite_start]} [cite: 513]
+      const state = JSON.parse(localStorage.getItem('playerState'));
+      return (state && Date.now() - state.timestamp <= 86400000) ? state : null;
+    } catch { return null; }
   }
   static apply(state) {
-    [cite_start]if (!state || !config) return; [cite: 514]
-    [cite_start]if (state.savedVolume) localStorage.setItem('playerVolume', state.savedVolume); [cite: 515]
+    if (!state || !config) return;
+    if (state.savedVolume) localStorage.setItem('playerVolume', state.savedVolume);
     if (state.trackIndex >= 0 && state.trackIndex < config.tracks.length) {
       showTrack(state.trackIndex, false);
       setTimeout(() => {
         const audio = document.getElementById('audio');
         if (audio && state.position > 0) { audio.currentTime = state.position; audio.volume = normalizeVolume(state.volume); }
-      [cite_start]}, 500); [cite: 516, 517]
+      }, 500);
     }
   }
 }
 
 setInterval(() => { const a = document.getElementById('audio'); if (a && !a.paused) PlayerState.save(); }, 5000);
-[cite_start]window.addEventListener('beforeunload', () => PlayerState.save()); [cite: 518]
+window.addEventListener('beforeunload', () => PlayerState.save());
 
 class PositionManager {
-  static save(trackId, position) { localStorage.setItem('current_track_position', JSON.stringify({ trackId, position, timestamp: Date.now() })); [cite_start]} [cite: 519]
+  static save(trackId, position) { localStorage.setItem('current_track_position', JSON.stringify({ trackId, position, timestamp: Date.now() })); }
   static get(trackId) {
     try {
-      [cite_start]const data = JSON.parse(localStorage.getItem('current_track_position')); [cite: 520]
-      if (data?.trackId !== trackId || Date.now() - data.timestamp > 3600000) { localStorage.removeItem('current_track_position'); return null; [cite_start]} [cite: 521, 523, 524]
-      [cite_start]return data.position; [cite: 525]
-    } catch { return null; [cite_start]} [cite: 526]
+      const data = JSON.parse(localStorage.getItem('current_track_position'));
+      if (data?.trackId !== trackId || Date.now() - data.timestamp > 3600000) { localStorage.removeItem('current_track_position'); return null; }
+      return data.position;
+    } catch { return null; }
   }
-  static clear() { localStorage.removeItem('current_track_position'); [cite_start]} [cite: 527]
-  static clearAll() { Object.keys(localStorage).forEach(k => { if (k.startsWith('position_') || k === 'current_track_position') localStorage.removeItem(k); }); [cite_start]} [cite: 528]
+  static clear() { localStorage.removeItem('current_track_position'); }
+  static clearAll() { Object.keys(localStorage).forEach(k => { if (k.startsWith('position_') || k === 'current_track_position') localStorage.removeItem(k); }); }
 }
 
 (async function loadAppConfigWithFallback() {
@@ -1062,104 +1062,133 @@ class PositionManager {
   const safetyTimer = setTimeout(() => {
     if (!configLoaded && fallbackArmed) {
       if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false;
-      [cite_start]if (errBox) errBox.textContent = 'Конфиг недоступен. Включен резервный режим входа.'; [cite: 530]
+      if (errBox) errBox.textContent = 'Конфиг недоступен. Включен резервный режим входа.';
     }
   }, 3000);
   try {
     const resp = await fetch('./config.json', { cache: 'no-cache' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    [cite_start]config = await resp.json(); [cite: 531]
+    config = await resp.json();
     clearTimeout(safetyTimer); fallbackArmed = false; configLoaded = true;
     if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false;
     if (localStorage.getItem('promoPassed') === '1') {
       promoPassed = true;
-      [cite_start]document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden'); [cite: 532]
+      document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden');
       initializeMainUi();
-      [cite_start]const savedState = PlayerState.restore(); if (savedState) PlayerState.apply(savedState); [cite: 533]
-      [cite_start]parseDeepLink(); [cite: 534]
+      const savedState = PlayerState.restore(); if (savedState) PlayerState.apply(savedState);
+      parseDeepLink();
     }
   } catch {
-    [cite_start]clearTimeout(safetyTimer); fallbackArmed = false; configLoaded = false; [cite: 535, 536]
+    clearTimeout(safetyTimer); fallbackArmed = false; configLoaded = false;
     config = { albumName: 'Между Злом и Добром', artist: 'Витрина Разбита', albumYear: 2025, tracks: [], socials: [], promoCode: 'VITRINA2025', donateLink: '#' };
-    [cite_start]if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false; [cite: 537]
-    if (errBox) { errBox.textContent = 'Конфиг не загружен. Включен резервный режим входа.'; errBox.style.color = '#ffa'; [cite_start]} [cite: 538]
+    if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false;
+    if (errBox) { errBox.textContent = 'Конфиг не загружен. Включен резервный режим входа.'; errBox.style.color = '#ffa'; }
     NotificationSystem.warning('Конфигурация не загружена — резервный режим');
   }
 })();
 
 function checkPromo() {
-  [cite_start]const inp = document.getElementById('promo-inp'), err = document.getElementById('promo-error'), val = (inp?.value || '').trim(); [cite: 539, 540]
-  if (!val) { if (err) err.innerText = "Введите промокод"; return; [cite_start]} [cite: 541]
-  [cite_start]if (val.toUpperCase() === (config?.promoCode ? String(config.promoCode) : 'VITRINA2025').toUpperCase()) { [cite: 542]
+  const inp = document.getElementById('promo-inp'), err = document.getElementById('promo-error'), val = (inp?.value || '').trim();
+  if (!val) { if (err) err.innerText = "Введите промокод"; return; }
+  if (val.toUpperCase() === (config?.promoCode ? String(config.promoCode) : 'VITRINA2025').toUpperCase()) {
     promoPassed = true; localStorage.setItem('promoPassed', '1');
     document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden');
-    [cite_start]initializeMainUi(); setOfflineUIState(offlineMode ? 'offline' : 'online'); autoPlayEnabled = true; [cite: 543]
-  [cite_start]} else if (err) err.innerText = "Неверный промокод. Попробуйте ещё!"; [cite: 544]
+    initializeMainUi(); setOfflineUIState(offlineMode ? 'offline' : 'online'); autoPlayEnabled = true;
+  } else if (err) err.innerText = "Неверный промокод. Попробуйте ещё!";
 }
 document.getElementById('promo-inp').addEventListener('keydown', e => { if (e.key === "Enter") checkPromo(); });
 
 function initializeMainUi() {
-  StatsStore.init(); AchProgress.init();
+  DOM.cover = document.getElementById('cover');
+  DOM.trackList = document.getElementById('track-list');
+  DOM.socialLinks = document.getElementById('social-links');
+
+  setCoverImage(coverGalleryIdx);
+  buildSocials();
+
+  StatsStore.init();
+  AchProgress.init();
   Integrity.verifyOnBoot().then(ok => (!ok || localStorage.getItem('tamper_detected') === '1') ? showTamperBanner() : hideTamperBanner());
-  [cite_start]setCloudSavedUI(localStorage.getItem('CLOUD_SAVED_OK') === '1'); [cite: 549]
-  [cite_start]MyStats.init(); [cite: 550]
+  setCloudSavedUI(localStorage.getItem('CLOUD_SAVED_OK') === '1');
+  MyStats.init();
+
   const bubble = document.getElementById('ach-hint-bubble');
-  if (bubble) { bubble.title = 'Открыть список достижений'; bubble.addEventListener('click', () => openAchievementsModal('all')); [cite_start]} [cite: 551]
+  if (bubble) { bubble.title = 'Открыть список достижений'; bubble.addEventListener('click', () => openAchievementsModal('all')); }
+
   const achModalBg = document.getElementById('achievements-modal');
-  if (achModalBg) achModalBg.onclick = e => { if (e.target === achModalBg) closeAchievementsModal(); [cite_start]}; [cite: 553]
-  [cite_start]document.getElementById('backup-export-btn')?.addEventListener('click', openBackupActions); [cite: 554]
+  if (achModalBg) achModalBg.onclick = e => { if (e.target === achModalBg) closeAchievementsModal(); };
+
+  document.getElementById('backup-export-btn')?.addEventListener('click', openBackupActions);
   const importInput = document.getElementById('backup-file-input');
-  [cite_start]if (importInput) importInput.addEventListener('change', e => { const file = e.target.files?.[0]; if (file) backupImportFromFile(file); importInput.value = ''; }); [cite: 555]
+  if (importInput) importInput.addEventListener('change', e => { const file = e.target.files?.[0]; if (file) backupImportFromFile(file); importInput.value = ''; });
+
   const supportBtn = document.getElementById('support-link');
-  [cite_start]if (supportBtn) supportBtn.onclick = () => NotificationSystem.info('Поддержка проекта — скоро будет'); [cite: 557]
-  document.body.style.background = config.background ? [cite_start]`url(${config.background}) center/cover fixed #111` : '#111'; [cite: 559, 561]
-  buildTrackList(); updateAvailableTracks();
-  [cite_start]if (hasKeyboard()) insertHotkeysButton(); [cite: 562]
-  [cite_start]restoreAnimationStates(); [cite: 563]
-  [cite_start]document.getElementById('feedback-link').onclick = () => NotificationSystem.info('Обратная связь в Telegram — скоро будет'); [cite: 564]
-  document.getElementById('cover-gallery-arrow-left').onclick = () => { setCoverImage(coverGalleryIdx - 1); startCoverAutoPlay(); [cite_start]}; [cite: 565]
-  document.getElementById('cover-gallery-arrow-right').onclick = () => { setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); [cite_start]}; [cite: 566]
+  if (supportBtn) supportBtn.onclick = () => NotificationSystem.info('Поддержка проекта — скоро будет');
+
+  document.body.style.background = config.background ? `url(${config.background}) center/cover fixed #111` : '#111';
+
+  buildTrackList();
+  updateAvailableTracks();
+  if (hasKeyboard()) insertHotkeysButton();
+  restoreAnimationStates();
+
+  document.getElementById('feedback-link').onclick = () => NotificationSystem.info('Обратная связь в Telegram — скоро будет');
+
+  document.getElementById('cover-gallery-arrow-left').onclick = () => { setCoverImage(coverGalleryIdx - 1); startCoverAutoPlay(); };
+  document.getElementById('cover-gallery-arrow-right').onclick = () => { setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); };
+
   let startX = null;
   const el = document.getElementById('cover-wrap');
-  [cite_start]el.addEventListener('touchstart', e => startX = e.touches[0].clientX); [cite: 567]
-  el.addEventListener('touchend', e => {
-    if (startX === null) return;
-    const dx = e.changedTouches[0].clientX - startX;
-    [cite_start]if (Math.abs(dx) > 30) { setCoverImage(coverGalleryIdx + (dx > 0 ? -1 : 1)); startCoverAutoPlay(); } [cite: 568]
-    startX = null;
-  });
-  [cite_start]startCoverAutoPlay(); initializeAlbumDownloadCheckboxes(); detectIOSAndShowInstallGuide(); [cite: 569]
-  setOfflineUIState(offlineMode ? 'offline' : 'online'); restoreLyricsViewMode();
-  if (localStorage.getItem('favoritesFilter') === '1' && getLiked().length > 0) { favoritesFilterActive = false; setTimeout(toggleFavoritesFilter, 500); [cite_start]} [cite: 570, 572]
-  [cite_start]document.addEventListener('visibilitychange', () => { if (!document.hidden) checkSleepTimer(); }); [cite: 573]
-  [cite_start]window.addEventListener('focus', checkSleepTimer); [cite: 574]
+  if (el) {
+    el.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+    el.addEventListener('touchend', e => {
+      if (startX === null) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) > 30) { setCoverImage(coverGalleryIdx + (dx > 0 ? -1 : 1)); startCoverAutoPlay(); }
+      startX = null;
+    });
+  }
+
+  startCoverAutoPlay();
+  initializeAlbumDownloadCheckboxes();
+  detectIOSAndShowInstallGuide();
+  setOfflineUIState(offlineMode ? 'offline' : 'online');
+  restoreLyricsViewMode();
+
+  if (localStorage.getItem('favoritesFilter') === '1' && getLiked().length > 0) {
+    favoritesFilterActive = false;
+    setTimeout(toggleFavoritesFilter, 500);
+  }
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkSleepTimer(); });
+  window.addEventListener('focus', checkSleepTimer);
 }
 
 function hasKeyboard() {
-  [cite_start]const isDesktop = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); [cite: 575]
-  return (isDesktop && window.matchMedia('(pointer: fine)').matches) || (window.matchMedia('(hover: hover)[cite_start]').matches && navigator.maxTouchPoints === 0); [cite: 576]
+  const isDesktop = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return (isDesktop && window.matchMedia('(pointer: fine)').matches) || (window.matchMedia('(hover: hover)').matches && navigator.maxTouchPoints === 0);
 }
 
 function insertHotkeysButton() {
-  [cite_start]const feedbackLink = document.getElementById('feedback-link'), downloadBtn = document.getElementById('download-album-main'), hotkeysBtn = document.getElementById('hotkeys-btn'); [cite: 577, 578]
-  if (feedbackLink && downloadBtn && hotkeysBtn) { hotkeysBtn.style.display = 'block'; downloadBtn.parentNode.insertBefore(hotkeysBtn, feedbackLink); [cite_start]} [cite: 579]
+  const feedbackLink = document.getElementById('feedback-link'), downloadBtn = document.getElementById('download-album-main'), hotkeysBtn = document.getElementById('hotkeys-btn');
+  if (feedbackLink && downloadBtn && hotkeysBtn) { hotkeysBtn.style.display = 'block'; downloadBtn.parentNode.insertBefore(hotkeysBtn, feedbackLink); }
 }
 
 const showHotkeysModal = () => document.getElementById('hotkeys-modal').classList.add('active');
-[cite_start]const closeHotkeysModal = () => document.getElementById('hotkeys-modal').classList.remove('active'); [cite: 580]
+const closeHotkeysModal = () => document.getElementById('hotkeys-modal').classList.remove('active');
 
 function handleLogoClick() {
-  [cite_start]if (!bitEnabled) return; [cite: 581]
-  bitIntensity = bitIntensity === 100 ? [cite_start]50 : (bitIntensity === 50 ? 15 : 100); [cite: 582, 583, 584]
+  if (!bitEnabled) return;
+  bitIntensity = bitIntensity === 100 ? 50 : (bitIntensity === 50 ? 15 : 100);
   localStorage.setItem('bitIntensity', bitIntensity.toString());
-  [cite_start]NotificationSystem.info(`💿 Интенсивность пульсации: ${bitIntensity}%`); [cite: 585]
+  NotificationSystem.info(`💿 Интенсивность пульсации: ${bitIntensity}%`);
 }
 
 function restoreAnimationStates() {
-  [cite_start]if (localStorage.getItem('animationEnabled') === '1') animationEnabled = true; [cite: 586]
-  [cite_start]if (localStorage.getItem('bitEnabled') === '1') bitEnabled = true; [cite: 588]
+  if (localStorage.getItem('animationEnabled') === '1') animationEnabled = true;
+  if (localStorage.getItem('bitEnabled') === '1') bitEnabled = true;
   const savedIntensity = localStorage.getItem('bitIntensity');
-  [cite_start]if (savedIntensity) bitIntensity = parseInt(savedIntensity); [cite: 590]
+  if (savedIntensity) bitIntensity = parseInt(savedIntensity);
 }
 // ==================== ФУНКЦИИ АНИМАЦИИ ====================
 const $ = id => document.getElementById(id);
@@ -1439,11 +1468,9 @@ function initializePlayerControls() {
 
 const formatTime = s => isNaN(s) || s < 0 ? '--:--' : `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 
-// volume guard: HTMLMediaElement.volume допускает только [0..1]
 function normalizeVolume(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return 1;
-  // если пришли проценты (0..100) — конвертируем в [0..1]
   const v = n > 1 ? n / 100 : n;
   return Math.max(0, Math.min(1, v));
 }
@@ -1729,7 +1756,7 @@ function restorePlayerButtonsState() {
   if (animationEnabled) $('animation-btn')?.classList.add('animation-active');
   if (bitEnabled) $('bit-btn')?.classList.add('bit-active');
 }
-// ==================== MEDIA SESSION API ====================
+
 function setupMediaSession() {
   if (!('mediaSession' in navigator) || !config) return;
   const tr = config.tracks[currentTrack], ms = navigator.mediaSession;
@@ -1748,7 +1775,6 @@ function setupMediaSession() {
   for (const [k, v] of Object.entries(binds)) ms.setActionHandler(k, v);
 }
 
-// ==================== КАРАОКЕ ====================
 function loadLyrics(file) {
   fetch(file).then(r => r.json()).then(js => { currentLyrics = js; renderLyrics(0); })
     .catch(err => { console.error('Failed to load lyrics:', err); currentLyrics = []; });
@@ -1786,7 +1812,6 @@ function copyLyrics() {
   }).catch(() => NotificationSystem.error("Не удалось загрузить текст!"));
 }
 
-// ==================== КЛАВИАТУРНАЯ НАВИГАЦИЯ ====================
 window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
   const modals = document.querySelectorAll('.modal-bg.active');
@@ -1822,7 +1847,6 @@ window.addEventListener('keydown', e => {
   }
 });
 
-// ==================== DEEP LINKS ====================
 function parseDeepLink() {
   const p = new URLSearchParams(window.location.search);
   const trk = parseInt(p.get('track'), 10), time = parseInt(p.get('time'), 10);
@@ -1840,7 +1864,6 @@ function getShareLink(idx) {
   return `${window.location.origin}${window.location.pathname}?track=${idx}${t > 10 ? `&time=${t}` : ''}`;
 }
 
-// ==================== СКАЧИВАНИЕ ТРЕКОВ ====================
 const getTrackFileName = (t, idx, art) => `${String(idx+1).padStart(2,'0')} - ${t.title} - ${art}.mp3`.replace(/[\\/:"*?<>|]+/g, '_');
 const closeDownloadModal = () => document.getElementById('download-modal').classList.remove('active');
 
@@ -1882,11 +1905,11 @@ function copyLinkCurrentTrack() {
   closeDownloadModal();
 }
 
-// ==================== СКАЧИВАНИЕ АЛЬБОМА ====================
 const loadJSZip = () => window.JSZip ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 
 function initializeAlbumDownloadCheckboxes() {
   const onlyFav = document.getElementById('onlyFavorites'), fullAlb = document.getElementById('fullAlbum');
+  if(!onlyFav || !fullAlb) return;
   onlyFav.addEventListener('change', function() {
     if (this.checked) {
       fullAlb.checked = false;
@@ -1899,6 +1922,7 @@ function initializeAlbumDownloadCheckboxes() {
 
 function checkFavoritesAvailable() {
   const favCb = document.getElementById('onlyFavorites'), liked = getLiked();
+  if(!favCb) return;
   favCb.disabled = !liked.length;
   favCb.parentElement.style.opacity = liked.length ? '1' : '0.5';
   favCb.parentElement.title = liked.length ? `Избранных: ${liked.length}` : 'Нет избранных треков';
@@ -1998,12 +2022,13 @@ async function createAndDownloadZip() {
   const a = document.createElement('a'); a.href = URL.createObjectURL(content); a.download = `vitrina-razbita-${new Date().toISOString().split('T')[0]}.zip`; a.click();
   setTimeout(() => { document.getElementById('downloadProgressModal').classList.remove('active'); NotificationSystem.success('Архив успешно скачан!'); URL.revokeObjectURL(a.href); }, 1500);
 }
-// ==================== ОФЛАЙН РЕЖИМ ====================
+
 const getEl = id => document.getElementById(id);
 
 function offlineUIClick() {
   if (offlineDownloading) return;
   const modal = getEl('modal-offline'), step = getEl('offline-step');
+  if(!modal || !step) return;
   modal.classList.add('active');
   
   if (!offlineMode) {
@@ -2098,6 +2123,7 @@ function startOfflineDownload() {
 
 function setOfflineUIState(state, progress, needMb) {
   const btn = getEl('offline-btn');
+  if(!btn) return;
   let div = getEl('offline-progr-div');
   
   if (state === 'downloading') {
@@ -2135,7 +2161,6 @@ function confirmGoOnline() {
   navigator.serviceWorker.ready.then(sw => sw.active.postMessage({ type: 'CLEAR_CACHE', offlineMode: false }));
 }
 
-// ==================== iOS ПОДДЕРЖКА И PWA ====================
 function detectIOSAndShowInstallGuide() {
   if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && !window.navigator.standalone && !window.matchMedia('(display-mode: standalone)').matches) {
     if (!localStorage.getItem('ios-install-dismissed')) setTimeout(showIOSInstallPrompt, 2000);
@@ -2159,31 +2184,37 @@ window.addEventListener('beforeinstallprompt', e => {
   const btn = getEl('install-pwa-btn'); if (btn) btn.style.display = '';
 });
 
-getEl('install-pwa-btn').onclick = () => {
-  getEl('install-modal').classList.add('active');
-  getEl('install-modal-hash').style.display = 'none';
-  const btn = getEl('install-proceed-btn');
-  btn.disabled = false; btn.innerText = 'Установить';
-};
+const pwaBtn = getEl('install-pwa-btn');
+if (pwaBtn) {
+  pwaBtn.onclick = () => {
+    getEl('install-modal').classList.add('active');
+    getEl('install-modal-hash').style.display = 'none';
+    const btn = getEl('install-proceed-btn');
+    btn.disabled = false; btn.innerText = 'Установить';
+  };
+}
 
 const closeInstallModal = () => getEl('install-modal')?.classList.remove('active');
 
-getEl('install-proceed-btn').onclick = async function() {
-  this.disabled = true; this.innerText = 'Выполняется проверка...';
-  getEl('install-modal-hash').style.display = '';
-  getEl('install-hash-progress').innerText = '';
-  
-  const hash = await hashManifest();
-  getEl('install-hash-progress').innerText = 'SHA-256: ' + hash;
-  this.innerText = 'Установка...';
-  
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(() => { closeInstallModal(); getEl('install-pwa-btn').style.display = 'none'; deferredPrompt = null; });
-  } else {
-    alert('К сожалению, ваш браузер не поддерживает установку PWA.'); closeInstallModal();
-  }
-};
+const procBtn = getEl('install-proceed-btn');
+if (procBtn) {
+  procBtn.onclick = async function() {
+    this.disabled = true; this.innerText = 'Выполняется проверка...';
+    getEl('install-modal-hash').style.display = '';
+    getEl('install-hash-progress').innerText = '';
+    
+    const hash = await hashManifest();
+    getEl('install-hash-progress').innerText = 'SHA-256: ' + hash;
+    this.innerText = 'Установка...';
+    
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => { closeInstallModal(); getEl('install-pwa-btn').style.display = 'none'; deferredPrompt = null; });
+    } else {
+      alert('К сожалению, ваш браузер не поддерживает установку PWA.'); closeInstallModal();
+    }
+  };
+}
 
 async function hashManifest() {
   try {
@@ -2193,30 +2224,15 @@ async function hashManifest() {
   } catch(e) { return '[ошибка хэширования]'; }
 }
 
-getEl('install-modal').onclick = function(e) { if (e.target === this) closeInstallModal(); };
+const instModal = getEl('install-modal');
+if (instModal) instModal.onclick = function(e) { if (e.target === this) closeInstallModal(); };
 window.addEventListener('appinstalled', () => Ach.unlock('pwa_installed'));
 
-// ==================== ОБРАТНАЯ СВЯЗЬ (заглушка) ====================
-function openFeedbackModal() {
-  NotificationSystem.info('Обратная связь в Telegram — скоро будет');
-}
+function openFeedbackModal() { NotificationSystem.info('Обратная связь в Telegram — скоро будет'); }
 function closeFeedbackModal() {}
 
-const escapeHtml = s => String(s||'')
-  .replace(/&/g,'&amp;')
-  .replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;')
-  .replace(/"/g,'&quot;')
-  .replace(/'/g,'&#39;');
+const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-const getFlagEmoji = cc => (cc?.length === 2) ? String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : '🏳️';
-const formatSpan = sec => {
-  if (sec <= 0) return '—';
-  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400)/3600), m = Math.floor((sec % 3600)/60);
-  return d > 0 ? `${d}д ${h}ч` : h > 0 ? `${h}ч ${m}м` : `${m}м`;
-};
-
-// ==================== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ====================
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator && 'caches' in window) console.log('PWA features supported');
   else console.warn('PWA features not fully supported');
@@ -2243,11 +2259,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 1000);
 });
 
-// ==================== МОНИТОРИНГ СЕТИ ====================
 window.addEventListener('online', () => { NotificationSystem.success('Соединение восстановлено'); });
 window.addEventListener('offline', () => NotificationSystem.offline('Нет соединения с интернетом'));
 
-// ==================== PERFORMANCE MONITORING ====================
 if (window.performance?.mark) {
   performance.mark('app-start');
   window.addEventListener('load', () => {
@@ -2257,14 +2271,12 @@ if (window.performance?.mark) {
   });
 }
 
-// ==================== ОБРАБОТКА ОШИБОК ====================
 window.addEventListener('error', e => {
   console.error('Global error:', e);
   if (e.message && !e.message.includes('ResizeObserver')) console.error('Debug info:', debugInfo());
 });
 window.addEventListener('unhandledrejection', e => console.error('Unhandled promise rejection:', e));
 
-// ==================== ОТЛАДКА ====================
 window.debugInfo = () => {
   const info = {
     version: VERSION, buildDate: BUILD_DATE, userAgent: navigator.userAgent, online: navigator.onLine, serviceWorker: 'serviceWorker' in navigator,
