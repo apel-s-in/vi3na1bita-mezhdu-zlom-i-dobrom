@@ -2066,12 +2066,20 @@ const Prize = {
     this.renderSkeleton();
     this.updateLocalReadiness();
     this.loadPrizes().catch(()=>{});
+
     // 1) Тихая авторизация (получим свежий sid), но UI не даунгрейдим
     this.attemptSilentAuth().then(() => {
-      this.fetchStatus();
+      // Не спамим /claim/status без признаков авторизации
+      const hasSid = !!localStorage.getItem('vr_sid');
+      const hasTgId = !!localStorage.getItem('tg_id');
+      if (hasSid || hasTgId) {
+        this.fetchStatus();
+        // храним таймер в объекте, чтобы не плодить интервалы при реинициализациях
+        if (!this._statusTimer) {
+          this._statusTimer = setInterval(() => this.fetchStatus(), 30000);
+        }
+      }
     });
-
-    setInterval(() => this.fetchStatus(), 30000);
   },
 
   async attemptSilentAuth() {
@@ -4272,7 +4280,18 @@ function initializeMainUi() {
   document.getElementById('support-link').href = config.donateLink;
   
   if (config.background) {
-    document.body.style.background = `url(${config.background}) center/cover fixed #111`;
+    const bgUrl = String(config.background);
+    const img = new Image();
+    img.onload = () => {
+      document.body.style.background = `url(${bgUrl}) center/cover fixed #111`;
+    };
+    img.onerror = () => {
+      console.warn('[bg] missing:', bgUrl);
+      document.body.style.background = '#111';
+    };
+    img.src = bgUrl;
+  } else {
+    document.body.style.background = '#111';
   }
   
   buildTrackList();
