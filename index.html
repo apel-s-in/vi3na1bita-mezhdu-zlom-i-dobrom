@@ -469,7 +469,7 @@ header{width:100%;text-align:center;margin:0 auto}
 <div id="promocode-block"><div class="promo-inner"><img class="promo-cover" src="Cover.png" alt="Обложка" draggable="false"/><h2>Вход по промокоду</h2><input id="promo-inp" type="text" placeholder="Введите промокод" autocomplete="off" autofocus disabled /><button id="promo-btn" onclick="checkPromo()" disabled>Войти</button><div id="promo-error"></div></div></div>
 <div id="main-block" class="hidden"><header><div id="cover-wrap"><button class="cover-gallery-arrow" id="cover-gallery-arrow-left" title="Назад" aria-label="Предыдущая обложка"><svg width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="16" fill="#23252e" opacity="0.65"/><polyline points="20,10 13,17 20,24" fill="none" stroke="#fff" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img id="cover" src="Cover.png" alt="Обложка альбома" draggable="false"/><button class="cover-gallery-arrow" id="cover-gallery-arrow-right" title="Вперёд" aria-label="Следующая обложка"><svg width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="16" fill="#23252e" opacity="0.65"/><polyline points="14,10 21,17 14,24" fill="none" stroke="#fff" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="social-links" class="socials-under-cover"></div><div id="ach-progress-root" class="ach-progress-root" aria-live="polite"><div class="ach-hint-bubble" id="ach-hint-bubble" role="status">✨ Мы готовим достижения. Слушайте — прогресс уже копится.</div><div class="ach-progress-header ach-center"><span class="ach-progress-title">ПРОГРЕСС ДОСТИЖЕНИЙ</span></div><div class="ach-progress-bars"><div class="ach-bar ach-bar-single"><div class="ach-bar-fill" id="ach-one-fill" style="width:0%"></div></div><div class="ach-done-label" id="ach-done-label">ВЫПОЛНЕНО: 0 / 34</div><div class="ach-done-label" id="ach-secret-label" style="display:none;">СЕКРЕТНЫЕ: 0 / 0</div></div><div class="ach-backup-controls" id="ach-backup-controls"><button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button><input type="file" id="backup-file-input" accept="application/json" hidden /></div><div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive"><div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div><div style="margin-top:6px; color:#ffd1d1;">Для участия в призах импортируйте валидный бэкап, иначе прогресс может не подтверждаться.</div><div class="actions"><button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button><button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button></div></div><div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div></div></header><div class="track-list" id="track-list"></div><div class="bottom-controls-center"><button class="filter-favorites-btn" id="filter-favorites-btn" onclick="toggleFavoritesFilter()">Скрыть не отмеченные ⭐ песни</button><img class="logo-bottom" id="logo-bottom" src="img/logo.png" alt="Логотип" onclick="handleLogoClick()"/><button id="install-pwa-btn" style="display: none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button><button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button><div id="my-stats-root" class="my-stats-root"><button class="my-stats-header" id="my-stats-toggle" type="button" aria-expanded="false">МОЯ СТАТИСТИКА<span class="chev" aria-hidden="true">▼</span></button><div class="my-stats-body" id="my-stats-body" hidden></div></div><!-- prizes removed -->
 <!-- global stats removed --><button class="hotkeys-btn" id="hotkeys-btn" style="display:none;" onclick="showHotkeysModal()">ГОРЯЧИЕ КЛАВИШИ</button><span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span><button class="support-link" id="support-link" type="button">ПОДДЕРЖАТЬ</button><button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button></div></div>
-<div class="modal-bg" id="modal-feedback"><div class="modal-feedback" style="max-width:420px;"><button class="bigclose" onclick="closeFeedbackModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div class="download-modal-title">Обратная связь</div><div id="fb-list" style="height:260px;overflow:auto;background:rgba(0,0,0,.2);border:1px solid #333;border-radius:8px;padding:8px;"></div><div id="fb-code" style="margin:6px 0;color:#9aa8c4;font-size:.9em;"></div><div style="display:flex;gap:6px;margin-top:6px;"><input id="fb-input" type="text" placeholder="Ваш вопрос..." style="flex:1;padding:8px;border-radius:8px;border:1px solid #444;background:#111;color:#fff;"><button class="offline-btn online" onclick="fbSend()" style="white-space:nowrap;">Отправить</button></div></div></div>
+<!-- feedback modal removed -->
 <!-- prizes modals removed -->
 <div class="modal-bg" id="albumDownloadModal"><div class="modal-feedback" style="max-width: 400px;"><h2 style="text-align: center; margin-bottom: 25px;">Между Злом и Добром</h2><div class="download-options"><label class="checkbox-container"><input type="checkbox" id="includeCovers" checked><span class="checkmark"></span>Обложки (галерея)</label><label class="checkbox-container"><input type="checkbox" id="includeLyrics" checked><span class="checkmark"></span>Тексты песен</label><hr style="margin: 15px 0; border-color: #333;"><label class="checkbox-container"><input type="checkbox" id="onlyFavorites"><span class="checkmark"></span>Только избранные песни</label><label class="checkbox-container"><input type="checkbox" id="fullAlbum" checked><span class="checkmark"></span>Полностью альбом</label></div><div class="modal-buttons"><button onclick="closeAlbumDownloadModal()" class="btn-secondary">ОТМЕНА</button><button onclick="prepareDownload()" class="btn-primary">СКАЧАТЬ</button></div></div></div>
 <div class="modal-bg" id="modal-backup-prompt"><div class="modal-feedback" style="max-width:400px;"><button class="bigclose" onclick="closeBackupPrompt()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Сохраните ваши достижения</div><div style="color:#bbb;line-height:1.5;margin-bottom:10px;">Сохраните файл резервной копии, чтобы не потерять прогресс. При утере данных приз может быть не подтверждён без файла.</div><label class="checkbox-container" style="margin-top:6px;"><input type="checkbox" id="backup-opt-never"><span class="checkmark"></span>Не напоминать больше</label><label class="checkbox-container" style="margin-top:6px;"><input type="checkbox" id="backup-opt-5"><span class="checkmark"></span>Напомнить через 5 достижений</label><div style="display:flex;gap:8px;justify-content:center;margin-top:12px;"><button class="btn-secondary" onclick="closeBackupPromptWithChoice()">Отмена</button><button class="btn-primary" onclick="backupExportWithLevel()">Сохранить…</button></div></div></div>
@@ -3601,120 +3601,14 @@ async function buildBackupFile() {
   const file = { kind: 'vr_backup_v1', checksum, payload };
   return file;
 }
-// Сохранение в облако (POST /backup)
+// Сохранение в облако (disabled)
 async function backupSaveToCloud() {
   NotificationSystem.info('Облачный бэкап — скоро будет');
 }
-  try {
-    if (!GLOBAL_STATS_URL) {
-      NotificationSystem.warning('Сервер облачного бэкапа не настроен');
-      return;
-    }
-    const file = await buildBackupFile();
 
-    const res = await fetch(`${GLOBAL_STATS_URL}/backup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Device-Hash': getDeviceHash()
-      },
-      mode: 'cors',
-      body: JSON.stringify(file)
-    });
-
-    const data = await res.json().catch(()=> ({}));
-    if (!res.ok || !data?.ok) {
-      const err = data?.error || `HTTP_${res.status}`;
-      NotificationSystem.error(`Не удалось сохранить в облако: ${err}`);
-      return;
-    }
-
-    // ВАЖНО: ставим локальный флаг и компактный UI как при автосейве
-    localStorage.setItem('CLOUD_SAVED_OK', '1');
-    localStorage.setItem('CLOUD_SAVED_CRC', file.checksum);
-    localStorage.setItem('CLOUD_SAVED_AT', String(Date.now()));
-    setCloudSavedUI(true);
-    try { Prize.updateLocalReadiness(); } catch(e){}
-
-    NotificationSystem.success('Бэкап сохранён в облаке');
-  } catch (e) {
-    console.error(e);
-    NotificationSystem.error('Ошибка сохранения в облако');
-  }
-}
-
-// Восстановление из облака (GET /backup/latest)
+// Восстановление из облака (disabled)
 async function backupImportFromCloud() {
   NotificationSystem.info('Облачный бэкап — скоро будет');
-}
-  try {
-    if (!GLOBAL_STATS_URL) {
-      NotificationSystem.warning('Сервер облачного бэкапа не настроен');
-      return;
-    }
-    const dev = getDeviceHash();
-    const res = await fetch(`${GLOBAL_STATS_URL}/backup/latest?device=${encodeURIComponent(dev)}`, {
-      method: 'GET',
-      mode: 'cors'
-    });
-    const data = await res.json().catch(()=> ({}));
-    if (!res.ok || !data?.ok || !data?.backup) {
-      const err = data?.error || `HTTP_${res.status}`;
-      if (res.status === 404 || err === 'not_found') {
-        NotificationSystem.warning('Облачный бэкап не найден');
-      } else {
-        NotificationSystem.error(`Ошибка загрузки из облака: ${err}`);
-      }
-      return;
-    }
-    const serverFile = data.backup;
-    if (serverFile?.kind !== 'vr_backup_v1' || !serverFile?.payload) {
-      NotificationSystem.error('Формат облачного бэкапа некорректен');
-      return;
-    }
-    const calc = await sha256String(JSON.stringify(serverFile.payload));
-    if (calc !== serverFile.checksum) {
-      NotificationSystem.error('Облачный файл повреждён (checksum mismatch)');
-      return;
-    }
-    if (serverFile.payload.deviceHash !== dev) {
-      NotificationSystem.error('Облачный бэкап от другого устройства');
-      return;
-    }
-
-    const incoming = serverFile.payload;
-    const currentDone = Object.keys(StatsStore.s.achievements||{}).length;
-    const incomingDone = Object.keys(incoming.stats?.achievements||{}).length;
-    if (incomingDone < currentDone) {
-      if (!confirm('В облачном бэкапе меньше открытых достижений, чем сейчас. Импортировать и перезаписать?')) {
-        return;
-      }
-    }
-
-    StatsStore.s = incoming.stats;
-    if (!StatsStore.s.backups) StatsStore.s.backups = { dates: [] };
-    if (!StatsStore.s.socialsVisited) StatsStore.s.socialsVisited = {};
-    if (typeof StatsStore.s.sleepTimerStops !== 'number') StatsStore.s.sleepTimerStops = 0;
-    if (Array.isArray(StatsStore.s.perTrack)) {
-      for (let i = 0; i < StatsStore.s.perTrack.length; i++) {
-        const pt = StatsStore.s.perTrack[i] || {};
-        if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
-        if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0);
-        StatsStore.s.perTrack[i] = pt;
-      }
-    }
-
-    StatsStore.save();
-    AchProgress.updateFromStats();
-    localStorage.removeItem('tamper_detected');
-    hideTamperBanner();
-
-    NotificationSystem.success('Восстановление из облака выполнено');
-    try { Prize.updateLocalReadiness(); } catch(e){}
-  } catch (e) {
-    console.error(e);
-    NotificationSystem.error('Не удалось восстановить из облака');
-  }
 }
 
 /**
@@ -3729,66 +3623,10 @@ const CLOUD_SAVED_AT_KEY  = 'CLOUD_SAVED_AT';
 async function backupSaveToCloudOverwriteSilent() {
   // cloud removed
 }
-  try {
-    if (!GLOBAL_STATS_URL) return;              // сервер не настроен
-    if (localStorage.getItem('tamper_detected') === '1') return; // не сохраняем при tamper
-    // троттлинг по времени
-    const lastAt = parseInt(localStorage.getItem(CLOUD_SAVED_AT_KEY)||'0',10) || 0;
-    if (Date.now() - lastAt < 60_000) return;
-
-    const file = await buildBackupFile();
-    const lastCrc = localStorage.getItem(CLOUD_SAVED_CRC_KEY);
-    if (lastCrc && lastCrc === file.checksum) {
-      // состояние не менялось — только отметим UI, если ранее было ок
-      if (localStorage.getItem(CLOUD_SAVED_OK_KEY) === '1') {
-        setCloudSavedUI(true);
-      }
-      return;
-    }
-
-    const res = await fetch(`${GLOBAL_STATS_URL}/backup?overwrite=1`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Device-Hash': getDeviceHash(),
-        'X-Backup-Mode': 'overwrite'  // для совместимости
-      },
-      mode: 'cors',
-      body: JSON.stringify(file)
-    });
-
-    const data = await res.json().catch(()=> ({}));
-    if (res.ok && data?.ok) {
-      localStorage.setItem(CLOUD_SAVED_OK_KEY, '1');
-      localStorage.setItem(CLOUD_SAVED_CRC_KEY, file.checksum);
-      localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now()));
-      // Компактный UI
-      setCloudSavedUI(true);
-      try { Prize.updateLocalReadiness(); } catch(e){}
-    } else {
-      // не сбиваем UI, просто попробуем позже
-      localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now())); // чтобы не спамить
-    }
-  } catch (e) {
-    // молча игнорируем; повторим позже
-    localStorage.setItem(CLOUD_SAVED_AT_KEY, String(Date.now()));
-  }
-}
 // Гарантируем CLOUД_SAVED_OK: если нет — делаем тихий overwrite и ждём до timeoutMs
 async function ensureCloudBackupReady(timeoutMs = 2000) {
   // cloud removed
   return false;
-}
-  try {
-    if (localStorage.getItem('CLOUD_SAVED_OK') === '1') return true;
-    await backupSaveToCloudOverwriteSilent();
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      if (localStorage.getItem('CLOUD_SAVED_OK') === '1') return true;
-      await new Promise(r => setTimeout(r, 150));
-    }
-  } catch {}
-  return localStorage.getItem('CLOUD_SAVED_OK') === '1';
 }
 
 /**
@@ -4304,19 +4142,8 @@ function initializeMainUi() {
   document.getElementById('feedback-link').onclick = () => {
     NotificationSystem.info('Обратная связь в Telegram — скоро будет');
   };
-  // old feedback modal removed
-  // Обработчик Enter в поле чата + авто‑фокус после открытия
-  const fbInp = document.getElementById('fb-input');
-  if (fbInp) {
-    fbInp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        if (!fbInp.disabled) fbSend();
-      }
-    });
-  }
+  // feedback modal removed
 
-  
   document.getElementById('cover-gallery-arrow-left').onclick = function() {
     setCoverImage(coverGalleryIdx - 1);
     startCoverAutoPlay();
@@ -5490,6 +5317,14 @@ function openFeedbackModal() {
   NotificationSystem.info('Обратная связь в Telegram — скоро будет');
 }
 function closeFeedbackModal() {}
+
+const escapeHtml = s => String(s||'')
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;')
+  .replace(/'/g,'&#39;');
+
 const getFlagEmoji = cc => (cc?.length === 2) ? String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : '🏳️';
 const formatSpan = sec => {
   if (sec <= 0) return '—';
@@ -5525,7 +5360,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==================== МОНИТОРИНГ СЕТИ ====================
-window.addEventListener('online', () => { NotificationSystem.success('Соединение восстановлено'); try { GlobalStats.flush(); } catch(e) {} });
+window.addEventListener('online', () => { NotificationSystem.success('Соединение восстановлено'); });
 window.addEventListener('offline', () => NotificationSystem.offline('Нет соединения с интернетом'));
 
 // ==================== PERFORMANCE MONITORING ====================
