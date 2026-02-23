@@ -9,6 +9,7 @@
   <!-- PWA метатеги -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#181818" />
+  <link rel="icon" href="img/logo.png">
   
   <!-- iOS специфичные метат еги -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3995,7 +3996,7 @@ class PlayerState {
     const state = {
       trackIndex: currentTrack,
       position: audio ? audio.currentTime : 0,
-      volume: audio ? audio.volume : 1,
+      volume: audio ? normalizeVolume(audio.volume) : 1,
       savedVolume: localStorage.getItem('playerVolume'),
       liked: getLiked(),
       timestamp: Date.now()
@@ -4032,7 +4033,7 @@ class PlayerState {
         const audio = document.getElementById('audio');
         if (audio && state.position > 0) {
           audio.currentTime = state.position;
-          audio.volume = state.volume || 1;
+          audio.volume = normalizeVolume(state.volume);
         }
       }, 500);
     }
@@ -4699,13 +4700,27 @@ function initializePlayerControls() {
   if (vs) {
     vs.addEventListener('input', onVolumeSliderChange); vs.addEventListener('change', onVolumeSliderChange);
     const sv = localStorage.getItem('playerVolume');
-    if (sv !== null) { const v = parseFloat(sv); vs.value = v * 100; updateVolumeUI(v); if ($('audio')) $('audio').volume = v; }
+    if (sv !== null) {
+      const v = normalizeVolume(parseFloat(sv));
+      vs.value = String(Math.round(v * 100));
+      updateVolumeUI(v);
+      if ($('audio')) $('audio').volume = v;
+    }
   }
   restoreSleepTimer();
   if (animationEnabled) { document.querySelector('.lyrics-animated-bg')?.classList.add('active'); $('lyrics-window')?.classList.add('animation-active'); }
 }
 
 const formatTime = s => isNaN(s) || s < 0 ? '--:--' : `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+
+// volume guard: HTMLMediaElement.volume допускает только [0..1]
+function normalizeVolume(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  // если пришли проценты (0..100) — конвертируем в [0..1]
+  const v = n > 1 ? n / 100 : n;
+  return Math.max(0, Math.min(1, v));
+}
 
 function onAudioMetadataLoaded() {
   const a = $('audio'), d = a.duration;
@@ -4760,7 +4775,9 @@ function startSeekDrag(e) {
 function onVolumeSliderChange(e) {
   const v = e.target.value / 100, a = $('audio'), isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   if (a) { a.volume = v; if (isIOS && !hasShownIOSVolumeNotice && v !== a.volume) { hasShownIOSVolumeNotice = true; showIOSVolumeNotice(); } }
-  updateVolumeUI(v); localStorage.setItem('playerVolume', v); PlayerState.save();
+  updateVolumeUI(v);
+  localStorage.setItem('playerVolume', String(v));
+  PlayerState.save();
 }
 
 function onVolumeChange() { const a = $('audio'); if ($('volume-slider')) $('volume-slider').value = a.volume * 100; updateVolumeUI(a.volume); }
