@@ -1073,7 +1073,7 @@ class PositionManager {
     if (promoInp) promoInp.disabled = false; if (promoBtn) promoBtn.disabled = false;
     if (localStorage.getItem('promoPassed') === '1') {
       promoPassed = true;
-      document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden');
+      document.getElementById('main-block')?.classList.remove('hidden'); document.getElementById('promocode-block')?.classList.add('hidden');
       initializeMainUi();
       const savedState = PlayerState.restore(); if (savedState) PlayerState.apply(savedState);
       parseDeepLink();
@@ -1092,7 +1092,7 @@ function checkPromo() {
   if (!val) { if (err) err.innerText = "Введите промокод"; return; }
   if (val.toUpperCase() === (config?.promoCode ? String(config.promoCode) : 'VITRINA2025').toUpperCase()) {
     promoPassed = true; localStorage.setItem('promoPassed', '1');
-    document.getElementById('main-block').classList.remove('hidden'); document.getElementById('promocode-block').classList.add('hidden');
+    document.getElementById('main-block')?.classList.remove('hidden'); document.getElementById('promocode-block')?.classList.add('hidden');
     initializeMainUi(); setOfflineUIState(offlineMode ? 'offline' : 'online'); autoPlayEnabled = true;
   } else if (err) err.innerText = "Неверный промокод. Попробуйте ещё!";
 }
@@ -1865,16 +1865,17 @@ function getShareLink(idx) {
 }
 
 const getTrackFileName = (t, idx, art) => `${String(idx+1).padStart(2,'0')} - ${t.title} - ${art}.mp3`.replace(/[\\/:"*?<>|]+/g, '_');
-const closeDownloadModal = () => document.getElementById('download-modal').classList.remove('active');
+const closeDownloadModal = () => document.getElementById('download-modal')?.classList.remove('active');
 
 function openDownloadModal(e) {
   if (e) e.preventDefault();
   const fn = getTrackFileName(config.tracks[currentTrack], currentTrack, config.artist);
   const el = document.getElementById('download-modal-filename');
   if (el) el.innerHTML = `<b>${fn}</b>`;
-  document.getElementById('download-modal').classList.add('active');
+  document.getElementById('download-modal')?.classList.add('active');
 }
-document.getElementById('download-modal').onclick = function(e) { if (e.target === this) closeDownloadModal(); };
+const dlModal = document.getElementById('download-modal');
+if (dlModal) dlModal.onclick = function(e) { if (e.target === this) closeDownloadModal(); };
 
 function downloadCurrentTrack() {
   const a = document.createElement('a');
@@ -2023,7 +2024,7 @@ async function createAndDownloadZip() {
   setTimeout(() => { document.getElementById('downloadProgressModal').classList.remove('active'); NotificationSystem.success('Архив успешно скачан!'); URL.revokeObjectURL(a.href); }, 1500);
 }
 
-const getEl = id => document.getElementById(id);
+function getEl(id) { return document.getElementById(id); }
 
 function offlineUIClick() {
   if (offlineDownloading) return;
