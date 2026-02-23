@@ -1,5 +1,5 @@
-// service-worker.js - v6.6.10
-const VERSION = '6.6.10';
+// service-worker.js - v6.6.11
+const VERSION = '6.6.11';
 const CACHE_NAME = `album-cache-v${VERSION}`;
 const OFFLINE_CACHE = 'album-offline-v1';
 
@@ -76,6 +76,18 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
   const accept = req.headers.get('accept') || '';
+
+  // Cache API предназначен для GET. Остальное не трогаем.
+  if (req.method !== 'GET') {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  // Не вмешиваемся в кросс-доменные запросы (например, workers.dev)
+  if (url.origin !== self.location.origin) {
+    event.respondWith(fetch(req));
+    return;
+  }
 
   // Не кэшируем локальные данные (как раньше)
   if (SKIP_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
@@ -275,16 +287,18 @@ async function cacheFiles(files, setOfflineMode) {
     const promises = [];
     
     for (const file of files) {
-      const request = new Request(file);
+      const request = new Request(file, { method: 'GET', cache: 'reload' });
+
       promises.push(
         cache.match(request).then(response => {
-          if (!response) {
-            return fetch(request).then(fetchResponse => {
-              if (fetchResponse.ok) {
-                return cache.put(request, fetchResponse);
-              }
-            });
-          }
+          if (response) return;
+
+          return fetch(request).then(fetchResponse => {
+            if (!fetchResponse || !fetchResponse.ok) return;
+
+            // cache.put() потребляет body, поэтому кладём только клон
+            return cache.put(request, fetchResponse.clone());
+          });
         })
       );
     }
