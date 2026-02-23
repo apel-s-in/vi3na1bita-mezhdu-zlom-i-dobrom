@@ -346,28 +346,6 @@ header{width:100%;text-align:center;margin:0 auto}
 .ach-lock{color:#9aa8c4;font-size:.92em}
 .ach-modal .sticky-head{position:sticky;top:0;z-index:1;padding-top:10px;background:var(--modal-bg)}
 
-/* claim cards */
-.claim-card{margin:8px 0;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.25)}
-.claim-head{margin-bottom:6px;font-weight:800;color:#cfe3ff}
-.claim-img{display:block;width:100%;max-width:360px;margin:6px auto;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.12)}
-.claim-title{margin:6px 0 2px;font-weight:800;color:#fff}
-.claim-sub{margin-bottom:6px;color:#9aa8c4;font-size:.92em}
-.claim-tags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
-.claim-actions{display:flex;justify-content:center;margin-top:8px}
-
-/* prize list modal */
-.prize-list-card{display:grid;gap:8px}
-.prize-card{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.25)}
-.prize-card img{width:72px;height:72px;border-radius:8px;object-fit:cover}
-.prize-card .title{font-weight:800;color:#fff}
-.prize-card .sub{font-size:.9em;color:#9aa8c4}
-.prize-card .choose{white-space:nowrap}
-.prize-detail-img{width:100%;max-width:395px;margin-bottom:10px;border-radius:10px;border:1px solid rgba(255,255,255,.1)}
-
-/* forms */
-.form-row{display:grid;gap:6px;margin:8px 0}
-.form-row label{font-size:.9em;color:#9aa8c4}
-
 /* stats panels */
 .my-stats-root{width:100%;max-width:395px;margin:4px auto 0;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.3);border:1px solid var(--border-color);box-shadow:0 2px 12px rgba(0,0,0,.25)}
 .my-stats-header{width:100%;padding:10px 12px;border:0;background:#1f2533;color:#e9f0ff;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;font-size:.98em;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
@@ -390,28 +368,6 @@ header{width:100%;text-align:center;margin:0 auto}
 .chart-row .bar{height:8px;border-radius:4px;overflow:hidden;position:relative;background:rgba(255,255,255,.1)}
 .chart-row .fill{height:100%;width:0;background:linear-gradient(90deg,var(--primary-color),var(--secondary-color))}
 .chart-row .val{font-size:.86em;color:rgba(255,255,255,.8);text-align:right}
-
-/* vip */
-.vip-modal-backdrop{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65)}
-.vip-modal{width:92%;max-width:420px;padding:16px;border-radius:12px;background:#121824;border:1px solid #2b3955;box-shadow:0 8px 24px rgba(0,0,0,.5);color:#e8eefc}
-.vip-modal h3{margin:0 0 10px;font-size:18px;color:#9fc3ff}
-.vip-modal .desc{margin-bottom:10px;font-size:14px;color:#9aa8c4}
-.vip-modal .row{display:flex;align-items:center;gap:8px;margin:6px 0}
-.vip-modal input[type="password"],.vip-modal input[type="text"]{width:100%;padding:8px 10px;border-radius:8px;background:#0f1522;border:1px solid #2b3955;color:#e8eefc}
-.vip-modal .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.vip-modal .btn{padding:8px 12px;border:0;border-radius:8px;background:#2a3550;color:#e8eefc;cursor:pointer}
-.vip-modal .btn.primary{background:#4daaff;color:#0b1322}
-.vip-modal .btn.warn{background:#8a2a2a;color:#fff}
-.vip-modal .close{margin-left:auto;background:#2a3550;color:#cfe3ff}
-
-.vip-banner{display:none;padding:12px;border-radius:12px;background:#111826;border:1px solid #3b4a6b;color:#e8eefc}
-.vip-banner h2{margin:0 0 6px;font-size:20px;color:#ffd966}
-.vip-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.vip-balance{font-size:16px;color:#9fc3ff}
-.vip-pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #4b5d86;background:#1a2335;color:#9fc3ff;font-weight:700}
-.vip-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.vip-actions .btn{padding:8px 12px;border:0;border-radius:8px;background:#2a3550;color:#e8eefc;cursor:pointer}
-.vip-actions .btn.primary{background:#27b34c;color:#08120a}
 
 /* responsive */
 @media (max-width:600px){
@@ -455,24 +411,16 @@ header{width:100%;text-align:center;margin:0 auto}
 <div class="modal-bg" id="achievements-modal"><div class="modal-feedback ach-modal"><button class="bigclose" onclick="closeAchievementsModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div class="sticky-head"><h2>Список достижений</h2><div class="ach-tabs"><button class="ach-tab active" data-filter="all">Все</button><button class="ach-tab" data-filter="available">Доступные</button><button class="ach-tab" data-filter="done">Выполненные</button><button class="ach-tab" data-filter="secret">Секретные</button></div></div><div class="ach-list-wrap" id="ach-list-container"></div></div></div>
 
 <script>
-const VERSION='6.3.1',BUILD_DATE='2025-01-17',BUILD_INFO={version:VERSION,date:BUILD_DATE,author:'Витрина Разбита',repository:'https://github.com/apel-s-in/vi3na1bita-mezhdu-zlom-i-dobrom'},GLOBAL_STATS_URL='';window.GLOBAL_STATS_URL=GLOBAL_STATS_URL;
-function apiAuthHeaders(){const h={},s=localStorage.getItem('vr_sid');if(s)h['X-Session']=s;return h}
-const VipClient=(()=>{const s={vip:!1,vipAuthRequired:!1,balance:0,name:null,secretStageStartAt:null};function el(i){return document.getElementById(i)}function showModal(f){const w=el('vip-modal-wrap');if(w)w.style.display=f?'flex':'none'}function paintVipBanner(){const w=el('vip-banner');if(!w)return;if(!s.vip){w.style.display='none';return}w.style.display='';const n=el('vip-user-name');if(n&&s.name)n.textContent=s.name;const b=el('vip-balance');if(b)b.textContent=String(s.balance||0)}async function fetchWallet(){try{const r=await fetch(`${GLOBAL_STATS_URL}/vip/wallet`,{method:'GET',headers:{...apiAuthHeaders()},credentials:'include',mode:'cors'});const j=await r.json().catch(()=>({}));if(r.ok&&j?.ok){s.balance=Number(j.balance||0);paintVipBanner()}}catch(e){}}async function verifyPass(p){const m=el('vip-msg');if(m)m.textContent='';try{const r=await fetch(`${GLOBAL_STATS_URL}/vip/verify-pass`,{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},credentials:'include',mode:'cors',body:JSON.stringify({password:p})});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok){if(m)m.textContent='Неверный пароль';return!1}s.vipAuthRequired=!1;s.balance=Number(j.balance||0);paintVipBanner();showModal(!1);return!0}catch(e){if(m)m.textContent='Ошибка сети';return!1}}async function setPass(p){const m=el('vip-msg');if(m)m.textContent='';try{const r=await fetch(`${GLOBAL_STATS_URL}/vip/set-pass`,{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},credentials:'include',mode:'cors',body:JSON.stringify({password:p})});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok){if(m)m.textContent=j?.error==='not_vip'?'Только VIP может установить пароль':'Не удалось сохранить пароль';return!1}if(m)m.textContent='Пароль сохранён';return!0}catch(e){if(m)m.textContent='Ошибка сети';return!1}}async function requestReset(){const m=el('vip-msg');if(m)m.textContent='';try{const r=await fetch(`${GLOBAL_STATS_URL}/vip/request-reset`,{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},credentials:'include',mode:'cors',body:JSON.stringify({})});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok){if(m)m.textContent=j?.error==='no_tg'?'К аккаунту не привязан Telegram':'Не удалось отправить код';return!1}if(m)m.textContent='Код отправлен в Telegram. Проверьте сообщения и введите код.';return!0}catch(e){if(m)m.textContent='Ошибка сети';return!1}}async function resetPass(c,p){const m=el('vip-msg');if(m)m.textContent='';try{const r=await fetch(`${GLOBAL_STATS_URL}/vip/reset-pass`,{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},credentials:'include',mode:'cors',body:JSON.stringify({code:c,password:p})});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok){if(m)m.textContent=j?.error||'Не удалось сбросить';return!1}if(m)m.textContent='Пароль сброшен. Введите новый пароль в разделе выше, чтобы сохранить его.';return!0}catch(e){if(m)m.textContent='Ошибка сети';return!1}}function wireModal(){const c=el('vip-close-btn');if(c)c.onclick=()=>showModal(!1);const v=el('vip-verify-btn');if(v)v.onclick=async()=>{const p=(el('vip-pass')?.value||'').trim();if(!p){const m=el('vip-msg');if(m)m.textContent='Введите пароль';return}await verifyPass(p)};const o=el('vip-setpass-confirm');if(o)o.onclick=async()=>{const p=(el('vip-new-pass')?.value||'').trim();if(!p||p.length<4){const m=el('vip-msg');if(m)m.textContent='Пароль слишком короткий';return}await setPass(p)};const r=el('vip-requestreset-confirm');if(r)r.onclick=async()=>{await requestReset()};const d=el('vip-resetpass-confirm');if(d)d.onclick=async()=>{const c=(el('vip-reset-code')?.value||'').trim(),p=(el('vip-reset-new')?.value||'').trim();if(!c||!p){const m=el('vip-msg');if(m)m.textContent='Укажите код и новый пароль';return}await resetPass(c,p)}}function wireBanner(){const b=el('vip-setpass-btn');if(b)b.onclick=()=>{showModal(!0);const t=el('vip-modal-title');if(t)t.textContent='VIP пароль';const d=el('vip-modal-desc');if(d)d.textContent='Установите или измените VIP‑пароль, либо войдите на этом устройстве.'};const r=el('vip-requestreset-btn');if(r)r.onclick=()=>{showModal(!0);requestReset()};const g=el('vip-gallery-btn');if(g)g.onclick=()=>{try{VipGallery.open()}catch(e){alert('Галерея призов недоступна')}}}function onAfterMe(d){s.vip=!!d.vip;s.vipAuthRequired=!!d.vipAuthRequired;s.balance=Number(d.vipBalance||0);s.name=d?.user?.display_name||null;paintVipBanner();wireBanner();if(s.vip&&s.vipAuthRequired){wireModal();showModal(!0)}else if(s.vip)fetchWallet()}function onAfterClaimStatus(r){const t=Number(r?.secretStageStartAt||0);s.secretStageStartAt=Number.isFinite(t)&&t>0?t:null;try{if(window.AchProgress&&typeof window.AchProgress.setSecretStartAt==='function')window.AchProgress.setSecretStartAt(s.secretStageStartAt)}catch(e){}}return{bootstrap:()=>{},onAfterMe,onAfterClaimStatus}})();
-const VipGallery=(()=>{const s={wrap:'vip-gallery-wrap',list:'vip-gallery-list',bal:'vip-gallery-balance',close:'vip-gallery-close'},a=()=>typeof GLOBAL_STATS_URL!=='undefined'?GLOBAL_STATS_URL:'',el=i=>document.getElementById(i),show=f=>{const w=el(s.wrap);if(w)w.style.display=f?'flex':'none'};async function fetchWallet(){try{const r=await fetch(`${a()}/vip/wallet`,{method:'GET',mode:'cors',credentials:'include',headers:{...apiAuthHeaders()}}),j=await r.json().catch(()=>({}));if(r.ok&&j?.ok){const b=el(s.bal);if(b)b.textContent=String(j.balance||0)}}catch(e){}}function mountHandlers(){const c=el(s.close);if(c)c.onclick=()=>show(!1);const w=el(s.wrap);if(w)w.addEventListener('click',e=>{if(e.target===w)show(!1)})}async function render(){const l=el(s.list);if(!l)return;l.innerHTML=`<div class="stat-card" style="text-align:center; padding:12px;">Загрузка...</div>`;try{const r=await fetch(`${a()}/vip/prizes`,{method:'GET',mode:'cors',credentials:'include',headers:{...apiAuthHeaders()}}),j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok){l.textContent='Ошибка загрузки';return}const i=Array.isArray(j.items)?j.items:[];if(!i.length){l.textContent='Пока пусто';return}l.innerHTML=i.map(t=>{const o=!!t.owned,b=o?`<button disabled style="border:none;border-radius:8px;background:#2a3550;color:#9aa8c4;padding:6px 10px;cursor:not-allowed;">Уже получен</button>`:`<button data-id="${t.id}" data-title="${t.title||''}" class="vip-buy" style="border:none;border-radius:8px;background:#27b34c;color:#08120a;padding:6px 10px;cursor:pointer;">Купить за ${t.priceCoins||100}</button>`;return`<div style="display:flex;align-items:center;gap:10px;border-bottom:1px dashed rgba(255,255,255,0.07); padding:8px 0;"><img src="${t.img||''}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #2b3955;"><div style="flex:1 1 auto;"><div style="font-weight:800;">${escapeHtml(t.title||'')}</div><div style="color:#9aa8c4;font-size:13px;">${escapeHtml(t.short||'')}</div></div><div>${b}</div></div>`}).join('');l.querySelectorAll('.vip-buy').forEach(b=>{b.addEventListener('click',async()=>{const id=b.getAttribute('data-id'),t=b.getAttribute('data-title')||'приз';if(!confirm(`Списать 100 коинов и получить «${t}»?`))return;b.disabled=!0;try{const r=await fetch(`${a()}/vip/redeem`,{method:'POST',mode:'cors',credentials:'include',headers:{'Content-Type':'application/json',...apiAuthHeaders()},body:JSON.stringify({prizeId:id})}),j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok){alert('Не удалось: '+(j?.error||r.status));b.disabled=!1;return}alert('Готово! Списано 100 коинов. Баланс: '+(j.balance||0));await fetchWallet();await render()}catch(e){alert('Ошибка сети');b.disabled=!1}})})}catch(e){l.textContent='Ошибка сети'}}return{open:async()=>{await fetchWallet();await render();mountHandlers();show(!0)}}})();
-const DemoMode=(()=>{const o={getItem:localStorage.getItem.bind(localStorage),setItem:localStorage.setItem.bind(localStorage),removeItem:localStorage.removeItem.bind(localStorage)},K=new Set(['vr_stats_v1','vr_crc_v1','tamper_detected','CLOUD_SAVED_OK','CLOUD_SAVED_CRC','CLOUD_SAVED_AT','likedTracks','favoritesFilter','favoritesOnlyMode','playerState','current_track_position','sleepTimer','backup_prompt_mode','backup_prompt_next','secret_start_at','myStatsOpen','globalStatsOpen','myStatsHoursOpen','myStatsWeekOpen','animationEnabled','bitEnabled','bitIntensity','hasShownAnimationWarning','hasShownBitWarning','me_devices','known_devices','profile_name']);let n=!1;const H='app_demo_mode',d=k=>(n&&K.has(String(k)))?'demo:'+k:k,p=()=>{localStorage.getItem=k=>o.getItem(d(k));localStorage.setItem=(k,v)=>o.setItem(d(k),v);localStorage.removeItem=k=>o.removeItem(d(k))};return{bootstrap:()=>{try{n=o.getItem(H)==='1';p()}catch(e){}},setMode:v=>{const x=!!v;if(x===n)return;n=x;o.setItem(H,n?'1':'0');p();console.log('[DemoMode]',n?'enabled':'disabled')},current:()=>n}})();DemoMode.bootstrap();
+const VERSION='6.3.1',BUILD_DATE='2025-01-17';
 setTimeout(()=>{try{const i=document.getElementById('promo-inp'),b=document.getElementById('promo-btn');if(i&&b&&(i.disabled||b.disabled)){i.disabled=!1;b.disabled=!1;const e=document.getElementById('promo-error');if(e&&!configLoaded){e.textContent='Конфиг ещё грузится... Можно попробовать промокод';e.style.color='#9aa8c4'}}}catch(e){}},1000);
-const TURNSTILE_SITE_KEY='',TG_BOT_USERNAME='',FRONT_MIN_CLAIM_LEVEL=1;
-async function getTurnstileToken() { return ''; }
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`,'color: #E80100; font-size: 16px; font-weight: bold;');console.log(`%cBuild: ${BUILD_DATE}`,'color: #4daaff; font-size: 12px;');
 const FeatureFlags={
   achievementsUI:(localStorage.getItem('ff_achievements_ui')??'1')==='1',
   statsCollect:(localStorage.getItem('ff_stats_collect')??'1')==='1',
-  achievementsLogic:(localStorage.getItem('ff_achievements_logic')??'0')==='1',
-  globalStatsSend:false,
-  globalStatsUI:false
+  achievementsLogic:(localStorage.getItem('ff_achievements_logic')??'0')==='1'
 };
-// global stats removed
-localStorage.setItem('ff_global_stats_send','0');
+// Открываем все секретные достижения по умолчанию
+localStorage.setItem('secret_start_at', '1');
 const DOM={};let config=null,promoPassed=!1,configLoaded=!1,coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'],coverGalleryIdx=0,coverAutoplay=null,currentTrack=-1,currentLyrics=[],autoPlayEnabled=!0,offlineMode=!1,offlineDownloading=!1,deferredPrompt=null,shuffleMode=!1,shuffledPlaylist=[],shuffleIndex=0,repeatMode=!1,favoritesOnlyMode=!1,availableTracks=[],favoritesFilterActive=!1,animationEnabled=!1,bitEnabled=!1,bitIntensity=100,audioContext=null,analyser=null,audioSource=null,animationFrame=null,hasShownAnimationWarning=!1,hasShownBitWarning=!1,downloadOptions={includeCovers:!0,includeLyrics:!0,onlyFavorites:!1,fullAlbum:!0},filesToDownload=[];
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').then(async r=>{console.log('Service Worker registered',r);await navigator.serviceWorker.ready;syncOfflineState();try{r.active&&r.active.postMessage({type:'REQUEST_OFFLINE_STATE'})}catch(e){}try{r.update()}catch(e){}setInterval(async()=>{try{const x=await navigator.serviceWorker.getRegistration();if(x)x.update()}catch(e){}},36e5);r.addEventListener('updatefound',()=>{const w=r.installing;w.addEventListener('statechange',()=>{if(w.state==='activated')NotificationSystem.info('Приложение обновлено')})})});let __swReloaded=!1;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(__swReloaded)return;__swReloaded=!0;try{NotificationSystem.info('Обновление применено, перезагрузка...')}catch(e){}setTimeout(()=>location.reload(),300)});navigator.serviceWorker.addEventListener('message',e=>{const m=e.data||{};if(m.type==='CACHE_UPDATED')console.log('Cache updated to version:',m.version);if(m.type==='OFFLINE_STATE'){offlineMode=!!m.value;setOfflineUIState(offlineMode?'offline':'online')}if(m.type==='CLEAR_ALL_POSITIONS')PositionManager.clearAll()})}function syncOfflineState(){offlineMode=localStorage.getItem('offlineMode')==='1';if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'SET_OFFLINE_MODE',value:offlineMode})}
 // ==================== СИСТЕМА УВЕДОМЛЕНИЙ ====================
@@ -695,24 +643,7 @@ const ACH_META = {
   backup_after_major:{tier:4, core:false, title:'Сохранил после прогресса', short:'Создайте бэкап в течение суток после «большой» ачивки (Tier≥3).', desc:'Фиксируется автоматически.', howTo:'Откройте крупную ачивку и сохраните бэкап в этот же день.'}
 };
 
-let ACH_OVERRIDES = { items:[], thresholds:{} };
-const threshold = (id, def) => (typeof ACH_OVERRIDES?.thresholds?.[id] === 'number') ? ACH_OVERRIDES.thresholds[id] : def;
-const applyAchOverridesToMeta = () => {
-  ACH_OVERRIDES.items?.forEach(ov => {
-    if (!ov.id) return;
-    const m = ACH_META[ov.id] = ACH_META[ov.id] || {};
-    ['title','short','desc','howTo'].forEach(k => { if(ov[k]) m[k] = ov[k]; });
-    if ('hidden' in ov) m.hidden = !!ov.hidden; if (Number.isFinite(ov.tier)) m.tier = Number(ov.tier); if ('core' in ov) m.core = !!ov.core;
-    if (ov.thresholds) ACH_OVERRIDES.thresholds = { ...ACH_OVERRIDES.thresholds, ...ov.thresholds };
-  });
-};
-const loadAchOverrides = async () => {
-  try {
-    if (!GLOBAL_STATS_URL) return;
-    const res = await fetch(`${GLOBAL_STATS_URL}/ach/overrides`, { mode:'cors' }), data = await res.json().catch(()=>({}));
-    if (res.ok && data?.ok) { ACH_OVERRIDES = { items: data.items || [], thresholds:{} }; applyAchOverridesToMeta(); }
-  } catch(e) { ACH_OVERRIDES = { items:[], thresholds:{} }; }
-};
+const threshold = (id, def) => def;
 
 const Ach = {
   has: id => !!StatsStore.s.achievements[id],
@@ -731,7 +662,7 @@ const Ach = {
       if ((vc === 10 || vc >= 13) && shouldShowBackupPrompt(vc)) setTimeout(openBackupPrompt, 150);
       else if (vc === Object.keys(ACH_META).filter(k => !ACH_META[k]?.hidden).length - 1) setTimeout(openBackupPrompt, 150);
     } catch(e){}
-    backupAutoSaveIfNeeded(); try { Prize.updateLocalReadiness(); } catch(e){} return true;
+    return true;
   },
   event: id => Ach.unlock(id),
   evaluateAfterListen({ts}) {
@@ -901,385 +832,7 @@ const MyStats = {
   }
 };
 
-const Prize = {
-  root: null, body: null, _statusTimer: null, _botPollTimer: null, _botPollCode: null,
-  state: { authed: false, user: null, claims: [], busy: false, readiness: { achCount: 0, need: FRONT_MIN_CLAIM_LEVEL, cloud: false, tamper: false }, prizes: [], selectedPrize: null, shippingMethod: null },
-  init() {
-    this.root = document.getElementById('prize-root'); this.body = document.getElementById('prize-body'); if (!this.root || !this.body) return;
-    if (localStorage.getItem('vr_sid')) { this.state.authed = true; this.state.user = { display_name: localStorage.getItem('tg_username') || localStorage.getItem('tg_first_name') || 'Пользователь', tg_id: localStorage.getItem('tg_id') || null, tg_username: localStorage.getItem('tg_username') || null }; }
-    this.renderSkeleton(); this.updateLocalReadiness(); this.loadPrizes().catch(()=>{});
-    this.attemptSilentAuth().then(() => { if (localStorage.getItem('vr_sid') || localStorage.getItem('tg_id')) { this.fetchStatus(); if (!this._statusTimer) this._statusTimer = setInterval(() => this.fetchStatus(), 30000); }});
-  },
-  async attemptSilentAuth() {
-    try {
-      const tgId = localStorage.getItem('tg_id'), username = localStorage.getItem('tg_username');
-      if (!tgId) { this.state.authed = false; this.paintChecklist(); return; }
-      const r = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, mode: 'cors', credentials: 'include', body: JSON.stringify({ tgId, username, deviceHash: getDeviceHash() }) }), d = await r.json().catch(() => ({}));
-      if (r.ok && d?.ok) {
-        if (d?.sid) localStorage.setItem('vr_sid', d.sid);
-        this.state.authed = true; this.state.user = { display_name: username || localStorage.getItem('tg_first_name') || 'Пользователь', tg_id: tgId, tg_username: username || null };
-        this.paintChecklist(); await this.recoverFromUserLatestIfAny(); await backupSaveToCloudOverwriteSilent(); await this.fetchMe(true); this.updateLocalReadiness();
-      } else { this.state.authed = false; this.paintChecklist(); await this.recoverFromUserLatestIfAny(); }
-    } catch { this.state.authed = false; this.paintChecklist(); }
-  },
-  renderSkeleton() {
-    this.body.innerHTML = `
-      <div class="prize-gallery" id="prize-gallery">${['prize-01.png','prize-02.png','prize-03.png','prize-04.png'].map(s=>`<img class="prize-thumb" src="img/${s}" alt="Prize" onclick="Prize.toggleThumb(this)">`).join('')}</div>
-      <div class="prize-gallery" id="prize-gallery-secret" style="display:none;">${['prize-21.png','prize-22.png','prize-23.png','prize-24.png'].map(s=>`<img class="prize-thumb" src="img/${s}" alt="Secret Prize" onclick="Prize.toggleThumb(this)">`).join('')}</div>
-      <div id="received-block" style="display:none; margin:6px 0 4px 0; text-align:center;"><div style="font-weight:800; color:#9fc3ff; text-transform:uppercase; font-size:.86em; margin-bottom:4px;">ПОЛУЧЕНО:</div><img id="received-thumb" style="width:72px; height:72px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); object-fit:cover;" alt="Полученный приз"/><div id="received-title" class="prize-note" style="margin-top:4px;"></div></div>
-      <div id="prize-auth-block" style="text-align:center; margin:10px 0;"><div id="create-name-block" style="display:none;"><div style="font-size:0.9em; color:#9aa8c4; margin-bottom:8px;">Для получения приза создайте имя в приложении и привяжите Telegram</div><button class="prize-btn" onclick="Prize.openIdentityWizard()">Создать имя</button></div><div class="prize-note" id="prize-name-view" style="display:none;text-align:center;font-weight:800;"></div></div>
-      <div id="prize-checklist" style="margin-top:8px;"><div class="prize-row" id="row-ach"><span>🏆</span><span>Достижения: <b id="ach-count">0</b> / минимум <b id="ach-need">${FRONT_MIN_CLAIM_LEVEL}</b></span></div><div class="prize-row" id="row-cloud"><span>☁️</span><span>Облачный бэкап: <b id="cloud-state">нет</b></span></div><div class="prize-row" id="row-tamper"><span>🛡️</span><span>Честность данных: <b id="tamper-state">проверка…</b></span></div><div id="prize-ready-flag" class="prize-not-ready">Недостаточно условий для заявки</div></div>
-      <div class="prize-actions" style="margin-top:10px;"><button class="prize-btn primary" id="claim-btn" type="button" disabled>ПОЛУЧИТЬ ПРИЗ</button></div>
-      <div class="prize-status" id="prize-status" style="margin-top:10px; display:none;"><h4>Мои заявки</h4><div id="claim-cards"></div></div>`;
-    const btn = document.getElementById('claim-btn'); if (btn) btn.onclick = () => this.openPrizes();
-  },
-  paintChecklist() {
-    const el = id => document.getElementById(id), { achCount, need, cloud, tamper, nameSet } = this.state.readiness, aE=el('ach-count'), cE=el('cloud-state'), tE=el('tamper-state'), rA=el('row-ach'), rC=el('row-cloud'), rT=el('row-tamper'), flg=el('prize-ready-flag'), clm=el('claim-btn'), nV=el('prize-name-view'), crB=el('create-name-block');
-    if (aE) aE.textContent = String(achCount); if (cE) cE.textContent = cloud ? 'есть' : 'нет'; if (tE) tE.textContent = tamper ? 'обнаружена подмена' : 'OK'; if (el('ach-need')) el('ach-need').textContent = String(need);
-    rA.className = 'prize-row ' + (achCount >= need ? 'ok' : 'warn'); rC.className = 'prize-row ' + (cloud ? 'ok' : 'warn'); rT.className = 'prize-row ' + (tamper ? 'err' : 'ok');
-    const rd1 = !tamper && cloud && (achCount >= need), hn = !!nameSet || this.hasProfileName(), sec = !!localStorage.getItem('secret_start_at');
-    if (nV) { const nm = this.currentProfileName(); nV.style.display = nm ? '' : 'none'; if(nm) nV.textContent = nm; }
-    if (crB) crB.style.display = (!hn && (achCount >= 5 || rd1)) ? '' : 'none';
-    if (flg) {
-      if (this.state.claims?.length) flg.style.display = 'none';
-      else { flg.style.display = ''; flg.className = (sec || !rd1 || !hn) ? 'prize-not-ready' : 'prize-ready'; flg.textContent = sec ? 'Выполните 3 секретных достижения' : (!rd1 ? 'Недостаточно условий для заявки' : (!hn ? 'Создайте имя в приложении' : 'Готово: можно подать заявку')); }
-    }
-    if (clm) { clm.textContent = sec ? 'ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ' : 'ПОЛУЧИТЬ ПРИЗ'; clm.disabled = sec ? true : !(rd1 && hn && !this.state.busy); clm.title = clm.disabled ? (sec ? 'Проверка условий...' : 'Недостаточно условий') : ''; if (sec) setTimeout(() => { try{this.refreshSecondEligibility();}catch(e){} }, 0); }
-    if (!sec && rd1 && !this.state.authed) this.ensureSessionActive().then(ok => { if(ok) this.paintChecklist(); });
-  },
-  async refreshSecondEligibility() {
-    const btn = document.getElementById('claim-btn'); if (!btn) return;
-    if (!localStorage.getItem('secret_start_at')) { btn.disabled = true; btn.title = 'Секретный этап не начат'; return; }
-    try {
-      const r = await fetch(`${GLOBAL_STATS_URL}/claim/second/eligibility`, { method:'GET', mode:'cors', credentials:'include', headers:{ ...apiAuthHeaders() } }), j = await r.json().catch(()=> ({}));
-      if (!r.ok || !j?.ok) { btn.disabled = true; btn.title = 'Ошибка проверки'; return; }
-      btn.disabled = !j.eligible || !!this.state.busy; btn.title = j.eligible ? 'Готово: можно выбрать приз' : (j.reason || `Нужно секретных: ${j.count||0} / ${j.need||3}`);
-    } catch { btn.disabled = true; btn.title = 'Ошибка сети'; }
-  },
-  hasProfileName() { return !!(this.state?.user?.display_name || localStorage.getItem('profile_name')); },
-  currentProfileName() { return this.state?.user?.display_name || localStorage.getItem('profile_name') || null; },
-  openIdentityWizard() { try { ['idw-step-choose','idw-step-manual','idw-step-name','idw-step-bot'].forEach(id=>{ const e = document.getElementById(id); if(e) e.style.display='none'; }); const c = document.getElementById('idw-step-choose'); if(c) c.style.display=''; document.getElementById('identity-modal')?.classList.add('active'); } catch(e){} },
-  closeIdentityWizard() { document.getElementById('identity-modal')?.classList.remove('active'); },
-  backToIdentityChoose() { ['idw-step-manual','idw-step-name','idw-step-bot'].forEach(id=>{ const e = document.getElementById(id); if(e) e.style.display='none'; }); const c = document.getElementById('idw-step-choose'); if(c) c.style.display=''; },
-  startManualIdentity() { const c = document.getElementById('idw-step-choose'), m = document.getElementById('idw-step-manual'); if(c) c.style.display='none'; if(m) m.style.display=''; NotificationSystem.info('Укажите @username и Id из @userinfobot'); },
-  async submitManualIdentity() {
-    try {
-      const u = (document.getElementById('idw-man-username')?.value || '').trim().replace(/^@+/, ''), id = (document.getElementById('idw-man-id')?.value || '').trim();
-      if (!u || !/^\d+$/.test(id)) return NotificationSystem.warning('Проверьте @username и числовой Id');
-      localStorage.setItem('tg_username', u); localStorage.setItem('tg_id', id); this.setBusy(true);
-      const r = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, mode: 'cors', credentials: 'include', body: JSON.stringify({ tgId:id, username:u, deviceHash: getDeviceHash() }) }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok) { NotificationSystem.error('Не удалось привязать Telegram (ручной способ)'); this.setBusy(false); return; }
-      if (d?.sid) localStorage.setItem('vr_sid', d.sid);
-      this.state.authed = true; const m = document.getElementById('idw-step-manual'), nm = document.getElementById('idw-step-name'); if(m) m.style.display='none'; if(nm) nm.style.display='';
-      document.getElementById('idw-display-name').value = localStorage.getItem('profile_name') || `@${u}`; this.setBusy(false);
-    } catch { this.setBusy(false); NotificationSystem.error('Ошибка ручной привязки'); }
-  },
-  async startBotIdentity() {
-    try {
-      const c = document.getElementById('idw-step-choose'), b = document.getElementById('idw-step-bot'); if(c) c.style.display='none'; if(b) b.style.display='';
-      const r = await fetch(`${GLOBAL_STATS_URL}/auth/bot/start`, { method:'POST', headers:{ 'Content-Type':'application/json' }, mode:'cors', credentials:'include', body: JSON.stringify({ deviceHash: getDeviceHash() }) }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok || !d?.code) { NotificationSystem.error('Не удалось начать подтверждение через бота'); this.backToIdentityChoose(); return; }
-      this._botPollCode = d.code; let l = d.link || (typeof TG_BOT_USERNAME !== 'undefined' && TG_BOT_USERNAME ? `https://t.me/${String(TG_BOT_USERNAME).replace(/^@+/, '')}?start=BL_${d.code}` : '#');
-      const cd = document.getElementById('idw-bot-code'), a = document.getElementById('idw-bot-link'), qr = document.getElementById('idw-bot-qr'), isD = !/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      if(cd) cd.innerHTML = `Код подтверждения: <b>${d.code}</b>`; if(a) { a.href=l; a.textContent='Открыть Telegram'; }
-      if(qr) { if(isD && l) { qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(l)}`; qr.style.display=''; } else qr.style.display='none'; }
-      if(!isD && l !== '#') setTimeout(() => { try{window.open(l, '_blank');}catch(e){} }, 300);
-      this._botPollStartedAt = Date.now(); this._botPollActive = true;
-      const fL = async () => { if (!this._botPollActive) return; await this._pollBotCode(true); this._botPollTimer = setTimeout(fL, (Date.now() - this._botPollStartedAt) < 12000 ? 350 : 1000); }; fL();
-      this._onVis = () => { if (this._botPollActive) this._pollBotCode(true); }; document.addEventListener('visibilitychange', this._onVis);
-      document.getElementById('idw-bot-status').textContent = 'Ожидаем подтверждение у бота…';
-    } catch { NotificationSystem.error('Не удалось начать подтверждение через бота'); this.backToIdentityChoose(); }
-  },
-  async _pollBotCode(noCache=false) {
-    if (!this._botPollCode) return;
-    try {
-      const ctrl = new AbortController(), t = setTimeout(()=>ctrl.abort(), 5000), r = await fetch(`${GLOBAL_STATS_URL}/auth/bot/poll?code=${encodeURIComponent(this._botPollCode)}&ts=${Date.now()}`, { method:'GET', mode:'cors', credentials:'include', signal: ctrl.signal, headers: noCache ? { 'Cache-Control': 'no-cache', 'Pragma':'no-cache' } : {} }); clearTimeout(t);
-      const d = await r.json().catch(()=> ({})); if (!r.ok || !d?.ok) return;
-      if (d.ready) {
-        this._botPollActive = false; if (this._botPollTimer) { clearTimeout(this._botPollTimer); this._botPollTimer = null; } if (this._onVis) { document.removeEventListener('visibilitychange', this._onVis); this._onVis = null; }
-        const st = document.getElementById('idw-bot-status'); if(st) st.textContent = 'Подтверждено. Настраиваем…';
-        try { if(d.sid) localStorage.setItem('vr_sid', d.sid); if(d.tgId) localStorage.setItem('tg_id', String(d.tgId)); if(d.username) localStorage.setItem('tg_username', String(d.username)); } catch(e){}
-        this.state.authed = true; const bS = document.getElementById('idw-step-bot'), nm = document.getElementById('idw-step-name'), inp = document.getElementById('idw-display-name');
-        if(bS) bS.style.display='none'; if(nm) nm.style.display=''; if(inp) inp.value = localStorage.getItem('profile_name') || (d.username || 'Пользователь');
-        this.fetchMe(true).then(async () => { await this.recoverFromUserLatestIfAny(); this.updateLocalReadiness(); });
-      }
-    } catch {}
-  },
-  cancelBotIdentity() { this._botPollActive = false; if(this._botPollTimer){clearTimeout(this._botPollTimer); this._botPollTimer=null;} if(this._onVis){document.removeEventListener('visibilitychange', this._onVis); this._onVis=null;} this._botPollCode = null; this.backToIdentityChoose(); },
-  async saveDisplayName() {
-    try {
-      const n = (document.getElementById('idw-display-name')?.value || '').trim(); if (!n) return NotificationSystem.warning('Введите имя');
-      if (!(await this.ensureSessionActive())) return NotificationSystem.error('Нет сессии. Повторите вход.');
-      this.setBusy(true); const r = await fetch(`${GLOBAL_STATS_URL}/profile/set-name`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...apiAuthHeaders() }, mode: 'cors', credentials: 'include', body: JSON.stringify({ displayName: n }) }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok) { NotificationSystem.error('Не удалось сохранить имя'); this.setBusy(false); return; }
-      localStorage.setItem('profile_name', n); this.state.user = this.state.user || {}; this.state.user.display_name = n;
-      await backupSaveToCloudOverwriteSilent(); if (!(await ensureCloudBackupReady(4000))) NotificationSystem.warning('Имя сохранено, но облачный бэкап не подтвердился. Повторим позже.');
-      this.closeIdentityWizard(); this.updateLocalReadiness(); this.paintChecklist(); NotificationSystem.success('Имя сохранено');
-    } catch { NotificationSystem.error('Ошибка сохранения имени'); } finally { this.setBusy(false); }
-  },
-  setBusy(v) { this.state.busy = !!v; this.paintChecklist(); },
-  toggleThumb(img) { const x = img.classList.contains('expanded'); document.querySelectorAll('.prize-thumb').forEach(e => e.classList.remove('expanded')); if (!x) img.classList.add('expanded'); },
-  updateLocalReadiness() {
-    const ac = getVisibleAchievementsCount(), cl = localStorage.getItem('CLOUD_SAVED_OK') === '1', tm = localStorage.getItem('tamper_detected') === '1', ns = !!(this.state?.user?.display_name || localStorage.getItem('profile_name'));
-    this.state.readiness = { achCount: ac, need: (typeof AchProgress?.totalVisible === 'number') ? AchProgress.totalVisible : FRONT_MIN_CLAIM_LEVEL, cloud: cl, tamper: tm, nameSet: ns };
-    try { if (localStorage.getItem('secret_start_at') && document.getElementById('prize-gallery-secret')) document.getElementById('prize-gallery-secret').style.display = ''; } catch(e){}
-    this.paintChecklist();
-  },
-  async ensureSessionActive() {
-    try {
-      const r = await fetch(`${GLOBAL_STATS_URL}/me`, { method:'GET', mode:'cors', credentials:'include', headers: { ...apiAuthHeaders() } }), d = await r.json().catch(()=> ({}));
-      if (r.ok && d?.ok && d?.auth) { this.state.authed = true; this.state.user = d.user || this.state.user; return true; }
-      const tgId = localStorage.getItem('tg_id'), un = localStorage.getItem('tg_username') || localStorage.getItem('tg_first_name') || null; if (!tgId) return false;
-      const r2 = await fetch(`${GLOBAL_STATS_URL}/auth/silent`, { method:'POST', headers: { 'Content-Type':'application/json' }, mode:'cors', credentials:'include', body: JSON.stringify({ tgId, username:un, deviceHash: getDeviceHash() }) }), d2 = await r2.json().catch(()=> ({}));
-      if (r2.ok && d2?.ok) { if(d2.sid) localStorage.setItem('vr_sid', d2.sid); this.state.authed = true; return true; } return false;
-    } catch { return false; }
-  },
-  async recoverFromUserLatestIfAny() {
-    try {
-      const tgId = localStorage.getItem('tg_id'); if (!tgId || !GLOBAL_STATS_URL) return;
-      const s = localStorage.getItem('vr_sid'), r = await fetch(`${GLOBAL_STATS_URL}/backup/user-latest${!s ? `?tg=${encodeURIComponent(tgId)}` : ''}`, { method:'GET', mode:'cors', credentials:'include', headers: { ...apiAuthHeaders() }}), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok || !d?.backup?.payload) return;
-      const inc = d.backup.payload; if ((await sha256String(JSON.stringify(inc))) !== d.backup.checksum || inc.deviceHash === getDeviceHash()) return;
-      if ((inc.achOverview?.normalDone || Object.keys(inc.stats?.achievements||{}).filter(id => !ACH_META[id]?.hidden).length) > getVisibleAchievementsCount()) {
-        StatsStore.s = inc.stats; StatsStore.s.backups = StatsStore.s.backups || { dates: [] }; StatsStore.s.socialsVisited = StatsStore.s.socialsVisited || {}; StatsStore.s.sleepTimerStops = StatsStore.s.sleepTimerStops || 0;
-        if (Array.isArray(StatsStore.s.perTrack)) StatsStore.s.perTrack.forEach(pt => { if(pt){ pt.byHour = pt.byHour || Array(24).fill(0); pt.byWeekday = pt.byWeekday || Array(7).fill(0); }});
-        StatsStore.save(); AchProgress.updateFromStats(); localStorage.removeItem('tamper_detected'); hideTamperBanner(); await backupSaveToCloudOverwriteSilent(); this.updateLocalReadiness(); NotificationSystem.success('Прогресс восстановлен с другого устройства');
-      }
-    } catch {}
-  },
-  async fetchMe(silent=false) {
-    try {
-      if (!GLOBAL_STATS_URL) return;
-      const r = await fetch(`${GLOBAL_STATS_URL}/me`, { method:'GET', mode:'cors', credentials:'include', headers: { ...apiAuthHeaders() } }), d = await r.json().catch(()=> ({}));
-      if (r.ok && d?.ok && d?.auth) {
-        try { DemoMode.setMode(!!d.demoMode); } catch(e){} this.state.authed = true; this.state.user = d.user || this.state.user;
-        try {
-          if (this.state.user?.display_name) localStorage.setItem('profile_name', this.state.user.display_name);
-          if (this.state.user?.tg_id) localStorage.setItem('tg_id', String(this.state.user.tg_id));
-          if (this.state.user?.tg_username) localStorage.setItem('tg_username', String(this.state.user.tg_username));
-          if (Array.isArray(d.devices)) localStorage.setItem('me_devices', JSON.stringify((d.devices||[]).map(x=>x.device_hash).filter(Boolean).slice(0, 50)));
-        } catch(e){}
-        try { VipClient.onAfterMe(d); } catch(e){}
-        try { if(d.vip && document.getElementById('prize-name-view')) document.getElementById('prize-name-view').innerHTML = `${escapeHtml((document.getElementById('prize-name-view').textContent || this.state?.user?.display_name || '').trim())} <span class="vip-pill">VIP</span>`; } catch(e){}
-      } else {
-        try { DemoMode.setMode(false); } catch(e){}
-        if (localStorage.getItem('vr_sid')) this.state.authed = true; else { this.state.authed = false; this.state.user = null; }
-      }
-      this.paintChecklist();
-    } catch { if (localStorage.getItem('vr_sid')) { this.state.authed = true; this.paintChecklist(); } else if (!silent) NotificationSystem.warning('Сервер недоступен'); }
-  },
-  async fetchStatus() {
-    try {
-      if (!GLOBAL_STATS_URL) return;
-      const r = await fetch(`${GLOBAL_STATS_URL}/claim/status`, { method:'GET', mode:'cors', credentials:'include', headers: { ...apiAuthHeaders() } }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok) return this.renderClaims([]);
-      try { VipClient.onAfterClaimStatus(d); } catch(e){} this.renderClaims(d.claims || []); try { this.refreshSecondEligibility(); } catch(e){}
-    } catch { this.renderClaims([]); }
-  },
-  async renderClaims(claims) {
-    this.state.claims = claims; const bx = document.getElementById('prize-status'), wrp = document.getElementById('claim-cards'); if (!bx || !wrp) return;
-    if ((!this.state.prizes || !this.state.prizes.length) && GLOBAL_STATS_URL) this.loadPrizes().then(()=> this.renderClaims(claims)).catch(()=>{});
-    if (!claims.length) { bx.style.display = 'none'; wrp.innerHTML = ''; if(document.getElementById('prize-ready-flag')) document.getElementById('prize-ready-flag').style.display=''; return; }
-    bx.style.display = ''; const ruSt = s => ({ pending:'на модерации', approved:'одобрено', shipped:'отправлено', delivered:'получено', rejected:'отклонено' }[s] || s);
-    wrp.innerHTML = claims.map(c => {
-      const p = (this.state.prizes || []).find(x => x.id === c.prize_id), tgs = [`<span class="pill">${ruSt(c.status)}</span>`];
-      if (c.status === 'shipped' && c.tracking_code) tgs.push(`<span class="pill">трек: ${c.tracking_code}</span>`);
-      let act = '';
-      if (['pending','approved'].includes(c.status)) act = `<div class="claim-actions"><button class="prize-btn" style="background:#8a2a2a;" onclick="Prize.cancelClaim('${c.id}')">Отменить</button></div>`;
-      else if (c.status === 'shipped') act = `<div class="claim-actions" style="gap:8px; flex-wrap:wrap;">${c.tracking_code ? `<button class="prize-btn" onclick="Prize.copyTracking('${c.tracking_code}')">Скопировать</button> <button class="prize-btn" onclick="Prize.openTracking('${c.tracking_code}')">Открыть</button>`:''} <button class="prize-btn" onclick="Prize.markReceived('${c.id}')">Я получил</button></div>`;
-      else if (c.status === 'rejected') act = `<div class="claim-actions"><button class="prize-btn" onclick="openFeedbackModal()">Обратная связь</button></div>`;
-      else if (c.status === 'delivered') act = `<div class="claim-actions"><span class="prize-note" style="font-weight:800;color:#27b34c;">Спасибо!</span></div>`;
-      return `<div class="claim-card"><div class="claim-head">#${c.id.slice(0,8)}</div><img class="claim-img" src="${p?.img || 'img/prize-01.png'}" alt=""><div class="claim-title">${c.prize_title || p?.title || 'Приз'}</div><div class="claim-sub">${p?.long || p?.short || ''}</div><div class="claim-tags">${tgs.join(' ')}</div>${act}</div>`;
-    }).join('');
-    try {
-      if (claims.some(c => c.status === 'delivered') && !localStorage.getItem('secret_start_at')) {
-        localStorage.setItem('secret_start_at', String(Math.max(0, ...claims.filter(c=>c.status==='delivered').map(c=>Number(c.delivered_at||0)).filter(Number.isFinite)) || Date.now()));
-        if(document.getElementById('prize-gallery-secret')) document.getElementById('prize-gallery-secret').style.display='';
-        AchProgress.updateFromStats(); await backupSaveToCloudOverwriteSilent(); NotificationSystem.info('Секретные уровни активированы');
-      }
-    } catch(e){}
-    try {
-      const dlv = claims.filter(c => c.status === 'delivered'), rb = document.getElementById('received-block');
-      if (dlv.length && rb && document.getElementById('received-title') && document.getElementById('received-thumb')) {
-        dlv.sort((a,b)=> (b.delivered_at||0) - (a.delivered_at||0)); const p = (this.state.prizes||[]).find(x=> x.id === dlv[0].prize_id);
-        document.getElementById('received-thumb').src = p?.img || 'img/prize-01.png'; document.getElementById('received-title').textContent = dlv[0].prize_title || p?.title || 'Приз'; rb.style.display='';
-        if(document.getElementById('claim-btn')) document.getElementById('claim-btn').textContent = 'ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ';
-      } else if (rb) rb.style.display = 'none';
-    } catch(e){}
-    if(document.getElementById('prize-ready-flag')) document.getElementById('prize-ready-flag').style.display = 'none';
-  },
-  copyTracking(c) { if(c) navigator.clipboard?.writeText(c).then(()=> NotificationSystem.success('Трек‑номер скопирован'), ()=> NotificationSystem.error('Не удалось скопировать')); },
-  openTracking(c) { if(c) window.open(/^[0-9]{14}$/.test(c) ? `https://www.pochta.ru/tracking#${encodeURIComponent(c)}` : `https://track24.ru/?code=${encodeURIComponent(c)}`, '_blank'); },
-  openPrizes() {
-    const L = document.getElementById('prize-list'); if (L) L.innerHTML = `<div class="stat-card" style="text-align:center; padding:16px;">Загружаем призы…</div>`;
-    document.getElementById('modal-prizes')?.classList.add('active');
-    this.ensureSessionActive().catch(()=>{}).finally(()=>{ this.loadPrizes().then(()=>{ if(document.getElementById('prize-list')) document.getElementById('prize-list').innerHTML = (this.state.prizes || []).map(p => `<div class="prize-card"><img src="${p.img}" alt=""><div><div class="title">${p.title}</div><div class="sub">${p.short}</div></div><button class="prize-btn choose" onclick="Prize.openPrizeDetail('${p.id}')">Выбрать</button></div>`).join(''); }).catch(()=> { if(document.getElementById('prize-list')) document.getElementById('prize-list').innerHTML = `<div class="stat-card" style="text-align:center; padding:16px;">Не удалось загрузить призы</div>`; }); });
-  },
-  closePrizesModal(){ document.getElementById('modal-prizes')?.classList.remove('active'); },
-  backToPrizes(){ document.getElementById('modal-prize-detail')?.classList.remove('active'); this.openPrizes(); },
-  async loadPrizes() { if (!GLOBAL_STATS_URL) throw new Error('no api'); if (this.state.prizes.length) return; const r = await fetch(`${GLOBAL_STATS_URL}/prizes`), d = await r.json().catch(()=> ({})); if (!r.ok || !d?.ok) throw new Error('bad'); this.state.prizes = d.items || []; },
-  openPrizeDetail(id) {
-    const p = (this.state.prizes || []).find(x => x.id === id); if (!p) return; this.state.selectedPrize = p;
-    const b = document.getElementById('prize-detail-body'); if (b) b.innerHTML = `<img src="${p.img}" class="prize-detail-img" alt=""><div style="font-weight:800; margin-bottom:6px;">${p.title}</div><div style="color:#cfe3ff;">${p.long}</div>`;
-    this.closePrizesModal(); document.getElementById('modal-prize-detail')?.classList.add('active');
-  },
-  closePrizeDetail(){ document.getElementById('modal-prize-detail')?.classList.remove('active'); },
-  openShipping() { if (!this.state.selectedPrize) return; document.getElementById('modal-prize-detail')?.classList.remove('active'); this.state.shippingMethod = null; document.getElementById('form-pickup').style.display = 'none'; document.getElementById('form-courier').style.display = 'none'; document.getElementById('modal-shipping')?.classList.add('active'); },
-  closeShipping(){ document.getElementById('modal-shipping')?.classList.remove('active'); },
-  selectShipping(k) { this.state.shippingMethod = k; document.getElementById('form-pickup').style.display = k==='pickup'?'':'none'; document.getElementById('form-courier').style.display = k==='courier'?'':'none'; },
-  async submitClaim() {
-    if (!GLOBAL_STATS_URL) return; if (!this.state.selectedPrize) return NotificationSystem.warning('Выберите приз'); if (!this.state.shippingMethod) return NotificationSystem.warning('Выберите способ получения');
-    let s = {};
-    if (this.state.shippingMethod === 'pickup') { const c = document.getElementById('ship-city').value.trim(), p = document.getElementById('ship-pvz').value.trim(); if (!c || !p) return NotificationSystem.warning('Укажите город и ПВЗ/код ПВЗ'); s = { city:c, pvz:p, note:document.getElementById('ship-note').value.trim() }; } 
-    else { const f = document.getElementById('ship-fio').value.trim(), a = document.getElementById('ship-address').value.trim(), z = document.getElementById('ship-zip').value.trim(); if (!f || !a || !z) return NotificationSystem.warning('Заполните ФИО, адрес и индекс'); s = { fullName:f, address:a, zip:z }; }
-    if (!(await this.ensureSessionActive())) { NotificationSystem.error('Нужно войти через Telegram'); this.paintChecklist(); return; }
-    try {
-      this.setBusy(true); await ensureCloudBackupReady(3000);
-      const r = await fetch(`${GLOBAL_STATS_URL}/claim`, { method:'POST', headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() }, mode:'cors', credentials:'include', body: JSON.stringify({ deviceHash: getDeviceHash(), prizeId: this.state.selectedPrize.id, prizeTitle: this.state.selectedPrize.title, shippingMethod: this.state.shippingMethod, shipping: s }) }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok) {
-        const e = d?.error || `HTTP_${r.status}`;
-        if (e === 'no_cloud_backup') { await backupSaveToCloudOverwriteSilent(); NotificationSystem.error('Нет облачного бэкапа. Подождите пару секунд и повторите.'); }
-        else if (e === 'level_too_low') NotificationSystem.error(`Нужно минимум ${d.need} достижений (сейчас ${d.level})`);
-        else if (e === 'duplicate') NotificationSystem.warning('Заявка уже создана');
-        else if (e === 'active_exists') { NotificationSystem.warning('У вас уже есть активная заявка. Проверьте раздел «Мои заявки».'); this.closeShipping(); await this.fetchStatus(); }
-        else NotificationSystem.error(`Ошибка заявки: ${e}`);
-        return;
-      }
-      NotificationSystem.success('Заявка отправлена'); this.closeShipping(); await this.fetchStatus();
-    } catch { NotificationSystem.error('Не удалось создать заявку'); } finally { this.setBusy(false); }
-  },
-  async cancelClaim(id) {
-    if (!GLOBAL_STATS_URL || !confirm('Отменить эту заявку?')) return;
-    try{
-      const r = await fetch(`${GLOBAL_STATS_URL}/claim/cancel`, { method:'POST', mode:'cors', credentials:'include', headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() }, body: JSON.stringify({ id }) }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok) return NotificationSystem.error(`Не удалось отменить (${d?.error||r.status})`);
-      NotificationSystem.success('Заявка отменена'); await this.fetchStatus(); if (!this.state.claims?.length) { this.updateLocalReadiness(); this.paintChecklist(); setTimeout(()=> this.openPrizes(), 200); }
-    } catch { NotificationSystem.error('Ошибка отмены'); }
-  },
-  async markReceived(id) {
-    if (!GLOBAL_STATS_URL || !confirm('Подтвердить получение?')) return;
-    try{
-      const r = await fetch(`${GLOBAL_STATS_URL}/claim/received`, { method:'POST', mode:'cors', credentials:'include', headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() }, body: JSON.stringify({ id }) }), d = await r.json().catch(()=> ({}));
-      if (!r.ok || !d?.ok) return NotificationSystem.error(`Не удалось подтвердить (${d?.error||r.status})`);
-      if (!localStorage.getItem('secret_start_at')) { localStorage.setItem('secret_start_at', String(Date.now())); if(document.getElementById('prize-gallery-secret')) document.getElementById('prize-gallery-secret').style.display=''; AchProgress.updateFromStats(); NotificationSystem.success('🎉 Открыты секретные уровни'); await backupSaveToCloudOverwriteSilent(); }
-      await this.fetchStatus(); this.updateLocalReadiness(); if(document.getElementById('claim-btn')) document.getElementById('claim-btn').textContent = 'ПОЛУЧИТЬ ЕЩЁ ПРИЗЫ';
-    } catch { NotificationSystem.error('Ошибка подтверждения'); }
-  },
-};
 [cite_start]// ==== ГЛОБАЛЬНАЯ СТАТИСТИКА (Cloudflare Workers) ==== [cite: 352]
-const GS_Q_KEY = 'vr_gs_queue_v1';
-const GlobalStats = {
-  period: 'all', sending: false, errorOnce: false, _retryAt: 0, _failCount: 0,
-  [cite_start]async fetchConfig() { [cite: 353]
-    if (!GLOBAL_STATS_URL) return { masterEnabled: true, sendEnabled: false, showUI: true, requireTurnstile: true };
-    try {
-      [cite_start]const res = await fetch(`${GLOBAL_STATS_URL}/gs/config`, { mode: 'cors' }); [cite: 354]
-      const data = await res.json();
-      [cite_start]return (res.ok && data?.ok && data.config) ? data.config : { masterEnabled: true, sendEnabled: true, showUI: true, requireTurnstile: true }; [cite: 355]
-    } catch { return { masterEnabled: true, sendEnabled: true, showUI: true, requireTurnstile: true }; }
-  },
-  init() {
-    [cite_start]if (!FeatureFlags.globalStatsUI) return; [cite: 356]
-    this.root = document.getElementById('global-stats-root');
-    this.body = document.getElementById('global-stats-body');
-    this.toggleBtn = document.getElementById('global-stats-toggle');
-    [cite_start]if (!this.root || !this.body || !this.toggleBtn) return; [cite: 357]
-    const open = localStorage.getItem('globalStatsOpen') === '1';
-    this.toggleBtn.setAttribute('aria-expanded', String(open));
-    [cite_start]this.body.hidden = !open; [cite: 358]
-    this.toggleBtn.addEventListener('click', () => {
-      const next = this.toggleBtn.getAttribute('aria-expanded') !== 'true';
-      this.toggleBtn.setAttribute('aria-expanded', String(next));
-      this.body.hidden = !next;
-      localStorage.setItem('globalStatsOpen', next ? '1' : '0');
-      if (next) this.fetchAndRender();
-    });
-    ['all', 'today', 'week', 'month'].forEach(p => {
-      document.getElementById('gs-tab-' + p)?.addEventListener('click', () => {
-        [cite_start]this.period = p; [cite: 359]
-        ['all', 'today', 'week', 'month'].forEach(pp => document.getElementById('gs-tab-' + pp)?.classList.toggle('active', pp === p));
-        this.fetchAndRender(true);
-      });
-    });
-    const hT = document.getElementById('gs-hours-toggle'), hB = document.getElementById('gs-hours-bars');
-    if (hT && hB) hT.onclick = () => hB.style.display = hB.style.display === 'none' ? [cite_start]'' : 'none'; [cite: 360, 361]
-    const wT = document.getElementById('gs-week-toggle'), wB = document.getElementById('gs-week-bars');
-    if (wT && wB) wT.onclick = () => wB.style.display = wB.style.display === 'none' ? [cite_start]'' : 'none'; [cite: 362]
-    this.fetchConfig().then(cfg => {
-      [cite_start]if (!cfg.showUI && this.root) this.root.style.display = 'none'; [cite: 363]
-      localStorage.setItem('ff_global_stats_send', cfg.sendEnabled ? '1' : '0');
-      FeatureFlags.globalStatsSend = cfg.sendEnabled;
-      if (this.toggleBtn.getAttribute('aria-expanded') === 'true') this.fetchAndRender();
-    }).catch(() => {});
-    [cite_start]if (open) this.fetchAndRender(); [cite: 364]
-    this.flush();
-  },
-  enqueueEvent(ev) {
-    [cite_start]if (!FeatureFlags.globalStatsSend || !GLOBAL_STATS_URL) return; [cite: 365]
-    try {
-      const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
-      [cite_start]q.push(ev); [cite: 366]
-      localStorage.setItem(GS_Q_KEY, JSON.stringify(q));
-      [cite_start]if (navigator.onLine && q.length >= 5) this.flush(); [cite: 367]
-    } catch {}
-  },
-  async flush() {
-    [cite_start]if (!FeatureFlags.globalStatsSend || !GLOBAL_STATS_URL || this.sending || Date.now() < this._retryAt) return; [cite: 368]
-    [cite_start]if (Date.now() - (this._lastSendAt || 0) < 8000) return; [cite: 369, 370]
-    const q = JSON.parse(localStorage.getItem(GS_Q_KEY) || '[]');
-    if (!q.length) return;
-    this.sending = true;
-    try {
-      [cite_start]const payload = { deviceHash: getDeviceHash(), appVersion: VERSION, platform: navigator.userAgent, events: q }; [cite: 371]
-      [cite_start]const headers = { 'Content-Type': 'application/json' }; [cite: 372]
-      try { const token = await getTurnstileToken('send_event'); if (token) headers['CF-TURNSTILE-RESPONSE'] = token; [cite_start]} catch {} [cite: 373, 374]
-      const res = await fetch(`${GLOBAL_STATS_URL}/event`, { method: 'POST', headers, mode: 'cors', body: JSON.stringify(payload) });
-      [cite_start]if (!res.ok) throw new Error(`event_send_failed_${res.status}`); [cite: 375, 376]
-      localStorage.setItem(GS_Q_KEY, '[]');
-      this._failCount = 0; this._retryAt = 0; this._lastSendAt = Date.now();
-    } catch {
-      [cite_start]this._failCount = Math.min(this._failCount + 1, 10); [cite: 377]
-      [cite_start]this._retryAt = Date.now() + Math.min(300000, Math.pow(2, this._failCount) * 1000); [cite: 378]
-      if (!this.errorOnce) { this.errorOnce = true; NotificationSystem.warning('Глобальная статистика недоступна, повторим позже'); [cite_start]} [cite: 379]
-    } finally { this.sending = false; [cite_start]} [cite: 380, 381]
-  },
-  async fetchAndRender() {
-    if (!FeatureFlags.globalStatsUI || !this.root || this.body.hidden) return;
-    [cite_start]const errEl = document.getElementById('gs-error'), topL = document.getElementById('gs-top-listens'), topT = document.getElementById('gs-top-time'), upd = document.getElementById('gs-updated'); [cite: 382]
-    if (!GLOBAL_STATS_URL) {
-      if (errEl) { errEl.style.display = ''; errEl.textContent = 'Не настроен сервер глобальной статистики.'; [cite_start]} [cite: 383, 384]
-      [cite_start]if (topL) topL.innerHTML = ''; if (topT) topT.innerHTML = ''; if (upd) upd.textContent = '—'; [cite: 385]
-      return;
-    }
-    try {
-      [cite_start]if (errEl) errEl.style.display = 'none'; [cite: 386]
-      [cite_start]const res = await fetch(`${GLOBAL_STATS_URL}/top?period=${this.period}`, { mode: 'cors' }); [cite: 387]
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      [cite_start]this.renderLists(await res.json()); [cite: 388, 389]
-    } catch {
-      [cite_start]if (errEl) errEl.style.display = ''; [cite: 390]
-      if (!this.errorOnce) { this.errorOnce = true; NotificationSystem.warning('Глобальная статистика недоступна'); [cite_start]} [cite: 391]
-    }
-  },
-  renderLists(data) {
-    if (!config) return;
-    const $el = id => document.getElementById(id);
-    [cite_start]const topL = $el('gs-top-listens'), topT = $el('gs-top-time'), upd = $el('gs-updated'), topC = $el('gs-top-cities'), topU = $el('gs-top-users'), barsH = $el('gs-hours-bars'), barsW = $el('gs-week-bars'); [cite: 392, 393, 394]
-    const toTitle = idx => config?.tracks?.[idx]?.title || `Трек ${idx + 1}`;
-    const buildList = arr => arr.length ? arr.join('') : '<li><span>—</span><span>0</span></li>';
-    [cite_start]if (topL) topL.innerHTML = buildList((data.top_listens || []).slice(0, 5).map(x => `<li><span>${toTitle(x.idx)}</span><span>${x.count || 0}</span></li>`)); [cite: 394, 396]
-    [cite_start]if (topT) topT.innerHTML = buildList((data.top_time || []).slice(0, 5).map(x => `<li><span>${toTitle(x.idx)}</span><span>${Math.round((x.seconds || 0) / 60)}</span></li>`)); [cite: 395, 396]
-    [cite_start]if (upd) upd.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—'; [cite: 397]
-    [cite_start]if (topC) topC.innerHTML = buildList((data.top_cities || []).slice(0, 10).map(c => `<li><span>${getFlagEmoji(c.cc)} ${escapeHtml(c.city)}</span><span>${c.users}</span></li>`)); [cite: 398, 399]
-    [cite_start]if (topU) topU.innerHTML = buildList((data.top_users || []).slice(0, 10).map(u => `<li><span>${escapeHtml(u.name || `@user_${String(u.tgId).slice(-4)}`)}</span><span>${u.count || 0} • ${typeof u.spanSec === 'number' ? formatSpan(u.spanSec) : '—'}</span></li>`)); [cite: 400, 401]
-    const renderBars = (arr, labels) => {
-      const max = Math.max(1, ...arr);
-      return arr.map((v, i) => `<div class="chart-row"><div class="label">${labels ? labels[i] : String(i).padStart(2, '0')}</div><div class="bar"><div class="fill" style="width:${Math.round((v / max) * 100)}%"></div></div><div class="val">${v}</div></div>`).join('');
-    };
-    [cite_start]if (barsH) barsH.innerHTML = renderBars(data.by_hour || []); [cite: 402, 403, 404]
-    [cite_start]if (barsW) barsW.innerHTML = renderBars(data.by_weekday || [], ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']); [cite: 405, 406]
-  }
-};
 
 const AnimatedEmoji = {
   base: 'assets/emoji/noto',
@@ -1375,14 +928,6 @@ async function buildBackupFile() {
   };
   [cite_start]return { kind: 'vr_backup_v1', checksum: await sha256String(JSON.stringify(payload)), payload }; [cite: 457]
 }
-
-async function backupSaveToCloud() { NotificationSystem.info('Облачный бэкап — скоро будет'); [cite_start]} [cite: 458]
-async function backupImportFromCloud() { NotificationSystem.info('Облачный бэкап — скоро будет'); [cite_start]} [cite: 459]
-
-[cite_start]const CLOUD_SAVED_OK_KEY = 'CLOUD_SAVED_OK', CLOUD_SAVED_CRC_KEY = 'CLOUD_SAVED_CRC', CLOUD_SAVED_AT_KEY = 'CLOUD_SAVED_AT'; [cite: 461]
-[cite_start]async function backupSaveToCloudOverwriteSilent() { /* cloud removed */ } [cite: 462]
-async function ensureCloudBackupReady(timeoutMs = 2000) { return false; [cite_start]} /* cloud removed */ [cite: 463]
-[cite_start]function backupAutoSaveIfNeeded() { /* cloud removed */ } [cite: 464]
 
 async function backupImportFromFile(file) {
   if (!file) return;
@@ -1556,10 +1101,8 @@ function checkPromo() {
 document.getElementById('promo-inp').addEventListener('keydown', e => { if (e.key === "Enter") checkPromo(); });
 
 function initializeMainUi() {
-  DOM.cover = document.getElementById('cover'); DOM.trackList = document.getElementById('track-list'); [cite_start]DOM.socialLinks = document.getElementById('social-links'); [cite: 545]
-  (async () => { try { await loadAchOverrides(); } catch {} })();
-  try { VipClient.bootstrap(); [cite_start]} catch {} [cite: 546]
-  [cite_start]setCoverImage(coverGalleryIdx); buildSocials(); [cite: 548]
+  DOM.cover = document.getElementById('cover'); DOM.trackList = document.getElementById('track-list'); DOM.socialLinks = document.getElementById('social-links');
+  setCoverImage(coverGalleryIdx); buildSocials();
   StatsStore.init(); AchProgress.init();
   Integrity.verifyOnBoot().then(ok => (!ok || localStorage.getItem('tamper_detected') === '1') ? showTamperBanner() : hideTamperBanner());
   [cite_start]setCloudSavedUI(localStorage.getItem('CLOUD_SAVED_OK') === '1'); [cite: 549]
