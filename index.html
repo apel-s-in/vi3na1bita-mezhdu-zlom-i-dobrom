@@ -1172,379 +1172,1121 @@ header{width:100%;text-align:center;margin:0 auto}
 
 <script>
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
-const VERSION = '6.3.1', BUILD_DATE = '2025-01-17';
-const BUILD_INFO = { version: VERSION, date: BUILD_DATE, author: 'Витрина Разбита', repository: 'https://github.com/apel-s-in/vi3na1bita-mezhdu-zlom-i-dobrom' };
+const VERSION = '6.3.1';
+const BUILD_DATE = '2025-01-17';
+const BUILD_INFO = {
+  version: VERSION,
+  date: BUILD_DATE,
+  author: 'Витрина Разбита',
+  repository: 'https://github.com/apel-s-in/vi3na1bita-mezhdu-zlom-i-dobrom'
+};
+// ==== Глобальная статистика (настройка URL вашего Cloudflare Worker) ====
+// Поставьте URL вашего endpoint (пример: 'https://vr-stats.example.workers.dev')
+// Если оставить пустым '', отправка отключится автоматически.
 const GLOBAL_STATS_URL = 'https://vr-backend.apel-s-in.workers.dev';
-window.GLOBAL_STATS_URL = GLOBAL_STATS_URL;
+window.GLOBAL_STATS_URL = GLOBAL_STATS_URL; // добавьте эту строку
+function apiAuthHeaders() {
+  const h = {};
+  const sid = localStorage.getItem('vr_sid');
+  if (sid) h['X-Session'] = sid;
+  return h;
+}
 
-// --- Базовые утилиты (Оптимизация) ---
-const el = id => document.getElementById(id);
-const ls = { get: k => localStorage.getItem(k), set: (k, v) => localStorage.setItem(k, v), rm: k => localStorage.removeItem(k) };
-const show = (id, disp = '') => { const e = el(id); if(e) e.style.display = disp; };
-const hide = id => show(id, 'none');
-const toggleActive = (id, force) => el(id)?.classList.toggle('active', force);
-const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-
-const apiAuthHeaders = () => {
-  const sid = ls.get('vr_sid');
-  return sid ? { 'X-Session': sid } : {};
-};
-
-// Единая обертка для API
-const apiCall = async (endpoint, method = 'GET', bodyObj = null, extraHeaders = {}) => {
-  const opts = { method, mode: 'cors', credentials: 'include', headers: { ...apiAuthHeaders(), ...extraHeaders } };
-  if (bodyObj) { opts.body = JSON.stringify(bodyObj); opts.headers['Content-Type'] = 'application/json'; }
-  const r = await fetch((endpoint.startsWith('http') ? endpoint : GLOBAL_STATS_URL + endpoint), opts);
-  const j = await r.json().catch(() => ({}));
-  return { ok: r.ok && j?.ok, data: j, status: r.status };
-};
-
-/* ===== VipClient ===== */
+/* ===== VipClient: управление VIP‑состоянием на клиенте ===== */
 const VipClient = (() => {
-  const st = { vip: false, vipAuthRequired: false, balance: 0, name: null, secretStageStartAt: null };
+  const st = {
+    vip: false,
+    vipAuthRequired: false,
+    balance: 0,
+    name: null,
+    secretStageStartAt: null
+  };
 
-  const paintVipBanner = () => {
+  // UI элементы (лениво ищем)
+  function el(id) { return document.getElementById(id); }
+
+  function showModal(flag) {
+    const w = el('vip-modal-wrap');
+    if (!w) return;
+    w.style.display = flag ? 'flex' : 'none';
+  }
+
+  function paintVipBanner() {
     const wrap = el('vip-banner');
     if (!wrap) return;
-    wrap.style.display = st.vip ? '' : 'none';
-    if (!st.vip) return;
-    if (el('vip-user-name') && st.name) el('vip-user-name').textContent = st.name;
-    if (el('vip-balance')) el('vip-balance').textContent = String(st.balance || 0);
-  };
+    if (!st.vip) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    const name = el('vip-user-name');
+    if (name && st.name) name.textContent = st.name;
+    const bal = el('vip-balance');
+    if (bal) bal.textContent = String(st.balance || 0);
+  }
 
-  const fetchWallet = async () => {
-    const { ok, data } = await apiCall('/vip/wallet');
-    if (ok) { st.balance = Number(data.balance || 0); paintVipBanner(); }
-  };
+  async function fetchWallet() {
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/wallet`, {
+        method:'GET', headers: { ...apiAuthHeaders() }, credentials: 'include', mode: 'cors'
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (r.ok && j?.ok) {
+        st.balance = Number(j.balance || 0);
+        paintVipBanner();
+      }
+    } catch {}
+  }
 
-  const verifyPass = async (password) => {
+  async function verifyPass(password) {
     const msg = el('vip-msg'); if (msg) msg.textContent = '';
-    const { ok, data } = await apiCall('/vip/verify-pass', 'POST', { password });
-    if (!ok) { if (msg) msg.textContent = 'Неверный пароль'; return false; }
-    st.vipAuthRequired = false; st.balance = Number(data.balance || 0);
-    paintVipBanner(); toggleActive('vip-modal-wrap', false); return true;
-  };
-
-  const setPass = async (password) => {
-    const msg = el('vip-msg'); if (msg) msg.textContent = '';
-    const { ok, data } = await apiCall('/vip/set-pass', 'POST', { password });
-    if (!ok) { if (msg) msg.textContent = data?.error === 'not_vip' ? 'Только VIP может установить пароль' : 'Не удалось сохранить пароль'; return false; }
-    if (msg) msg.textContent = 'Пароль сохранён'; return true;
-  };
-
-  const requestReset = async () => {
-    const msg = el('vip-msg'); if (msg) msg.textContent = '';
-    const { ok, data } = await apiCall('/vip/request-reset', 'POST', {});
-    if (!ok) { if (msg) msg.textContent = data?.error === 'no_tg' ? 'К аккаунту не привязан Telegram' : 'Не удалось отправить код'; return false; }
-    if (msg) msg.textContent = 'Код отправлен в Telegram. Проверьте сообщения и введите код.'; return true;
-  };
-
-  const resetPass = async (code, password) => {
-    const msg = el('vip-msg'); if (msg) msg.textContent = '';
-    const { ok, data } = await apiCall('/vip/reset-pass', 'POST', { code, password });
-    if (!ok) { if (msg) msg.textContent = data?.error || 'Не удалось сбросить'; return false; }
-    if (msg) msg.textContent = 'Пароль сброшен. Введите новый пароль в разделе выше, чтобы сохранить его.'; return true;
-  };
-
-  const wireModal = () => {
-    if (el('vip-close-btn')) el('vip-close-btn').onclick = () => toggleActive('vip-modal-wrap', false);
-    if (el('vip-verify-btn')) el('vip-verify-btn').onclick = () => {
-      const p = el('vip-pass')?.value.trim();
-      p ? verifyPass(p) : (el('vip-msg') && (el('vip-msg').textContent = 'Введите пароль'));
-    };
-    if (el('vip-setpass-confirm')) el('vip-setpass-confirm').onclick = () => {
-      const p = el('vip-new-pass')?.value.trim();
-      p && p.length >= 4 ? setPass(p) : (el('vip-msg') && (el('vip-msg').textContent = 'Пароль слишком короткий'));
-    };
-    if (el('vip-requestreset-confirm')) el('vip-requestreset-confirm').onclick = requestReset;
-    if (el('vip-resetpass-confirm')) el('vip-resetpass-confirm').onclick = () => {
-      const c = el('vip-reset-code')?.value.trim(), p = el('vip-reset-new')?.value.trim();
-      c && p ? resetPass(c, p) : (el('vip-msg') && (el('vip-msg').textContent = 'Укажите код и новый пароль'));
-    };
-  };
-
-  const wireBanner = () => {
-    if (el('vip-setpass-btn')) el('vip-setpass-btn').onclick = () => {
-      toggleActive('vip-modal-wrap', true);
-      if (el('vip-modal-title')) el('vip-modal-title').textContent = 'VIP пароль';
-      if (el('vip-modal-desc')) el('vip-modal-desc').textContent = 'Установите или измените VIP‑пароль, либо войдите на этом устройстве.';
-    };
-    if (el('vip-requestreset-btn')) el('vip-requestreset-btn').onclick = () => { toggleActive('vip-modal-wrap', true); requestReset(); };
-    if (el('vip-gallery-btn')) el('vip-gallery-btn').onclick = () => { try { VipGallery.open(); } catch(e){ alert('Галерея призов недоступна'); } };
-  };
-
-  return {
-    bootstrap: () => {},
-    onAfterMe: (data) => {
-      st.vip = !!data.vip; st.vipAuthRequired = !!data.vipAuthRequired;
-      st.balance = Number(data.vipBalance || 0); st.name = data?.user?.display_name || null;
-      paintVipBanner(); wireBanner();
-      if (st.vip && st.vipAuthRequired) { wireModal(); toggleActive('vip-modal-wrap', true); }
-      else if (st.vip) fetchWallet();
-    },
-    onAfterClaimStatus: (resp) => {
-      const t = Number(resp?.secretStageStartAt || 0);
-      st.secretStageStartAt = Number.isFinite(t) && t > 0 ? t : null;
-      try { window.AchProgress?.setSecretStartAt?.(st.secretStageStartAt); } catch {}
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/verify-pass`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({ password })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = 'Неверный пароль';
+        return false;
+      }
+      st.vipAuthRequired = false;
+      st.balance = Number(j.balance || 0);
+      paintVipBanner();
+      showModal(false);
+      return true;
+    } catch (e) {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
     }
-  };
+  }
+
+  async function setPass(password) {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/set-pass`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({ password })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = (j?.error === 'not_vip') ? 'Только VIP может установить пароль' : 'Не удалось сохранить пароль';
+        return false;
+      }
+      if (msg) msg.textContent = 'Пароль сохранён';
+      return true;
+    } catch (e) {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  async function requestReset() {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/request-reset`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({})
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = (j?.error === 'no_tg') ? 'К аккаунту не привязан Telegram' : 'Не удалось отправить код';
+        return false;
+      }
+      if (msg) msg.textContent = 'Код отправлен в Telegram. Проверьте сообщения и введите код.';
+      return true;
+    } catch {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  async function resetPass(code, password) {
+    const msg = el('vip-msg'); if (msg) msg.textContent = '';
+    try {
+      const r = await fetch(`${GLOBAL_STATS_URL}/vip/reset-pass`, {
+        method:'POST',
+        headers: { 'Content-Type':'application/json', ...apiAuthHeaders() },
+        credentials:'include', mode:'cors',
+        body: JSON.stringify({ code, password })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) {
+        if (msg) msg.textContent = (j?.error || 'Не удалось сбросить');
+        return false;
+      }
+      if (msg) msg.textContent = 'Пароль сброшен. Введите новый пароль в разделе выше, чтобы сохранить его.';
+      return true;
+    } catch {
+      if (msg) msg.textContent = 'Ошибка сети';
+      return false;
+    }
+  }
+
+  function wireModal() {
+    const close = el('vip-close-btn');
+    if (close) close.onclick = () => showModal(false);
+    const vbtn = el('vip-verify-btn');
+    if (vbtn) vbtn.onclick = async () => {
+      const p = (el('vip-pass')?.value || '').trim();
+      if (!p) { const msg=el('vip-msg'); if (msg) msg.textContent = 'Введите пароль'; return; }
+      await verifyPass(p);
+    };
+    const setBtn = el('vip-setpass-confirm');
+    if (setBtn) setBtn.onclick = async () => {
+      const p = (el('vip-new-pass')?.value || '').trim();
+      if (!p || p.length < 4) { const msg=el('vip-msg'); if (msg) msg.textContent='Пароль слишком короткий'; return; }
+      await setPass(p);
+    };
+    const reqBtn = el('vip-requestreset-confirm');
+    if (reqBtn) reqBtn.onclick = async () => { await requestReset(); };
+    const doReset = el('vip-resetpass-confirm');
+    if (doReset) doReset.onclick = async () => {
+      const code = (el('vip-reset-code')?.value || '').trim();
+      const p = (el('vip-reset-new')?.value || '').trim();
+      if (!code || !p) { const msg=el('vip-msg'); if (msg) msg.textContent='Укажите код и новый пароль'; return; }
+      await resetPass(code, p);
+    };
+  }
+
+  function wireBanner() {
+    const setBtn = el('vip-setpass-btn');
+    if (setBtn) setBtn.onclick = () => {
+      showModal(true);
+      const title = el('vip-modal-title'); if (title) title.textContent = 'VIP пароль';
+      const desc  = el('vip-modal-desc');  if (desc) desc.textContent = 'Установите или измените VIP‑пароль, либо войдите на этом устройстве.';
+    };
+    const reqBtn = el('vip-requestreset-btn');
+    if (reqBtn) reqBtn.onclick = () => {
+      showModal(true);
+      requestReset();
+    };
+    const galleryBtn = el('vip-gallery-btn');
+    if (galleryBtn) galleryBtn.onclick = () => {
+      try { VipGallery.open(); } catch(e){ alert('Галерея призов недоступна'); }
+    };
+  }
+
+  function onAfterMe(data) {
+    st.vip  = !!data.vip;
+    st.vipAuthRequired = !!data.vipAuthRequired;
+    st.balance = Number(data.vipBalance || 0);
+    st.name = data?.user?.display_name || null;
+
+    paintVipBanner();
+    wireBanner();
+
+    if (st.vip && st.vipAuthRequired) {
+      wireModal();
+      showModal(true);
+    } else if (st.vip) {
+      fetchWallet();
+    }
+  }
+
+  function onAfterClaimStatus(resp) {
+    const t = Number(resp?.secretStageStartAt || 0);
+    st.secretStageStartAt = Number.isFinite(t) && t > 0 ? t : null;
+    // Здесь можно уведомить вашу логику ачивок, что секретный этап начался с момента t.
+    // Например: AchProgress.setSecretStartAt(st.secretStageStartAt);
+    try {
+      if (window.AchProgress && typeof window.AchProgress.setSecretStartAt === 'function') {
+        window.AchProgress.setSecretStartAt(st.secretStageStartAt);
+      }
+    } catch {}
+  }
+
+  function bootstrap() {
+    // Ничего особого. Вызовется явно из кода после получения /me и /claim/status
+  }
+
+  return { bootstrap, onAfterMe, onAfterClaimStatus };
 })();
 
-/* ===== VipGallery ===== */
+/* ===== VIP Gallery: список призов за коины (owned/price=100) ===== */
 const VipGallery = (() => {
-  const sel = { wrap: 'vip-gallery-wrap', list: 'vip-gallery-list', bal: 'vip-gallery-balance', close: 'vip-gallery-close' };
-  const fetchWallet = async () => { const { ok, data } = await apiCall('/vip/wallet'); if (ok && el(sel.bal)) el(sel.bal).textContent = String(data.balance||0); };
+  const sel = {
+    wrap: 'vip-gallery-wrap',
+    list: 'vip-gallery-list',
+    bal:  'vip-gallery-balance',
+    close:'vip-gallery-close'
+  };
+  const api = () => (typeof GLOBAL_STATS_URL !== 'undefined' ? GLOBAL_STATS_URL : '');
 
-  const render = async () => {
-    const list = el(sel.list); if (!list) return;
+  function el(id){ return document.getElementById(id); }
+  function show(flag){ const w = el(sel.wrap); if (w) w.style.display = flag ? 'flex' : 'none'; }
+
+  async function fetchWallet() {
+    try {
+      const r = await fetch(`${api()}/vip/wallet`, { method:'GET', mode:'cors', credentials:'include', headers:{ ...apiAuthHeaders() }});
+      const j = await r.json().catch(()=> ({}));
+      if (r.ok && j?.ok) {
+        const b = el(sel.bal); if (b) b.textContent = String(j.balance||0);
+      }
+    } catch {}
+  }
+
+  function mountHandlers() {
+    const c = el(sel.close); if (c) c.onclick = ()=> show(false);
+    const w = el(sel.wrap); if (w) w.addEventListener('click', (e)=>{ if (e.target===w) show(false); });
+  }
+
+  async function render() {
+    const list = el(sel.list);
+    if (!list) return;
     list.innerHTML = `<div class="stat-card" style="text-align:center; padding:12px;">Загрузка...</div>`;
-    const { ok, data } = await apiCall('/vip/prizes');
-    if (!ok) return list.textContent = 'Ошибка загрузки';
-    const items = Array.isArray(data.items) ? data.items : [];
-    if (!items.length) return list.textContent = 'Пока пусто';
-    
-    list.innerHTML = items.map(it => {
-      const btn = it.owned 
-        ? `<button disabled style="border:none;border-radius:8px;background:#2a3550;color:#9aa8c4;padding:6px 10px;cursor:not-allowed;">Уже получен</button>`
-        : `<button data-id="${it.id}" data-title="${it.title||''}" class="vip-buy" style="border:none;border-radius:8px;background:#27b34c;color:#08120a;padding:6px 10px;cursor:pointer;">Купить за ${it.priceCoins||100}</button>`;
-      return `<div style="display:flex;align-items:center;gap:10px;border-bottom:1px dashed rgba(255,255,255,0.07); padding:8px 0;">
-        <img src="${it.img||''}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #2b3955;">
-        <div style="flex:1 1 auto;"><div style="font-weight:800;">${escapeHtml(it.title||'')}</div><div style="color:#9aa8c4;font-size:13px;">${escapeHtml(it.short||'')}</div></div>
-        <div>${btn}</div></div>`;
-    }).join('');
+    try {
+      const r = await fetch(`${api()}/vip/prizes`, { method:'GET', mode:'cors', credentials:'include', headers:{ ...apiAuthHeaders() }});
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok || !j?.ok) { list.textContent = 'Ошибка загрузки'; return; }
+      const items = Array.isArray(j.items) ? j.items : [];
+      if (!items.length) { list.textContent = 'Пока пусто'; return; }
+      list.innerHTML = items.map(it => {
+        const owned = !!it.owned;
+        const btn = owned
+          ? `<button disabled style="border:none;border-radius:8px;background:#2a3550;color:#9aa8c4;padding:6px 10px;cursor:not-allowed;">Уже получен</button>`
+          : `<button data-id="${it.id}" data-title="${(it.title||'')}" class="vip-buy" style="border:none;border-radius:8px;background:#27b34c;color:#08120a;padding:6px 10px;cursor:pointer;">Купить за ${it.priceCoins||100}</button>`;
+        return `<div style="display:flex;align-items:center;gap:10px;border-bottom:1px dashed rgba(255,255,255,0.07); padding:8px 0;">
+          <img src="${it.img||''}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #2b3955;">
+          <div style="flex:1 1 auto;">
+            <div style="font-weight:800;">${escapeHtml(it.title||'')}</div>
+            <div style="color:#9aa8c4;font-size:13px;">${escapeHtml(it.short||'')}</div>
+          </div>
+          <div>${btn}</div>
+        </div>`;
+      }).join('');
 
-    list.querySelectorAll('.vip-buy').forEach(b => b.addEventListener('click', async () => {
-      const id = b.getAttribute('data-id'), ttl = b.getAttribute('data-title') || 'приз';
-      if (!confirm(`Списать 100 коинов и получить «${ttl}»?`)) return;
-      b.disabled = true;
-      const { ok: rOk, data: rData } = await apiCall('/vip/redeem', 'POST', { prizeId: id });
-      if (!rOk) { alert('Не удалось: ' + (rData?.error || 'Ошибка')); b.disabled = false; return; }
-      alert('Готово! Списано 100 коинов. Баланс: ' + (rData.balance||0));
-      await fetchWallet(); await render();
-    }));
-  };
+      // обработчики покупки
+      list.querySelectorAll('.vip-buy').forEach(b=>{
+        b.addEventListener('click', async () => {
+          const id = b.getAttribute('data-id');
+          const ttl= b.getAttribute('data-title') || 'приз';
+          if (!confirm(`Списать 100 коинов и получить «${ttl}»?`)) return;
+          b.disabled = true;
+          try {
+            const rr = await fetch(`${api()}/vip/redeem`, {
+              method:'POST', mode:'cors', credentials:'include',
+              headers:{ 'Content-Type':'application/json', ...apiAuthHeaders() },
+              body: JSON.stringify({ prizeId: id })
+            });
+            const jj = await rr.json().catch(()=> ({}));
+            if (!rr.ok || !jj?.ok) {
+              alert('Не удалось: ' + (jj?.error || rr.status));
+              b.disabled = false;
+              return;
+            }
+            alert('Готово! Списано 100 коинов. Баланс: ' + (jj.balance||0));
+            await fetchWallet(); // обновим баланс
+            await render();      // обновим список (приз станет owned)
+          } catch (e) {
+            alert('Ошибка сети');
+            b.disabled = false;
+          }
+        });
+      });
+    } catch (e) {
+      list.textContent = 'Ошибка сети';
+    }
+  }
 
-  return { open: async () => { await fetchWallet(); await render(); 
-    if(el(sel.close)) el(sel.close).onclick = () => hide(sel.wrap);
-    if(el(sel.wrap)) el(sel.wrap).onclick = e => { if(e.target === el(sel.wrap)) hide(sel.wrap); };
-    show(sel.wrap, 'flex'); 
-  }};
+  async function open() {
+    await fetchWallet();
+    await render();
+    mountHandlers();
+    show(true);
+  }
+
+  return { open };
 })();
 
-// ===== DEMO Mode =====
+// ===== DEMO Mode: изоляция локального хранилища по префиксу demo: =====
 const DemoMode = (() => {
-  const _orig = { get: localStorage.getItem.bind(localStorage), set: localStorage.setItem.bind(localStorage), rm: localStorage.removeItem.bind(localStorage) };
-  const DEMO_KEYS = new Set(['vr_stats_v1','vr_crc_v1','tamper_detected','CLOUD_SAVED_OK','CLOUD_SAVED_CRC','CLOUD_SAVED_AT','likedTracks','favoritesFilter','favoritesOnlyMode','playerState','current_track_position','sleepTimer','backup_prompt_mode','backup_prompt_next','secret_start_at','myStatsOpen','globalStatsOpen','myStatsHoursOpen','myStatsWeekOpen','animationEnabled','bitEnabled','bitIntensity','hasShownAnimationWarning','hasShownBitWarning','me_devices','known_devices','profile_name']);
-  let on = false; const HINT_KEY = 'app_demo_mode';
-  const dKey = k => (on && DEMO_KEYS.has(String(k))) ? 'demo:' + k : k;
-  
-  const patch = () => { localStorage.getItem = k => _orig.get(dKey(k)); localStorage.setItem = (k, v) => _orig.set(dKey(k), v); localStorage.removeItem = k => _orig.rm(dKey(k)); };
-  return {
-    bootstrap: () => { try { on = _orig.get(HINT_KEY) === '1'; patch(); } catch(e){} },
-    setMode: val => { const next = !!val; if(next===on) return; on = next; _orig.set(HINT_KEY, on?'1':'0'); patch(); console.log('[DemoMode]', on?'enabled':'disabled'); },
-    current: () => on
+  // Оригинальные методы localStorage
+  const _orig = {
+    getItem: localStorage.getItem.bind(localStorage),
+    setItem: localStorage.setItem.bind(localStorage),
+    removeItem: localStorage.removeItem.bind(localStorage)
   };
+
+  // Список ключей приложения, которые должны изолироваться в DEMO
+  // ВАЖНО: сюда включены ключи статистики, ачивок, локальных флагов/баннеров,
+  // но НЕ включены device_hash, vr_sid, promoPassed и т.п.
+  const DEMO_KEYS = new Set([
+    'vr_stats_v1','vr_crc_v1','tamper_detected',
+    'CLOUD_SAVED_OK','CLOUD_SAVED_CRC','CLOUD_SAVED_AT',
+    'likedTracks','favoritesFilter','favoritesOnlyMode',
+    'playerState','current_track_position','sleepTimer',
+    'backup_prompt_mode','backup_prompt_next','secret_start_at',
+    'myStatsOpen','globalStatsOpen','myStatsHoursOpen','myStatsWeekOpen',
+    'animationEnabled','bitEnabled','bitIntensity',
+    'hasShownAnimationWarning','hasShownBitWarning',
+    'me_devices','known_devices','profile_name'
+  ]);
+
+  let on = false; // текущий режим
+  const HINT_KEY = 'app_demo_mode'; // без префикса, чтобы всегда был доступен
+
+  function demoKey(k) {
+    return (on && DEMO_KEYS.has(String(k))) ? ('demo:' + k) : k;
+  }
+
+  function patch() {
+    // Переопределяем getItem/setItem/removeItem
+    localStorage.getItem = (k) => _orig.getItem(demoKey(k));
+    localStorage.setItem = (k, v) => _orig.setItem(demoKey(k), v);
+    localStorage.removeItem = (k) => _orig.removeItem(demoKey(k));
+  }
+
+  function unpatch() {
+    // Возвращаем оригинальные методы
+    localStorage.getItem = _orig.getItem;
+    localStorage.setItem = _orig.setItem;
+    localStorage.removeItem = _orig.removeItem;
+  }
+
+  function setMode(val) {
+    const next = !!val;
+    if (next === on) return;
+    on = next;
+    _orig.setItem(HINT_KEY, on ? '1' : '0');
+    patch(); // включаем/пере‑включаем патч (safe)
+    console.log('[DemoMode]', on ? 'enabled' : 'disabled');
+  }
+
+  function bootstrap() {
+    // На самый ранний момент: активируем патч по “подсказке” (если уже была)
+    try {
+      const hint = _orig.getItem(HINT_KEY) === '1';
+      on = !!hint;
+      patch();
+    } catch (e) {
+      // на всякий — оставим оригинальные
+    }
+  }
+
+  function current() { return on; }
+
+  return { bootstrap, setMode, current };
 })();
+
+// ВАЖНО: активируем патч ДО инициализации сторов/прогресса
 DemoMode.bootstrap();
 
+// Страховка: если через 1 секунду поля ещё выключены — включим их
 setTimeout(() => {
   try {
-    const inp = el('promo-inp'), btn = el('promo-btn');
+    const inp = document.getElementById('promo-inp');
+    const btn = document.getElementById('promo-btn');
     if (inp && btn && (inp.disabled || btn.disabled)) {
       inp.disabled = false; btn.disabled = false;
-      const err = el('promo-error');
-      if (err && !configLoaded) { err.textContent = 'Конфиг ещё грузится... Можно попробовать промокод'; err.style.color = '#9aa8c4'; }
+      const err = document.getElementById('promo-error');
+      if (err && !configLoaded) {
+        err.textContent = 'Конфиг ещё грузится... Можно попробовать промокод';
+        err.style.color = '#9aa8c4';
+      }
     }
   } catch(e){}
 }, 1000);
 
+// Cloudflare Turnstile ...
 const TURNSTILE_SITE_KEY = '0x4AAAAAAB6y4Jw_0uezz1RN';
+
+// Telegram bot username для Login Widget — ВСТАВЬТЕ имя бота
 const TG_BOT_USERNAME = 'vi3na1bita_feedback_bot';
+
+// Информационный порог для чек-листа на фронте (сервер проверяет сам env.MIN_CLAIM_LEVEL)
 const FRONT_MIN_CLAIM_LEVEL = 1;
 
+// Хелпер: получить одноразовый токен Turnstile (невидимый, без UI)
 async function getTurnstileToken(action = 'send_event') {
-  if (typeof turnstile === 'undefined') await new Promise(r => { const t = setInterval(()=>{ if(typeof turnstile !== 'undefined'){clearInterval(t); r();} }, 50); });
+  // ждём загрузки глобального объекта turnstile
+  if (typeof turnstile === 'undefined') {
+    await new Promise(resolve => {
+      const t = setInterval(() => {
+        if (typeof turnstile !== 'undefined') { clearInterval(t); resolve(); }
+      }, 50);
+    });
+  }
   return await turnstile.execute(TURNSTILE_SITE_KEY, { action });
 }
 
+// Логирование версии при загрузке
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`, 'color: #E80100; font-size: 16px; font-weight: bold;');
 console.log(`%cBuild: ${BUILD_DATE}`, 'color: #4daaff; font-size: 12px;');
 
-const ff = k => ls.get(k) ?? (k==='ff_achievements_logic'||k==='ff_global_stats_send'?'0':'1');
+// ==== Feature flags (Этап 1) ====
 const FeatureFlags = {
-  achievementsUI: ff('ff_achievements_ui')==='1', statsCollect: ff('ff_stats_collect')==='1',
-  achievementsLogic: ff('ff_achievements_logic')==='1', globalStatsSend: ff('ff_global_stats_send')==='1',
-  globalStatsUI: ff('ff_global_stats_ui')==='1'
+  achievementsUI:   (localStorage.getItem('ff_achievements_ui') ?? '1') === '1',
+  statsCollect:     (localStorage.getItem('ff_stats_collect') ?? '1') === '1',
+  achievementsLogic:(localStorage.getItem('ff_achievements_logic') ?? '0') === '1',
+  globalStatsSend:  (localStorage.getItem('ff_global_stats_send') ?? '0') === '1', // по умолчанию выкл, вкл когда поставите URL
+  globalStatsUI:    (localStorage.getItem('ff_global_stats_ui') ?? '1') === '1'
 };
-if (GLOBAL_STATS_URL && ls.get('ff_global_stats_send') === null) ls.set('ff_global_stats_send', '1');
+// ... после блока FeatureFlags
+if (GLOBAL_STATS_URL && localStorage.getItem('ff_global_stats_send') === null) {
+  localStorage.setItem('ff_global_stats_send', '1'); // включаем один раз
+}
 
+// Кэшированные DOM элементы
 const DOM = {};
-let config = null, promoPassed = false, configLoaded = false, coverGalleryArr = ['Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'], coverGalleryIdx = 0, coverAutoplay = null;
-let currentTrack = -1, currentLyrics = [], autoPlayEnabled = true, offlineMode = false, offlineDownloading = false, deferredPrompt = null;
-let shuffleMode = false, shuffledPlaylist = [], shuffleIndex = 0, repeatMode = false, favoritesOnlyMode = false, availableTracks = [], favoritesFilterActive = false;
-let animationEnabled = false, bitEnabled = false, bitIntensity = 100, audioContext = null, analyser = null, audioSource = null, animationFrame = null, hasShownAnimationWarning = false, hasShownBitWarning = false;
-let downloadOptions = { includeCovers: true, includeLyrics: true, onlyFavorites: false, fullAlbum: true }, filesToDownload = [];
 
-// ==================== SERVICE WORKER & NOTIFICATIONS ====================
+// Глобальные переменные
+let config = null;
+let promoPassed = false;
+let configLoaded = false;
+let coverGalleryArr = ['Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
+let coverGalleryIdx = 0;
+let coverAutoplay = null;
+let currentTrack = -1;
+let currentLyrics = [];
+let autoPlayEnabled = true; // ИСПРАВЛЕНО: по умолчанию true
+let offlineMode = false;
+let offlineDownloading = false;
+let deferredPrompt = null;
+
+// Новые переменные для плеера
+let shuffleMode = false;
+let shuffledPlaylist = [];
+let shuffleIndex = 0;
+let repeatMode = false;
+let favoritesOnlyMode = false;
+let availableTracks = [];
+let favoritesFilterActive = false;
+
+// НОВЫЕ переменные для анимаций
+let animationEnabled = false;
+let bitEnabled = false;
+let bitIntensity = 100; // 100, 50 или 15
+let audioContext = null;
+let analyser = null;
+let audioSource = null;
+let animationFrame = null;
+let hasShownAnimationWarning = false;
+let hasShownBitWarning = false;
+
+let downloadOptions = {
+  includeCovers: true,
+  includeLyrics: true,
+  onlyFavorites: false,
+  fullAlbum: true
+};
+let filesToDownload = [];
+
+// ==================== SERVICE WORKER ====================
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js').then(async reg => {
-    await navigator.serviceWorker.ready; syncOfflineState();
-    try { reg.active?.postMessage({ type: 'REQUEST_OFFLINE_STATE' }); reg.update(); } catch(e){}
-    setInterval(async () => { try { (await navigator.serviceWorker.getRegistration())?.update(); } catch(e){} }, 3600000);
+    console.log('Service Worker registered', reg);
+
+    await navigator.serviceWorker.ready;
+    syncOfflineState();
+    // запросим у SW текущее состояние offline-режима
+    try { reg.active && reg.active.postMessage({ type: 'REQUEST_OFFLINE_STATE' }); } catch(e){}
+
+    // Проверяем обновления сразу и затем раз в час
+    try { reg.update(); } catch(e) {}
+    setInterval(async () => {
+      try {
+        const r = await navigator.serviceWorker.getRegistration();
+        if (r) r.update();
+      } catch(e) {}
+    }, 60 * 60 * 1000);
+
     reg.addEventListener('updatefound', () => {
-      const nw = reg.installing;
-      nw.addEventListener('statechange', () => { if(nw.state === 'activated') NotificationSystem.info('Приложение обновлено'); });
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'activated') {
+          NotificationSystem.info('Приложение обновлено');
+        }
+      });
     });
   });
+
+  // Одноразовая перезагрузка, когда новый SW берёт управление
   let __swReloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if(__swReloaded) return; __swReloaded=true; try{NotificationSystem.info('Обновление применено, перезагрузка...');}catch(e){} setTimeout(()=>location.reload(), 300); });
-  navigator.serviceWorker.addEventListener('message', e => {
-    if(e.data?.type === 'OFFLINE_STATE') { offlineMode = !!e.data.value; setOfflineUIState(offlineMode ? 'offline' : 'online'); }
-    if(e.data?.type === 'CLEAR_ALL_POSITIONS') PositionManager.clearAll();
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (__swReloaded) return;
+    __swReloaded = true;
+    try { NotificationSystem.info('Обновление применено, перезагрузка...'); } catch(e){}
+    setTimeout(() => location.reload(), 300);
+  });
+
+  navigator.serviceWorker.addEventListener('message', event => {
+    const msg = event.data || {};
+    if (msg.type === 'CACHE_UPDATED') {
+      console.log('Cache updated to version:', msg.version);
+    }
+    if (msg.type === 'OFFLINE_STATE') {
+      offlineMode = !!msg.value;
+      setOfflineUIState(offlineMode ? 'offline' : 'online');
+    }
+    if (msg.type === 'CLEAR_ALL_POSITIONS') {
+      PositionManager.clearAll();
+    }
   });
 }
+
 function syncOfflineState() {
-  offlineMode = ls.get('offlineMode') === '1';
-  navigator.serviceWorker?.controller?.postMessage({ type: 'SET_OFFLINE_MODE', value: offlineMode });
-}
-
-class NotificationSystem {
-  static queue = []; static isShowing = false;
-  static show(message, type = 'info', duration = 3000) { this.queue.push({ message, type, duration }); if(!this.isShowing) this.processQueue(); }
-  static async processQueue() {
-    if(!this.queue.length) { this.isShowing = false; return; }
-    this.isShowing = true; const { message, type, duration } = this.queue.shift();
-    const t = document.createElement('div'); t.className = `toast toast-${type}`;
-    t.innerHTML = `<div class="toast-content"><span class="toast-emoji" aria-hidden="true"></span><span class="toast-text">${message}</span></div>`;
-    document.body.appendChild(t);
-    try { AnimatedEmoji.mount(t.querySelector('.toast-emoji'), type, message, 24); } catch(e){}
-    await new Promise(r => setTimeout(r, 50)); t.classList.add('show');
-    await new Promise(r => setTimeout(r, duration)); t.classList.remove('show');
-    await new Promise(r => setTimeout(r, 300)); t.remove(); this.processQueue();
+  offlineMode = localStorage.getItem('offlineMode') === '1';
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SET_OFFLINE_MODE',
+      value: offlineMode
+    });
   }
-  static info(m) { this.show(m, 'info'); } static success(m) { this.show(m, 'success'); }
-  static error(m) { this.show(m, 'error', 5000); } static warning(m) { this.show(m, 'warning', 4000); }
-  static offline(m) { this.show(m, 'offline'); }
 }
 
-const getDeviceHash = () => {
-  let h = ls.get('device_hash'); if(h) return h;
-  const buf = new Uint8Array(16); crypto.getRandomValues(buf);
-  h = 'dev_' + Array.from(buf).map(b=>b.toString(16).padStart(2,'0')).join(''); ls.set('device_hash', h); return h;
-};
+// ==================== СИСТЕМА УВЕДОМЛЕНИЙ ====================
+class NotificationSystem {
+  static queue = [];
+  static isShowing = false;
+  
+  static show(message, type = 'info', duration = 3000) {
+    this.queue.push({ message, type, duration });
+    if (!this.isShowing) {
+      this.processQueue();
+    }
+  }
+  
+  static async processQueue() {
+    if (this.queue.length === 0) {
+      this.isShowing = false;
+      return;
+    }
+    
+    this.isShowing = true;
+    const { message, type, duration } = this.queue.shift();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+      <div class="toast-content">
+        <span class="toast-emoji" aria-hidden="true"></span>
+        <span class="toast-text">${message}</span>
+      </div>
+    `;
 
-// ==================== Integrity / Stats / Ach ====================
-const CRC_LS_KEY = 'vr_crc_v1', STATS_LS_KEY = 'vr_stats_v1';
+    document.body.appendChild(toast);
+    // Вставляем анимированный эмодзи (или fallback)
+    try {
+      const emojiEl = toast.querySelector('.toast-emoji');
+      AnimatedEmoji.mount(emojiEl, type, message, 24);
+    } catch(e) {}
+
+    await new Promise(r => setTimeout(r, 50));
+    toast.classList.add('show');
+    await new Promise(r => setTimeout(r, duration));
+    toast.classList.remove('show');
+    await new Promise(r => setTimeout(r, 300));
+    toast.remove();
+    
+    this.processQueue();
+  }
+  
+  static getIcon(type) {
+    const icons = {
+      info: '📢',
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      offline: '📡'
+    };
+    return icons[type] || icons.info;
+  }
+  
+  static info(msg) { this.show(msg, 'info'); }
+  static success(msg) { this.show(msg, 'success'); }
+  static error(msg) { this.show(msg, 'error', 5000); }
+  static warning(msg) { this.show(msg, 'warning', 4000); }
+  static offline(msg) { this.show(msg, 'offline'); }
+}
+
+// ==== Device hash ====
+function getDeviceHash() {
+  let h = localStorage.getItem('device_hash');
+  if (h) return h;
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  h = 'dev_' + Array.from(buf).map(b=>b.toString(16).padStart(2,'0')).join('');
+  localStorage.setItem('device_hash', h);
+  return h;
+}
+// ==== Integrity / Anti‑tamper ====
+const CRC_LS_KEY = 'vr_crc_v1';
+
 const Integrity = {
   async compute() {
-    const s = StatsStore.s;
-    const base = { deviceHash: getDeviceHash(), stats: s ? { totals: s.totals, perTrack: s.perTrack, unique: s.uniqueTracksPlayed, byDay: s.byDay, streak: s.streak, likedCount: s.likedCount } : null, achievements: s ? s.achievements : null };
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(base)));
+    const base = {
+      deviceHash: getDeviceHash(),
+      stats: StatsStore.s ? {
+        totals: StatsStore.s.totals,
+        perTrack: StatsStore.s.perTrack,
+        unique: StatsStore.s.uniqueTracksPlayed,
+        byDay: StatsStore.s.byDay,
+        streak: StatsStore.s.streak,
+        likedCount: StatsStore.s.likedCount
+      } : null,
+      achievements: StatsStore.s ? StatsStore.s.achievements : null
+    };
+    const raw = JSON.stringify(base);
+    const buf = new TextEncoder().encode(raw);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
     return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
   },
-  async update() { try { ls.set(CRC_LS_KEY, await this.compute()); } catch(e){} },
+  async update() {
+    try {
+      const crc = await this.compute();
+      localStorage.setItem(CRC_LS_KEY, crc);
+    } catch(e){ console.warn('Integrity update failed', e); }
+  },
   async verifyOnBoot() {
-    try { const saved = ls.get(CRC_LS_KEY), crc = await this.compute();
-      if(saved && saved !== crc) { ls.set('tamper_detected', '1'); NotificationSystem.error('Обнаружены изменения данных. Для призов восстановите из бэкапа.'); return false; }
-      ls.rm('tamper_detected'); return true;
-    } catch(e) { return true; }
+    try {
+      const saved = localStorage.getItem(CRC_LS_KEY);
+      const crc = await this.compute();
+      if (saved && saved !== crc) {
+        localStorage.setItem('tamper_detected', '1');
+        NotificationSystem.error('Обнаружены изменения данных. Для призов восстановите из бэкапа.');
+        console.warn('Anti‑tamper: mismatch', { saved, crc });
+        return false;
+      }
+      // всё ок — снимаем флаг, если вдруг оставался ранее
+      localStorage.removeItem('tamper_detected');
+      return true;
+    } catch(e){ return true; }
   }
 };
-
+// ==== Stats store (Этап 1+2) ====
+const STATS_LS_KEY = 'vr_stats_v1';
 const StatsStore = {
   s: null,
   init() {
     try {
-      if(ls.get(STATS_LS_KEY)) {
-        this.s = JSON.parse(ls.get(STATS_LS_KEY));
-        if(!this.s.achievements) this.s.achievements = {};
-        if(!this.s.backups) this.s.backups = { dates: [] };
-        if(!this.s.socialsVisited) this.s.socialsVisited = {};
-        this.s.lastMajorAchAt = this.s.lastMajorAchAt || 0;
-        this.s.sleepTimerStops = this.s.sleepTimerStops || 0;
-        this.s.perTrack?.forEach(pt => { pt.byHour = pt.byHour || Array(24).fill(0); pt.byWeekday = pt.byWeekday || Array(7).fill(0); });
-      } else this.s = this._fresh();
-    } catch { this.s = this._fresh(); }
-  },
-  _fresh: () => ({ schema: 2, deviceHash: getDeviceHash(), createdAt: Date.now(), totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 }, perTrack: Array.from({length: 16}, ()=>({ validPlays:0, fullPlays:0, totalSeconds:0, lastPlayedAt:0, byHour: Array(24).fill(0), byWeekday: Array(7).fill(0) })), uniqueTracksPlayed: [], byDay: {}, streak: { current: 0, max: 0, lastDay: null }, likedCount: getLiked().length, achievements: {}, lastMajorAchAt: 0, backups: { dates: [] }, socialsVisited: {}, sleepTimerStops: 0 }),
-  save() { ls.set(STATS_LS_KEY, JSON.stringify(this.s)); Integrity.update(); }
-};
-
-const isValidListen = (l, e) => l >= 13000 || e;
-const isFullListen = (l, d, e) => d && (e || l >= 0.9 * d);
-const localDayKey = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-const isBetweenLocalTime = (ts, from, to) => { const t = new Date(ts).toTimeString().slice(0,8); return t >= from && t <= to; };
-const getISOWeekId = ts => { const d = new Date(ts); const dn = (d.getDay()+6)%7; d.setDate(d.getDate()-dn+3); const ft = new Date(d.getFullYear(),0,4); return `${d.getFullYear()}-W${String(1+Math.round((d-ft)/604800000)).padStart(2,'0')}`; };
-const isWeekendLocal = ts => [0,6].includes(new Date(ts).getDay());
-
-const Stats = {
-  active: FeatureFlags.statsCollect, lastStart: null,
-  onStart(trackIndex) { if(!this.active || !el('audio')) return; this.lastStart = { ts: Date.now(), trackIndex, startPosMs: Math.floor((el('audio').currentTime||0)*1000) }; },
-  onPauseOrStop(opts={ ended:false }) {
-    if(!this.active || !this.lastStart || !el('audio')) return;
-    const now = Date.now(), a = el('audio'), dMs = Math.floor((a.duration||0)*1000), pMs = opts.ended ? dMs : Math.floor((a.currentTime||0)*1000);
-    const lMs = Math.max(0, pMs - (this.lastStart.startPosMs||0)), valid = isValidListen(lMs, opts.ended), full = isFullListen(lMs, dMs, opts.ended);
-    if(valid && shuffleMode) Ach.incShuffleValid();
-    if(valid || full) {
-      const s = StatsStore.s, idx = this.lastStart.trackIndex;
-      Session.onListenStop({ trackIndex: idx, ts: now, listenedMs: lMs, durationMs: dMs, ended: opts.ended, flags: { favoritesOnly: !!favoritesOnlyMode, shuffle: !!shuffleMode, isFavoriteNow: isLiked(idx) } });
-      if(valid) {
-        s.totals.totalValidPlays++; s.totals.totalSeconds += lMs/1000;
-        if(!s.uniqueTracksPlayed.includes(idx)) s.uniqueTracksPlayed.push(idx);
-        const pt = s.perTrack[idx]; pt.validPlays++; pt.totalSeconds += lMs/1000; pt.lastPlayedAt = now;
-        try { const d = new Date(now); pt.byHour[d.getHours()]++; pt.byWeekday[(d.getDay()+6)%7]++; } catch(e){}
-        const key = localDayKey(now); s.byDay[key] = s.byDay[key] || { valid:0, seconds:0 }; s.byDay[key].valid++; s.byDay[key].seconds += lMs/1000;
-        if(!s.streak.lastDay) s.streak.current = 1;
-        else if(key !== s.streak.lastDay) s.streak.current = Math.round((new Date(key+'T00:00:00') - new Date(s.streak.lastDay+'T00:00:00'))/86400000) === 1 ? s.streak.current+1 : 1;
-        s.streak.lastDay = key; s.streak.max = Math.max(s.streak.max, s.streak.current);
+      const raw = localStorage.getItem(STATS_LS_KEY);
+      if (raw) {
+        this.s = JSON.parse(raw);
+        if (Array.isArray(this.s.uniqueTracksPlayed)) {
+          this.s.uniqueTracksPlayed = Array.from(new Set(this.s.uniqueTracksPlayed));
+        }
+        // миграции Этап 2
+        if (!this.s.achievements) this.s.achievements = {};         // id -> { unlockedAt, tier }
+        if (typeof this.s.lastMajorAchAt !== 'number') this.s.lastMajorAchAt = 0;
+        // миграции Этап 4
+        if (!this.s.backups) this.s.backups = { dates: [] };
+        if (!this.s.socialsVisited) this.s.socialsVisited = {};
+        if (typeof this.s.sleepTimerStops !== 'number') this.s.sleepTimerStops = 0;
+        // миграция Этап 5: массивы по часам/дням недели на треках
+        if (Array.isArray(this.s.perTrack)) {
+          for (let i = 0; i < this.s.perTrack.length; i++) {
+            const pt = this.s.perTrack[i] || {};
+            if (!Array.isArray(pt.byHour)) pt.byHour = Array(24).fill(0);
+            if (!Array.isArray(pt.byWeekday)) pt.byWeekday = Array(7).fill(0); // 0=Пн .. 6=Вс
+            this.s.perTrack[i] = pt;
+          }
+        }
+      } else {
+        this.s = this._fresh();
       }
-      if(full) { s.totals.totalFullPlays++; s.perTrack[idx].fullPlays++; try{ backupSaveToCloudOverwriteSilent(); }catch(e){} }
-      StatsStore.save(); AchProgress.updateFromStats(); Ach.evaluateAfterListen({ts: now}); MyStats.update();
-      GlobalStats.enqueueEvent({ ts: now, trackIndex: idx, listenedMs: lMs, ended: !!opts.ended, durationMs: dMs });
-      if(opts.ended || lMs >= 15000) GlobalStats.flush();
+    } catch {
+      this.s = this._fresh();
     }
-    if(opts.ended) this.lastStart = null;
   },
-  onLikedCountChanged(cnt) { if(this.active) { StatsStore.s.likedCount = cnt; StatsStore.save(); } }
+  _fresh() {
+    return {
+      schema: 2,
+      deviceHash: getDeviceHash(),
+      createdAt: Date.now(),
+      totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 },
+      perTrack: Array.from({length: 16}, ()=>({
+        validPlays:0, fullPlays:0, totalSeconds:0, lastPlayedAt:0,
+        byHour: Array(24).fill(0),
+        byWeekday: Array(7).fill(0) // 0=Пн .. 6=Вс
+      })),
+      uniqueTracksPlayed: [],
+      byDay: {},            // YYYY-MM-DD -> { valid:n, seconds:s }
+      streak: { current: 0, max: 0, lastDay: null },
+      likedCount: (JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length,
+      achievements: {},     // id -> { unlockedAt, tier }
+      lastMajorAchAt: 0,
+      backups: { dates: [] },     // даты сохранений бэкапа YYYY-MM-DD
+      socialsVisited: {},         // title -> true
+      sleepTimerStops: 0          // число срабатываний таймера сна
+    };
+  },
+  save() {
+    const clone = structuredClone(this.s);
+    localStorage.setItem(STATS_LS_KEY, JSON.stringify(clone));
+    // обновим checksum локального состояния
+    Integrity.update();
+  }
 };
+
+// ==== Правила валидности ====
+function isValidListen(listenedMs, ended) {
+  return listenedMs >= 13_000 || ended === true;
+}
+function isFullListen(listenedMs, durationMs, ended) {
+  if (!durationMs) return false;
+  return ended === true || listenedMs >= 0.9 * durationMs;
+}
+function localDayKey(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// ==== Вспомогательные функции времени (локальное) ====
+// Входит ли локальное время ts в интервал [fromHHMMSS .. toHHMMSS]
+function isBetweenLocalTime(ts, fromHHMMSS, toHHMMSS) {
+  const t = new Date(ts).toTimeString().slice(0,8); // "HH:MM:SS"
+  return t >= fromHHMMSS && t <= toHHMMSS;
+}
+// ISO-неделя вида YYYY-Www
+function getISOWeekId(ts) {
+  const d = new Date(ts);
+  const dayNr = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dayNr + 3);
+  const firstThursday = new Date(d.getFullYear(), 0, 4);
+  const firstDayNr = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
+  const week = 1 + Math.round((d - firstThursday) / 604800000);
+  const year = d.getFullYear();
+  return `${year}-W${String(week).padStart(2,'0')}`;
+}
+// Выходной ли день (локально)
+function isWeekendLocal(ts) {
+  const w = new Date(ts).getDay(); // 0 Sun, 6 Sat
+  return w === 0 || w === 6;
+}
+
+// ==== Тихий сбор статы (Этап 1) ====
+const Stats = {
+  active: FeatureFlags.statsCollect,
+  lastStart: null,       // { ts, trackIndex, startPosMs }
+  onStart(trackIndex) {
+    if (!this.active) return;
+    const audio = document.getElementById('audio');
+    if (!audio) return;
+    this.lastStart = {
+      ts: Date.now(),
+      trackIndex,
+      startPosMs: Math.floor((audio.currentTime||0)*1000)
+    };
+  },
+  onPauseOrStop(opts={ ended:false }) {
+    if (!this.active || !this.lastStart) return;
+    const audio = document.getElementById('audio');
+    if (!audio) return;
+
+    const now = Date.now();
+    const durationMs = Math.floor((audio.duration||0)*1000);
+    const posMs = opts.ended ? Math.floor(durationMs) : Math.floor((audio.currentTime||0)*1000);
+    const listenedMs = Math.max(0, posMs - (this.lastStart.startPosMs||0));
+    const valid = isValidListen(listenedMs, opts.ended);
+    const full  = isFullListen(listenedMs, durationMs, opts.ended);
+
+    // use_shuffle_5 — учёт валидного прослушивания в shuffle‑режиме
+    if (valid && shuffleMode === true) {
+      Ach.incShuffleValid();
+    }
+
+    if (valid || full) {
+      const s = StatsStore.s;
+      const idx = this.lastStart.trackIndex;
+  
+      // Сначала — дергаем SessionManager для сложных ачивок (он сам проверит valid/full)
+      Session.onListenStop({
+        trackIndex: idx,
+        ts: now,
+        listenedMs,
+        durationMs,
+        ended: opts.ended,
+        flags: {
+          favoritesOnly: !!favoritesOnlyMode,
+          shuffle: !!shuffleMode,
+          isFavoriteNow: isLiked(idx)
+        }
+      });
+
+      // totals
+      if (valid) {
+        s.totals.totalValidPlays += 1;
+        s.totals.totalSeconds += listenedMs/1000;
+        if (!s.uniqueTracksPlayed.includes(idx)) s.uniqueTracksPlayed.push(idx);
+      }
+      if (full) s.totals.totalFullPlays += 1;
+
+      // per-track
+      const pt = s.perTrack[idx];
+      if (valid) pt.validPlays += 1;
+      if (full) pt.fullPlays += 1;
+      pt.totalSeconds += listenedMs/1000;
+      pt.lastPlayedAt = now;
+
+      // распределение по часам/дням недели для валидных прослушиваний
+      if (valid) {
+        try {
+          const d = new Date(now);
+          const hour = d.getHours();                      // 0..23
+          const weekday = (d.getDay() + 6) % 7;           // 0=Пн .. 6=Вс
+          if (Array.isArray(pt.byHour)) pt.byHour[hour] = (pt.byHour[hour]||0) + 1;
+          if (Array.isArray(pt.byWeekday)) pt.byWeekday[weekday] = (pt.byWeekday[weekday]||0) + 1;
+        } catch(e) {}
+      }
+
+      // byDay + streak
+      if (valid) {
+        const key = localDayKey(now);
+        s.byDay[key] = s.byDay[key] || { valid:0, seconds:0 };
+        s.byDay[key].valid += 1;
+        s.byDay[key].seconds += listenedMs/1000;
+
+        if (!s.streak.lastDay) {
+          s.streak.current = 1;
+        } else if (key !== s.streak.lastDay) {
+          const prev = new Date(s.streak.lastDay+'T00:00:00');
+          const cur  = new Date(key+'T00:00:00');
+          const diff = Math.round((cur - prev)/86400000);
+          s.streak.current = (diff === 1) ? (s.streak.current+1) : 1;
+        }
+        s.streak.lastDay = key;
+        s.streak.max = Math.max(s.streak.max, s.streak.current);
+      }
+
+      // Сохраняем и пересчитываем простые ачивки (это Этап 2 логика)
+      StatsStore.save();
+      AchProgress.updateFromStats();
+      Ach.evaluateAfterListen({ ts: now });
+      // Обновим раздел "Моя статистика", если он открыт
+      MyStats.update();
+      // Глобальная статистика: поставить событие в очередь
+      GlobalStats.enqueueEvent({
+        ts: now,
+        trackIndex: idx,
+        listenedMs,
+        ended: !!opts.ended,
+        durationMs
+      });
+
+      // Попробуем отправить сразу:
+      // - если трек закончился, или
+      // - если слушали ≥ 15 секунд за раз
+      try {
+        if (opts.ended || listenedMs >= 15000) {
+          GlobalStats.flush();
+        }
+      } catch(e){}
+
+      // Невидимый автосейв в облако после полного прослушивания
+      if (full) {
+        try { backupSaveToCloudOverwriteSilent(); } catch(e){}
+      }
+    }
+
+    if (opts.ended) this.lastStart = null;
+  },
+
+  onLikedCountChanged(cnt) {
+    if (!this.active) return;
+    StatsStore.s.likedCount = cnt;
+    StatsStore.save();
+  }
+};
+// ==== SessionManager (Этап 3) ====
+// Отвечает за “сессию” (разрыв >30 минут), последовательности и окна для сложных ачивок.
+const SESSION_GAP_MS = 30 * 60 * 1000;
+const FAVORITES_WINDOW_MS = 2 * 60 * 60 * 1000;  // 2 часа
+const ALBUM_SESSION_LIMIT_MS = 4 * 60 * 60 * 1000; // 4 часа
 
 const Session = {
-  id: null, startedAt: 0, lastActiveAt: 0, favOrderedRun: [], albumExpected: 0, albumFirstAt: 0, favShuffleEvents: [], favShuffleWindowStart: 0, midnightTriple: { trackIndex: null, count: 0 },
-  reset(now = Date.now()) { this.id = crypto.randomUUID(); this.startedAt = this.lastActiveAt = this.albumFirstAt = now; this.favOrderedRun = []; this.albumExpected = this.favShuffleWindowStart = 0; this.favShuffleEvents = []; this.midnightTriple = { trackIndex: null, count: 0 }; },
-  ensureSession(now) { if(!this.id || now - this.lastActiveAt > 1800000) this.reset(now); },
-  onStart({ trackIndex, ts }) { this.ensureSession(ts); this.lastActiveAt = ts; if(isBetweenLocalTime(ts, '11:11:00', '11:11:30')) Ach.unlock('exact_time_11_11'); if(!isBetweenLocalTime(ts, '00:00:00', '00:30:00')) this.midnightTriple = { trackIndex: null, count: 0 }; },
+  id: null,
+  startedAt: 0,
+  lastActiveAt: 0,
+  // “Только избранное — по порядку”
+  favOrderedRun: [],        // массив индексов подряд
+  // “Альбом по порядку в одной сессии”
+  albumExpected: 0,         // ждём 0..15
+  albumFirstAt: 0,          // время начала последовательности
+  // “Только избранное — вперемешку” (окно 2 часа)
+  favShuffleEvents: [],     // [{ts, trackIndex}]
+  favShuffleWindowStart: 0,
+  // “Полночный цикл”
+  midnightTriple: { trackIndex: null, count: 0 },
+
+  reset(now = Date.now()) {
+    this.id = crypto.randomUUID();
+    this.startedAt = now;
+    this.lastActiveAt = now;
+
+    this.favOrderedRun = [];
+    this.albumExpected = 0;
+    this.albumFirstAt = now;
+
+    this.favShuffleEvents = [];
+    this.favShuffleWindowStart = 0;
+
+    this.midnightTriple = { trackIndex: null, count: 0 };
+  },
+
+  ensureSession(now) {
+    if (!this.id) this.reset(now);
+    if (now - this.lastActiveAt > SESSION_GAP_MS) this.reset(now);
+  },
+
+  onStart({ trackIndex, ts }) {
+    this.ensureSession(ts);
+    this.lastActiveAt = ts;
+
+    // Секретка 11:11 (старт)
+    if (isBetweenLocalTime(ts, '11:11:00', '11:11:30')) {
+      Ach.unlock('exact_time_11_11');
+    }
+    // Полночное окно активируем/сбрасываем
+    if (!isBetweenLocalTime(ts, '00:00:00', '00:30:00')) {
+      this.midnightTriple = { trackIndex: null, count: 0 };
+    }
+  },
+
   onListenStop({ trackIndex, ts, listenedMs, durationMs, ended, flags }) {
-    this.ensureSession(ts); this.lastActiveAt = ts; const valid = isValidListen(listenedMs, ended), full = isFullListen(listenedMs, durationMs, ended), S = StatsStore.s;
-    if(!valid && !full) return;
-    if(flags.favoritesOnly && !flags.shuffle && full && flags.isFavoriteNow) {
-      if(!this.favOrderedRun.length || trackIndex === this.favOrderedRun[this.favOrderedRun.length - 1] + 1) this.favOrderedRun.push(trackIndex); else this.favOrderedRun = [trackIndex];
-      if(this.favOrderedRun.length >= 5) Ach.unlock('favorites_order_5_full');
-    } else this.favOrderedRun = [];
-    if(flags.favoritesOnly && flags.shuffle) {
-      if(valid && !flags.isFavoriteNow) { this.favShuffleEvents = []; this.favShuffleWindowStart = 0; }
-      else if(full && flags.isFavoriteNow) {
-        this.favShuffleEvents.push({ts, trackIndex}); this.favShuffleEvents = this.favShuffleEvents.filter(e => e.ts >= ts - 7200000);
-        if(new Set(this.favShuffleEvents.map(e=>e.trackIndex)).size >= 5) Ach.unlock('favorites_shuffle_5_full');
+    this.ensureSession(ts);
+    this.lastActiveAt = ts;
+
+    const valid = isValidListen(listenedMs, ended);
+    const full  = isFullListen(listenedMs, durationMs, ended);
+    if (!valid && !full) return;
+
+    const S = StatsStore.s;
+
+    // ===== Сложные ачивки =====
+
+    // 1) Только избранное — по порядку (внутри одной сессии)
+    // Условия: favoritesOnly=true, shuffle=false, full=true, треки идут в альбомном порядке без иных между.
+    if (flags.favoritesOnly && !flags.shuffle && full && flags.isFavoriteNow) {
+      if (this.favOrderedRun.length === 0) {
+        // начинаем с текущего трека: допускаем старт не обязательно с 0 — но нужен строгий рост
+        this.favOrderedRun = [trackIndex];
+      } else {
+        const last = this.favOrderedRun[this.favOrderedRun.length - 1];
+        if (trackIndex === last + 1) {
+          this.favOrderedRun.push(trackIndex);
+        } else {
+          // сброс, если нарушено
+          this.favOrderedRun = [trackIndex];
+        }
       }
-    } else { this.favShuffleEvents = []; this.favShuffleWindowStart = 0; }
-    if(durationMs && listenedMs >= 0.6 * durationMs) {
-      if(!this.albumExpected) this.albumFirstAt = ts;
-      if(trackIndex === this.albumExpected && ts - this.albumFirstAt <= 14400000) { if(++this.albumExpected === 16) { Ach.unlock('album_in_order_session'); this.albumExpected = 0; this.albumFirstAt = ts; } }
-      else { this.albumExpected = trackIndex === 0 ? 1 : 0; this.albumFirstAt = ts; }
+      if (this.favOrderedRun.length >= 5) {
+        Ach.unlock('favorites_order_5_full');
+      }
+    } else {
+      // если вышли из режима — сброс последовательности
+      if (!flags.favoritesOnly || flags.shuffle || !flags.isFavoriteNow) {
+        this.favOrderedRun = [];
+      }
     }
-    if(full && isBetweenLocalTime(ts, '00:00:00', '00:30:00')) {
-      if(this.midnightTriple.trackIndex === null || this.midnightTriple.trackIndex === trackIndex) { if(++this.midnightTriple.count >= 3) Ach.unlock('midnight_triple'); this.midnightTriple.trackIndex = trackIndex; }
-      else this.midnightTriple = { trackIndex, count: 1 };
+
+    // 2) Только избранное — вперемешку (окно 2 часа, без обычных треков)
+    // Условия: favoritesOnly=true, shuffle=true, full=true, >=5 уникальных избранных за 2 часа.
+    if (flags.favoritesOnly && flags.shuffle) {
+      const cutoff = ts - FAVORITES_WINDOW_MS;
+
+      // если в окне случился валидный НЕ избранный — полностью сбрасываем окно
+      if (valid && !flags.isFavoriteNow) {
+        this.favShuffleEvents = [];
+        this.favShuffleWindowStart = 0;
+      } else if (full && flags.isFavoriteNow) {
+        // добавляем событие
+        this.favShuffleEvents.push({ ts, trackIndex });
+        // чистим устаревшие
+        this.favShuffleEvents = this.favShuffleEvents.filter(e => e.ts >= cutoff);
+        // метка старта окна
+        if (!this.favShuffleWindowStart || this.favShuffleWindowStart < cutoff) {
+          this.favShuffleWindowStart = ts;
+        }
+        // считаем уникальные
+        const uniq = new Set(this.favShuffleEvents.map(e => e.trackIndex));
+        if (uniq.size >= 5) {
+          Ach.unlock('favorites_shuffle_5_full');
+        }
+      }
+    } else {
+      // вышли из режима — окно стираем
+      this.favShuffleEvents = [];
+      this.favShuffleWindowStart = 0;
     }
-    if(valid) { S._last7 = (S._last7||[]).filter(e=>e.ts>=ts-604800000).concat([{ts, trackIndex}]); if(new Set(S._last7.map(e=>e.trackIndex)).size===16) Ach.unlock('album_any_order_7d'); }
-    if(valid && isWeekendLocal(ts)) {
-      const id = getISOWeekId(ts), wd = new Date(ts).getDay(); S._weeks = S._weeks || {}; S._weeks[id] = S._weeks[id] || {sat:false, sun:false};
-      if(wd===6) S._weeks[id].sat = true; if(wd===0) S._weeks[id].sun = true; if(S._weeks[id].sat && S._weeks[id].sun) Ach.unlock('weekend_warrior');
-      const dk = localDayKey(ts); S._weekendDay = S._weekendDay || {}; S._weekendDay[dk] = S._weekendDay[dk] || new Set(); S._weekendDay[dk].add(trackIndex);
-      if(S._weekendDay[dk].size === 16) Ach.unlock('weekend_album');
+
+    // 3) Альбом по порядку в одной сессии (каждый ≥60%), общее время последовательности ≤4 часа
+    if (durationMs > 0 && listenedMs >= 0.6 * durationMs) {
+      // если последовательность только началась — поставим “первый момент”
+      if (this.albumExpected === 0) {
+        this.albumFirstAt = ts;
+      }
+      const withinLimit = (ts - this.albumFirstAt) <= ALBUM_SESSION_LIMIT_MS;
+      if (trackIndex === this.albumExpected && withinLimit) {
+        this.albumExpected += 1;
+        if (this.albumExpected === 16) {
+          Ach.unlock('album_in_order_session');
+          // после выполнения — сброс, чтобы не триггерить снова случайно
+          this.albumExpected = 0;
+          this.albumFirstAt = ts;
+        }
+      } else {
+        // сброс последовательности; начнём заново, если этот трек — 0‑й
+        this.albumExpected = (trackIndex === 0) ? 1 : 0;
+        this.albumFirstAt = ts;
+      }
+    }
+
+    // 4) Полночный цикл (00:00–00:30): один и тот же трек полностью 3 раза подряд
+    if (full && isBetweenLocalTime(ts, '00:00:00', '00:30:00')) {
+      if (this.midnightTriple.trackIndex === null || this.midnightTriple.trackIndex === trackIndex) {
+        this.midnightTriple.trackIndex = trackIndex;
+        this.midnightTriple.count += 1;
+        if (this.midnightTriple.count >= 3) {
+          Ach.unlock('midnight_triple');
+        }
+      } else {
+        // другой трек — начинаем заново с 1
+        this.midnightTriple = { trackIndex, count: 1 };
+      }
+    }
+
+    // 5) “Весь альбом” за 7×24ч (любой порядок, валидные прослушивания)
+    if (valid) {
+      S._last7 = S._last7 || [];
+      S._last7.push({ ts, trackIndex });
+      const cutoff7 = ts - 7*24*60*60*1000;
+      S._last7 = S._last7.filter(e => e.ts >= cutoff7);
+      const set = new Set(S._last7.map(e => e.trackIndex));
+      if (set.size === 16) {
+        Ach.unlock('album_any_order_7d');
+      }
+    }
+
+    // 6) Weekend Warrior: валидные прослушивания и в субботу, и в воскресенье одной ISO‑недели
+    if (valid && isWeekendLocal(ts)) {
+      S._weeks = S._weeks || {}; // id -> {sat:bool, sun:bool}
+      const id = getISOWeekId(ts);
+      const wd = new Date(ts).getDay(); // 6=Sat, 0=Sun
+      S._weeks[id] = S._weeks[id] || { sat:false, sun:false };
+      if (wd === 6) S._weeks[id].sat = true;
+      if (wd === 0) S._weeks[id].sun = true;
+      if (S._weeks[id].sat && S._weeks[id].sun) {
+        Ach.unlock('weekend_warrior');
+      }
+    }
+
+    // 7) Weekend Album: все 16 валидных прослушиваний в пределах одного выходного дня
+    if (valid && isWeekendLocal(ts)) {
+      const dayKey = localDayKey(ts);
+      S._weekendDay = S._weekendDay || {}; // YYYY-MM-DD -> Set
+      if (!S._weekendDay[dayKey]) S._weekendDay[dayKey] = new Set();
+      S._weekendDay[dayKey].add(trackIndex);
+      if (S._weekendDay[dayKey].size === 16) {
+        Ach.unlock('weekend_album');
+      }
     }
   }
 };
+
 // ==== Реестр ачивок (Этап 2) ====
 const ACH_META = {
   // Tier 1
