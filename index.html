@@ -7887,95 +7887,68 @@ async function createAndDownloadZip() {
   setTimeout(() => { document.getElementById('downloadProgressModal').classList.remove('active'); NotificationSystem.success('Архив успешно скачан!'); URL.revokeObjectURL(a.href); }, 1500);
 }
 // ==================== ОФЛАЙН РЕЖИМ ====================
+const getEl = id => document.getElementById(id);
+
 function offlineUIClick() {
   if (offlineDownloading) return;
+  const modal = getEl('modal-offline'), step = getEl('offline-step');
+  modal.classList.add('active');
   
   if (!offlineMode) {
-    document.getElementById('modal-offline').classList.add('active');
-    document.getElementById('offline-step').innerHTML = `
+    step.innerHTML = `
       <div style="font-size:1.09em;font-weight:700;margin-bottom:10px;">Оффлайн-режим</div>
       <div style="margin-bottom:16px;">Для работы без интернета нужно скачать музыку на устройство.<br>
       Это займёт <b>место</b> и время.<br>
-      <div style="color:#e80100;margin:5px 0 0 0;">
-        ⚠ На некоторых устройствах (iOS Safari) размер может быть ограничен (~50-150 МБ).
-      </div>
-      <div style="margin:8px 0 0 0;opacity:.7;">
-        После скачивания вы сможете слушать OFFLINE-файлы без интернет-соединения.
-      </div>
+      <div style="color:#e80100;margin:5px 0 0 0;">⚠ На некоторых устройствах (iOS Safari) размер может быть ограничен (~50-150 МБ).</div>
+      <div style="margin:8px 0 0 0;opacity:.7;">После скачивания вы сможете слушать OFFLINE-файлы без интернет-соединения.</div>
       </div>
       <button class="offline-btn online" style="width:99%;margin-bottom:7px;" onclick="nextOfflineChoice()">Согласен</button>
       <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">Отмена</button>`;
   } else {
-    document.getElementById('modal-offline').classList.add('active');
-    document.getElementById('offline-step').innerHTML = `
+    step.innerHTML = `
       <div style="font-size:1.10em;font-weight:700;margin-bottom:15px;">Вернуться в ONLINE?</div>
-      <div style="margin-bottom:20px;">Все скачанные файлы будут удалены.<br>
-      Очищается место на устройстве.<br>
-      Песни снова будут доступны только через интернет.
-      </div>
+      <div style="margin-bottom:20px;">Все скачанные файлы будут удалены.<br>Очищается место на устройстве.<br>Песни снова будут доступны только через интернет.</div>
       <button class="offline-btn online" style="width:99%;" onclick="confirmGoOnline()">Удалить файлы и возврат ONLINE</button>
       <button class="offline-btn" style="width:99%;margin-top:7px;" onclick="closeOfflineModal()">Отмена</button>`;
   }
 }
 
-function closeOfflineModal() {
-  document.getElementById('modal-offline').classList.remove('active');
-}
+const closeOfflineModal = () => getEl('modal-offline')?.classList.remove('active');
 
 function nextOfflineChoice() {
   const d = getDownloadStats();
-  document.getElementById('offline-step').innerHTML = `
+  getEl('offline-step').innerHTML = `
     <div style="font-size:1.10em;font-weight:700;margin-bottom:13px;">Что скачать?</div>
     <div style="text-align:left;">
-      <label style="display:block;margin:8px 0;">
-        <input type="radio" name="offline-mode" value="all" checked>
-        Весь диск (${d.allCount} песен, ${d.allSizeMb} МБ)
-      </label>
-      <label style="display:block;margin:8px 0;">
-        <input type="radio" name="offline-mode" value="liked">
-        Только понравившиеся (${d.likedCount || 0} песен, ${d.likedSizeMb || 0} МБ)
-      </label>
+      <label style="display:block;margin:8px 0;"><input type="radio" name="offline-mode" value="all" checked> Весь диск (${d.allCount} песен, ${d.allSizeMb} МБ)</label>
+      <label style="display:block;margin:8px 0;"><input type="radio" name="offline-mode" value="liked"> Только понравившиеся (${d.likedCount || 0} песен, ${d.likedSizeMb || 0} МБ)</label>
     </div>
     <button class="offline-btn online" style="width:99%;margin-top:12px;" onclick="startOfflineDownload()">Скачать выбранное</button>
     <button class="offline-btn" style="width:99%;margin-top:8px;" onclick="closeOfflineModal()">Отмена</button>`;
 }
 
-function getAudioSize(idx) {
-  return config.tracks[idx].size || 4.7;
-}
+const getAudioSize = idx => config.tracks[idx].size || 4.7;
 
 function getDownloadStats() {
-  const liked = getLiked();
-  const allCount = config.tracks.length;
-  const likedCount = liked.length;
-  
+  const liked = getLiked(), allCount = config.tracks.length;
   let allMb = 0, likeMb = 0;
-  for (let i = 0; i < allCount; ++i) {
-    allMb += getAudioSize(i);
-    if (liked.indexOf(i) !== -1) likeMb += getAudioSize(i);
+  for (let i = 0; i < allCount; i++) {
+    const sz = getAudioSize(i);
+    allMb += sz;
+    if (liked.includes(i)) likeMb += sz;
   }
-  
-  return {
-    allSizeMb: Math.round(allMb * 10) / 10,
-    likedSizeMb: Math.round(likeMb * 10) / 10,
-    likedCount,
-    allCount
-  };
+  return { allSizeMb: +(allMb.toFixed(1)), likedSizeMb: +(likeMb.toFixed(1)), likedCount: liked.length, allCount };
 }
 
 function getAllAssetsForOffline(mode) {
-  const all = ['index.html', 'config.json', 'img/logo.png', 'img/star.png', 'img/star2.png',
-               'Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
+  const all = ['index.html', 'config.json', 'img/logo.png', 'img/star.png', 'img/star2.png', 'Cover.png', 'Cover01.png', 'Cover02.png', 'Cover03.png'];
   const liked = getLiked();
-  
-  for (let i = 0; i < config.tracks.length; ++i) {
-    if (mode === 'all' || liked.indexOf(i) !== -1) {
-      all.push(config.tracks[i].audio);
-      all.push(config.tracks[i].lyrics);
-      if (config.tracks[i].fulltext) all.push(config.tracks[i].fulltext);
+  config.tracks.forEach((t, i) => {
+    if (mode === 'all' || liked.includes(i)) {
+      all.push(t.audio, t.lyrics);
+      if (t.fulltext) all.push(t.fulltext);
     }
-  }
-  
+  });
   return [...new Set(all)];
 }
 
@@ -7987,32 +7960,21 @@ function startOfflineDownload() {
   const mode = document.querySelector('input[name="offline-mode"]:checked').value;
   const files = getAllAssetsForOffline(mode);
   
-  navigator.serviceWorker.ready.then(async sw => {
-    sw.active.postMessage({
-      type: 'CACHE_FILES',
-      files,
-      offlineMode: true
-    });
+  navigator.serviceWorker.ready.then(sw => {
+    sw.active.postMessage({ type: 'CACHE_FILES', files, offlineMode: true });
     
-    const stats = getDownloadStats();
-    const needMb = (mode == 'all' ? stats.allSizeMb : stats.likedSizeMb);
-    const max = files.length;
+    const stats = getDownloadStats(), needMb = mode === 'all' ? stats.allSizeMb : stats.likedSizeMb, max = files.length;
     
     const checkAll = setInterval(async () => {
       const cache = await caches.open('album-offline-v1');
       let ok = 0;
-      
-      for (let src of files) {
-        const res = await cache.match(src);
-        if (res) ok++;
-      }
+      for (let src of files) if (await cache.match(src)) ok++;
       
       setOfflineUIState('downloading', ok / max, needMb);
       
       if (ok >= max) {
         clearInterval(checkAll);
-        offlineDownloading = false;
-        offlineMode = true;
+        offlineDownloading = false; offlineMode = true;
         localStorage.setItem('offlineMode', '1');
         setOfflineUIState('offline');
         offlineShowDone(needMb, mode);
@@ -8023,57 +7985,33 @@ function startOfflineDownload() {
 }
 
 function setOfflineUIState(state, progress, needMb) {
-  const btn = document.getElementById('offline-btn');
+  const btn = getEl('offline-btn');
+  let div = getEl('offline-progr-div');
   
   if (state === 'downloading') {
-    btn.disabled = true;
-    btn.className = 'offline-btn offline';
-    btn.innerHTML = 'OFFLINE';
-    
-    if (!document.getElementById('offline-progr-div')) {
-      const div = document.createElement('div');
-      div.id = 'offline-progr-div';
-      div.innerHTML = `
-        <div class="offline-progress">
-          <div class="offline-progress-bar" id="offline-progress-bar" style="width:0%;"></div>
-        </div>
-        <div class="offline-desc" id="offline-desc"></div>`;
+    btn.disabled = true; btn.className = 'offline-btn offline'; btn.innerHTML = 'OFFLINE';
+    if (!div) {
+      div = document.createElement('div'); div.id = 'offline-progr-div';
+      div.innerHTML = `<div class="offline-progress"><div class="offline-progress-bar" id="offline-progress-bar" style="width:0%;"></div></div><div class="offline-desc" id="offline-desc"></div>`;
       btn.parentElement.insertBefore(div, btn.nextSibling);
     }
-    
-    document.getElementById('offline-progress-bar').style.width = Math.round((progress || 0) * 100) + '%';
-    document.getElementById('offline-desc').innerText = "Загружается приблизительно " + (needMb || 0) + " МБ ...";
-  }
-  
-  if (state === 'offline') {
+    getEl('offline-progress-bar').style.width = Math.round((progress || 0) * 100) + '%';
+    getEl('offline-desc').innerText = `Загружается приблизительно ${needMb || 0} МБ ...`;
+  } else {
     btn.disabled = false;
-    btn.className = 'offline-btn offline';
-    btn.innerHTML = 'OFFLINE';
-    const div = document.getElementById('offline-progr-div');
-    if (div) div.remove();
-  }
-  
-  if (state === 'online') {
-    btn.disabled = false;
-    btn.className = 'offline-btn online';
-    btn.innerHTML = 'ONLINE';
-    const div = document.getElementById('offline-progr-div');
-    if (div) div.remove();
+    btn.className = `offline-btn ${state === 'offline' ? 'offline' : 'online'}`;
+    btn.innerHTML = state.toUpperCase();
+    div?.remove();
   }
 }
 
 function offlineShowDone(mb, mode) {
-  document.getElementById('modal-offline').classList.add('active');
-  document.getElementById('offline-step').innerHTML = `
+  const modal = getEl('modal-offline');
+  modal.classList.add('active');
+  getEl('offline-step').innerHTML = `
     <div style="font-size:1.18em;font-weight:700;margin-bottom:12px;">Все файлы скачаны!</div>
-    <div style="margin-bottom:13px;">
-      <b>${mode == "all" ? "Весь диск" : "Понравившиеся треки"}</b><br>
-      Доступны без интернета.<br>
-      Загружено примерно <b>${mb} МБ</b>.<br>
-      <div style="color:#888;font-size:.98em;margin:5px 0 0 0;">
-        Обратите внимание: если кеш браузера<br>будет очищен — нужно будет скачать заново!
-      </div>
-    </div>
+    <div style="margin-bottom:13px;"><b>${mode === "all" ? "Весь диск" : "Понравившиеся треки"}</b><br>Доступны без интернета.<br>Загружено примерно <b>${mb} МБ</b>.<br>
+    <div style="color:#888;font-size:.98em;margin:5px 0 0 0;">Обратите внимание: если кеш браузера<br>будет очищен — нужно будет скачать заново!</div></div>
     <button class="offline-btn" style="width:99%;" onclick="closeOfflineModal()">OK</button>`;
 }
 
@@ -8082,249 +8020,148 @@ function confirmGoOnline() {
   localStorage.removeItem('offlineMode');
   setOfflineUIState('online');
   closeOfflineModal();
-  
-  navigator.serviceWorker.ready.then(sw => {
-    sw.active.postMessage({
-      type: 'CLEAR_CACHE',
-      offlineMode: false
-    });
-  });
+  navigator.serviceWorker.ready.then(sw => sw.active.postMessage({ type: 'CLEAR_CACHE', offlineMode: false }));
 }
 
 // ==================== iOS ПОДДЕРЖКА И PWA ====================
 function detectIOSAndShowInstallGuide() {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const isInStandaloneMode = window.navigator.standalone === true;
-  const isInPWA = window.matchMedia('(display-mode: standalone)').matches;
-  
-  if (isIOS && !isInStandaloneMode && !isInPWA) {
-    if (!localStorage.getItem('ios-install-dismissed')) {
-      setTimeout(showIOSInstallPrompt, 2000);
-    }
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && !window.navigator.standalone && !window.matchMedia('(display-mode: standalone)').matches) {
+    if (!localStorage.getItem('ios-install-dismissed')) setTimeout(showIOSInstallPrompt, 2000);
   }
 }
 
 function showIOSInstallPrompt() {
-  const prompt = document.createElement('div');
-  prompt.className = 'ios-install-prompt';
-  prompt.innerHTML = `
-    <div class="ios-prompt-content">
-      <button class="ios-prompt-close" onclick="dismissIOSPrompt()">×</button>
-      <img src="img/logo.png" alt="Logo" class="ios-prompt-icon">
-      <h3>Установить приложение</h3>
-      <p>Установите это приложение на свой iPhone:</p>
-      <ol style="text-align: left;">
-        <li>Нажмите «Поделиться» внизу экрана</li>
-        <li>Прокрутите и выберите «На экран Домой»</li>
-        <li>Нажмите «Добавить»</li>
-      </ol>
-      <button onclick="dismissIOSPrompt()" class="ios-prompt-button">Понятно</button>
-    </div>
-  `;
-  document.body.appendChild(prompt);
-  
-  setTimeout(() => prompt.classList.add('show'), 100);
+  const p = document.createElement('div'); p.className = 'ios-install-prompt';
+  p.innerHTML = `<div class="ios-prompt-content"><button class="ios-prompt-close" onclick="dismissIOSPrompt()">×</button><img src="img/logo.png" alt="Logo" class="ios-prompt-icon"><h3>Установить приложение</h3><p>Установите это приложение на свой iPhone:</p><ol style="text-align: left;"><li>Нажмите «Поделиться» внизу экрана</li><li>Прокрутите и выберите «На экран Домой»</li><li>Нажмите «Добавить»</li></ol><button onclick="dismissIOSPrompt()" class="ios-prompt-button">Понятно</button></div>`;
+  document.body.appendChild(p);
+  setTimeout(() => p.classList.add('show'), 100);
 }
 
 function dismissIOSPrompt() {
-  const prompt = document.querySelector('.ios-install-prompt');
-  if (prompt) {
-    prompt.classList.remove('show');
-    setTimeout(() => prompt.remove(), 300);
-    localStorage.setItem('ios-install-dismissed', Date.now().toString());
-  }
+  const p = document.querySelector('.ios-install-prompt');
+  if (p) { p.classList.remove('show'); setTimeout(() => p.remove(), 300); localStorage.setItem('ios-install-dismissed', Date.now().toString()); }
 }
 
-// PWA установка
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const btn = document.getElementById('install-pwa-btn');
-  if (btn) btn.style.display = '';
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  const btn = getEl('install-pwa-btn'); if (btn) btn.style.display = '';
 });
 
-document.getElementById('install-pwa-btn').onclick = function() {
-  document.getElementById('install-modal').classList.add('active');
-  document.getElementById('install-modal-hash').style.display = 'none';
-  document.getElementById('install-proceed-btn').disabled = false;
-  document.getElementById('install-proceed-btn').innerText = 'Установить';
+getEl('install-pwa-btn').onclick = () => {
+  getEl('install-modal').classList.add('active');
+  getEl('install-modal-hash').style.display = 'none';
+  const btn = getEl('install-proceed-btn');
+  btn.disabled = false; btn.innerText = 'Установить';
 };
 
-function closeInstallModal() {
-  document.getElementById('install-modal').classList.remove('active');
-}
+const closeInstallModal = () => getEl('install-modal')?.classList.remove('active');
 
-document.getElementById('install-proceed-btn').onclick = async function() {
-  const btn = this;
-  btn.disabled = true;
-  btn.innerText = 'Выполняется проверка...';
-  document.getElementById('install-modal-hash').style.display = '';
-  document.getElementById('install-hash-progress').innerText = '';
+getEl('install-proceed-btn').onclick = async function() {
+  this.disabled = true; this.innerText = 'Выполняется проверка...';
+  getEl('install-modal-hash').style.display = '';
+  getEl('install-hash-progress').innerText = '';
   
   const hash = await hashManifest();
-  document.getElementById('install-hash-progress').innerText = 'SHA-256: ' + hash;
-  btn.innerText = 'Установка...';
+  getEl('install-hash-progress').innerText = 'SHA-256: ' + hash;
+  this.innerText = 'Установка...';
   
   if (deferredPrompt) {
     deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((choiceResult) => {
-      closeInstallModal();
-      document.getElementById('install-pwa-btn').style.display = 'none';
-      deferredPrompt = null;
-    });
+    deferredPrompt.userChoice.then(() => { closeInstallModal(); getEl('install-pwa-btn').style.display = 'none'; deferredPrompt = null; });
   } else {
-    alert('К сожалению, ваш браузер не поддерживает установку PWA.');
-    closeInstallModal();
+    alert('К сожалению, ваш браузер не поддерживает установку PWA.'); closeInstallModal();
   }
 };
 
 async function hashManifest() {
   try {
-    const resp = await fetch('manifest.json');
-    const data = await resp.arrayBuffer();
+    const data = await (await fetch('manifest.json')).arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch(e) {
-    return '[ошибка хэширования]';
-  }
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch(e) { return '[ошибка хэширования]'; }
 }
 
-document.getElementById('install-modal').onclick = function(e) {
-  if (e.target === this) closeInstallModal();
-};
-// Достижение: приложение установлено (PWA)
-window.addEventListener('appinstalled', () => {
-  Ach.unlock('pwa_installed');
-});
+getEl('install-modal').onclick = function(e) { if (e.target === this) closeInstallModal(); };
+window.addEventListener('appinstalled', () => Ach.unlock('pwa_installed'));
+
 // ==================== ОБРАТНАЯ СВЯЗЬ (чат) ====================
-let fbPollTimer = null;
+let fbPollTimer = null, fbSending = false;
 
 function openFeedbackModal(){
-  const el = document.getElementById('modal-feedback');
-  if (!el) return;
-  el.classList.add('active');
+  getEl('modal-feedback')?.classList.add('active');
   fbLoadHistory();
-  // авто‑фокус на инпут
-  setTimeout(() => { try { document.getElementById('fb-input')?.focus(); } catch(e){} }, 30);
+  setTimeout(() => getEl('fb-input')?.focus(), 30);
   if (fbPollTimer) clearInterval(fbPollTimer);
   fbPollTimer = setInterval(fbLoadHistory, 8000);
 }
 
 function closeFeedbackModal(){
-  const el = document.getElementById('modal-feedback');
-  if (el) el.classList.remove('active');
-  if (fbPollTimer) { clearInterval(fbPollTimer); fbPollTimer=null; }
+  getEl('modal-feedback')?.classList.remove('active');
+  if (fbPollTimer) { clearInterval(fbPollTimer); fbPollTimer = null; }
 }
 
 async function fbLoadHistory(){
-  try{
-    const dev = (typeof getDeviceHash === 'function') ? getDeviceHash() : '';
+  try {
+    const dev = typeof getDeviceHash === 'function' ? getDeviceHash() : '';
     if (!dev || !window.GLOBAL_STATS_URL) return;
     const res = await fetch(`${GLOBAL_STATS_URL}/feedback/history?device=${encodeURIComponent(dev)}`, { mode:'cors' });
     const data = await res.json().catch(()=> ({}));
-    const list = document.getElementById('fb-list');
-    const codeEl = document.getElementById('fb-code');
-    if (!list || !codeEl) return;
-
-    if (data?.ok){
-      codeEl.textContent = data.code ? `Код диалога: #${data.code}` : '';
-      const msgs = data.messages || [];
-      list.innerHTML = msgs.map(m=>{
-        const when = new Date(m.created_at).toLocaleString();
-        const isAdmin = m.sender === 'admin';
-        const align = isAdmin ? 'flex-end' : 'flex-start';
-        const bg = isAdmin ? '#203020' : '#20283a';
-        return `<div style="display:flex;justify-content:${align};margin:6px 0;">
-          <div style="max-width:88%;background:${bg};padding:8px 10px;border-radius:10px;">
-            ${escapeHtml(m.text)}
-            <div style="color:#9aa8c4;font-size:.8em;margin-top:4px;">${when}</div>
-          </div>
-        </div>`;
-      }).join('');
-      list.scrollTop = list.scrollHeight;
-    }
-  }catch(e){
-    // тихо игнорируем, чтобы не спамить
-  }
+    const list = getEl('fb-list'), codeEl = getEl('fb-code');
+    if (!list || !codeEl || !data?.ok) return;
+    
+    codeEl.textContent = data.code ? `Код диалога: #${data.code}` : '';
+    list.innerHTML = (data.messages || []).map(m => {
+      const isAdmin = m.sender === 'admin', align = isAdmin ? 'flex-end' : 'flex-start', bg = isAdmin ? '#203020' : '#20283a';
+      return `<div style="display:flex;justify-content:${align};margin:6px 0;"><div style="max-width:88%;background:${bg};padding:8px 10px;border-radius:10px;">${escapeHtml(m.text)}<div style="color:#9aa8c4;font-size:.8em;margin-top:4px;">${new Date(m.created_at).toLocaleString()}</div></div></div>`;
+    }).join('');
+    list.scrollTop = list.scrollHeight;
+  } catch(e) {}
 }
 
-let fbSending = false;
 async function fbSend(){
   if (fbSending) return;
-  const inp = document.getElementById('fb-input');
-  if (!inp) return;
-  const text = (inp.value||'').trim();
+  const inp = getEl('fb-input'), text = (inp?.value || '').trim();
   if (!text) return;
-  fbSending = true;
-  inp.disabled = true;
-  const prev = inp.value;
-  inp.value = '';
-  try{
-    const dev = (typeof getDeviceHash === 'function') ? getDeviceHash() : '';
+  
+  fbSending = true; inp.disabled = true;
+  const prev = inp.value; inp.value = '';
+  
+  try {
+    const dev = typeof getDeviceHash === 'function' ? getDeviceHash() : '';
     if (!dev || !window.GLOBAL_STATS_URL) throw new Error('not_configured');
     const res = await fetch(`${GLOBAL_STATS_URL}/feedback/send`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json', ...apiAuthHeaders()},
-      mode:'cors',
+      method:'POST', headers:{'Content-Type':'application/json', ...apiAuthHeaders()}, mode:'cors',
       body: JSON.stringify({ text, deviceHash: dev })
     });
     const data = await res.json().catch(()=> ({}));
     if (!res.ok || !data?.ok) {
-      // вернем текст обратно, если ошибка
       inp.value = prev;
-      if (window.NotificationSystem?.error) NotificationSystem.error(`Не отправлено: ${data?.error||res.status}`);
-      else alert(`Не отправлено: ${data?.error||res.status}`);
+      (window.NotificationSystem?.error || alert)(`Не отправлено: ${data?.error||res.status}`);
     } else {
-      if (window.NotificationSystem?.success) NotificationSystem.success('Отправлено');
+      (window.NotificationSystem?.success || function(){})('Отправлено');
       fbLoadHistory();
     }
-  }catch(e){
+  } catch(e) {
     inp.value = prev;
-    if (window.NotificationSystem?.error) NotificationSystem.error('Сеть недоступна');
-    else alert('Сеть недоступна');
+    (window.NotificationSystem?.error || alert)('Сеть недоступна');
   } finally {
-    fbSending = false;
-    inp.disabled = false; inp.focus();
+    fbSending = false; inp.disabled = false; inp.focus();
   }
 }
 
-function escapeHtml(s){
-  return String(s||'')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
-function getFlagEmoji(cc) {
-  // ISO-3166 alpha-2 -> региональный индикатор
-  if (!cc || cc.length !== 2) return '🏳️';
-  const codePoints = cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt());
-  try { return String.fromCodePoint(...codePoints); } catch { return '🏳️'; }
-}
-function formatSpan(sec) {
+const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const getFlagEmoji = cc => (cc?.length === 2) ? String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt())) : '🏳️';
+const formatSpan = sec => {
   if (sec <= 0) return '—';
-  const d = Math.floor(sec / 86400);
-  const h = Math.floor((sec % 86400)/3600);
-  const m = Math.floor((sec % 3600)/60);
-  if (d>0) return `${d}д ${h}ч`;
-  if (h>0) return `${h}ч ${m}м`;
-  return `${m}м`;
-}
-// Закрытие по клику на фон оставляем как было: ниже в initializeMainUi уже есть
-// document.getElementById('modal-feedback').onclick = (e) => { if (e.target===this) closeFeedbackModal(); };
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400)/3600), m = Math.floor((sec % 3600)/60);
+  return d > 0 ? `${d}д ${h}ч` : h > 0 ? `${h}ч ${m}м` : `${m}м`;
+};
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ====================
-document.addEventListener('DOMContentLoaded', function() {
-  // Проверяем поддержку PWA
-  if ('serviceWorker' in navigator && 'caches' in window) {
-    console.log('PWA features supported');
-  } else {
-    console.warn('PWA features not fully supported');
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  if ('serviceWorker' in navigator && 'caches' in window) console.log('PWA features supported');
+  else console.warn('PWA features not fully supported');
   
-  // Восстановление настроек плеера
   shuffleMode = localStorage.getItem('shuffleMode') === '1';
   repeatMode = localStorage.getItem('repeatMode') === '1';
   favoritesOnlyMode = localStorage.getItem('favoritesOnlyMode') === '1';
@@ -8333,260 +8170,149 @@ document.addEventListener('DOMContentLoaded', function() {
   bitEnabled = localStorage.getItem('bitEnabled') === '1';
   
   const savedIntensity = localStorage.getItem('bitIntensity');
-  if (savedIntensity) {
-    bitIntensity = parseInt(savedIntensity);
-  }
+  if (savedIntensity) bitIntensity = parseInt(savedIntensity);
   
   hasShownAnimationWarning = localStorage.getItem('hasShownAnimationWarning') === '1';
   hasShownBitWarning = localStorage.getItem('hasShownBitWarning') === '1';
   
-  // Инициализация доступных треков
-  if (config) {
-    updateAvailableTracks();
-  }
+  if (config) updateAvailableTracks();
+  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) document.body.classList.add('dark-theme');
   
-  // Проверяем темную тему системы
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.body.classList.add('dark-theme');
-  }
-  
-  // Наблюдатель за изменениями списка треков
   setTimeout(() => {
-    const trackList = document.getElementById('track-list');
-    if (!trackList) return;
-    
-    const observer = new MutationObserver((mutations) => {
-      if (favoritesFilterActive) {
-        updateFavoriteClasses();
-      }
-    });
-    
-    observer.observe(trackList, {
-      childList: true,
-      subtree: true
-    });
+    const trackList = getEl('track-list');
+    if (trackList) new MutationObserver(() => { if (favoritesFilterActive) updateFavoriteClasses(); }).observe(trackList, { childList: true, subtree: true });
   }, 1000);
 });
 
 // ==================== МОНИТОРИНГ СЕТИ ====================
-window.addEventListener('online', () => {
-  NotificationSystem.success('Соединение восстановлено');
-  try { GlobalStats.flush(); } catch(e) {}
-});
-
-window.addEventListener('offline', () => {
-  NotificationSystem.offline('Нет соединения с интернетом');
-});
+window.addEventListener('online', () => { NotificationSystem.success('Соединение восстановлено'); try { GlobalStats.flush(); } catch(e) {} });
+window.addEventListener('offline', () => NotificationSystem.offline('Нет соединения с интернетом'));
 
 // ==================== PERFORMANCE MONITORING ====================
-if (window.performance && performance.mark) {
+if (window.performance?.mark) {
   performance.mark('app-start');
-  
   window.addEventListener('load', () => {
     performance.mark('app-loaded');
     performance.measure('App Load Time', 'app-start', 'app-loaded');
-    
-    const measure = performance.getEntriesByName('App Load Time')[0];
-    console.log(`App loaded in ${measure.duration.toFixed(2)}ms`);
+    console.log(`App loaded in ${performance.getEntriesByName('App Load Time')[0].duration.toFixed(2)}ms`);
   });
 }
 
 // ==================== ОБРАБОТКА ОШИБОК ====================
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event);
-  if (event.message && !event.message.includes('ResizeObserver')) {
-    console.error('Debug info at error:', debugInfo());
-  }
+window.addEventListener('error', e => {
+  console.error('Global error:', e);
+  if (e.message && !e.message.includes('ResizeObserver')) console.error('Debug info:', debugInfo());
 });
-
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event);
-});
+window.addEventListener('unhandledrejection', e => console.error('Unhandled promise rejection:', e));
 
 // ==================== ОТЛАДКА ====================
-window.debugInfo = function() {
+window.debugInfo = () => {
   const info = {
-    version: VERSION,
-    buildDate: BUILD_DATE,
-    userAgent: navigator.userAgent,
-    online: navigator.onLine,
-    serviceWorker: 'serviceWorker' in navigator,
-    localStorage: {
-      promoPassed: localStorage.getItem('promoPassed'),
-      likedTracks: getLiked(),
-      shuffleMode: localStorage.getItem('shuffleMode'),
-      repeatMode: localStorage.getItem('repeatMode'),
-      favoritesOnlyMode: localStorage.getItem('favoritesOnlyMode'),
-      favoritesFilter: localStorage.getItem('favoritesFilter'),
-      offlineMode: localStorage.getItem('offlineMode'),
-      animationEnabled: localStorage.getItem('animationEnabled'),
-      bitEnabled: localStorage.getItem('bitEnabled'),
-      bitIntensity: localStorage.getItem('bitIntensity')
-    },
-    config: {
-      loaded: configLoaded,
-      tracks: config?.tracks?.length || 0,
-      artist: config?.artist,
-      albumYear: config?.albumYear
-    },
-    player: {
-      currentTrack: currentTrack,
-      shuffleMode: shuffleMode,
-      repeatMode: repeatMode,
-      favoritesOnlyMode: favoritesOnlyMode,
-      lyricsViewMode: lyricsViewMode,
-      autoPlay: autoPlayEnabled,
-      animationEnabled: animationEnabled,
-      bitEnabled: bitEnabled,
-      bitIntensity: bitIntensity
-    },
-    cache: {
-      caches: 'caches' in window
-    }
+    version: VERSION, buildDate: BUILD_DATE, userAgent: navigator.userAgent, online: navigator.onLine, serviceWorker: 'serviceWorker' in navigator,
+    localStorage: { promoPassed: localStorage.getItem('promoPassed'), likedTracks: getLiked(), shuffleMode, repeatMode, favoritesOnlyMode, favoritesFilter: localStorage.getItem('favoritesFilter'), offlineMode, animationEnabled, bitEnabled, bitIntensity },
+    config: { loaded: configLoaded, tracks: config?.tracks?.length || 0, artist: config?.artist, albumYear: config?.albumYear },
+    player: { currentTrack, shuffleMode, repeatMode, favoritesOnlyMode, lyricsViewMode, autoPlay: autoPlayEnabled, animationEnabled, bitEnabled, bitIntensity },
+    cache: { caches: 'caches' in window }
   };
-  
-  console.table(info);
-  return info;
+  console.table(info); return info;
 };
-
 console.log('Application initialized. Version:', VERSION);
-
 </script>
 
-<!-- Ленивая загрузка JSZip только при необходимости -->
-<script>
-// JSZip будет загружен динамически при первом использовании функции скачивания альбома
-</script>
-  <!-- VIP banner (показывается при vip=true) -->
-  <section id="vip-banner" class="vip-banner">
-    <h2>VIP</h2>
-    <div class="vip-row">
-      <div id="vip-user-name" class="vip-pill">Пользователь</div>
-      <div class="vip-balance">Баланс: <span id="vip-balance">0</span> коина(ов)</div>
-      <button id="vip-gallery-btn" class="btn primary">ГАЛЕРЕЯ ПРИЗОВ</button>
-    </div>
-    <div class="vip-actions">
-      <button id="vip-setpass-btn" class="btn">Задать/изменить VIP‑пароль</button>
-      <button id="vip-requestreset-btn" class="btn warn">Забыли пароль (получить код в Telegram)</button>
-    </div>
-  </section>
-
-  <!-- VIP password modal -->
-  <div id="vip-modal-wrap" class="vip-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="vip-modal-title">
-    <div class="vip-modal">
-      <div class="row" style="justify-content:space-between;">
-        <h3 id="vip-modal-title">Вход VIP</h3>
-        <button class="btn close" id="vip-close-btn" aria-label="Закрыть">✕</button>
-      </div>
-      <div class="desc" id="vip-modal-desc">Введите VIP‑пароль, чтобы подтвердить это устройство.</div>
-
-      <div class="row">
-        <input type="password" id="vip-pass" placeholder="VIP‑пароль">
-      </div>
-      <div class="actions">
-        <button class="btn primary" id="vip-verify-btn">Подтвердить устройство</button>
-      </div>
-
-      <hr style="border-color:#2b3955; margin:12px 0;">
-
-      <div class="desc">Установить/изменить VIP‑пароль (только для VIP):</div>
-      <div class="row">
-        <input type="password" id="vip-new-pass" placeholder="Новый пароль (мин. 4 символа)">
-      </div>
-      <div class="actions">
-        <button class="btn" id="vip-setpass-confirm">Сохранить пароль</button>
-      </div>
-
-      <hr style="border-color:#2b3955; margin:12px 0;">
-
-      <div class="desc">Сброс пароля: получите код в Telegram и введите его здесь:</div>
-      <div class="row">
-        <input type="text" id="vip-reset-code" placeholder="Код из Telegram (например: ABC123)">
-      </div>
-      <div class="row">
-        <input type="password" id="vip-reset-new" placeholder="Новый пароль">
-      </div>
-      <div class="actions">
-        <button class="btn warn" id="vip-requestreset-confirm">Отправить код в Telegram</button>
-        <button class="btn" id="vip-resetpass-confirm">Сбросить по коду</button>
-      </div>
-
-      <div class="desc" id="vip-msg" style="margin-top:8px; color:#9aa8c4;"></div>
-    </div>
+<section id="vip-banner" class="vip-banner">
+  <h2>VIP</h2>
+  <div class="vip-row">
+    <div id="vip-user-name" class="vip-pill">Пользователь</div>
+    <div class="vip-balance">Баланс: <span id="vip-balance">0</span> коина(ов)</div>
+    <button id="vip-gallery-btn" class="btn primary">ГАЛЕРЕЯ ПРИЗОВ</button>
   </div>
-  <!-- VIP Gallery Modal -->
-  <div id="vip-gallery-wrap" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:9999; align-items:center; justify-content:center;">
-    <div style="width:92%; max-width:860px; background:#121824; border:1px solid #2b3955; border-radius:12px; color:#e8eefc; padding:14px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-        <div style="font-size:18px; color:#9fc3ff; font-weight:700;">Галерея призов</div>
-        <button id="vip-gallery-close" style="border:none; background:#2a3550; color:#cfe3ff; border-radius:8px; padding:6px 10px; cursor:pointer;">✕</button>
-      </div>
-      <div id="vip-gallery-note" style="color:#9aa8c4; font-size:14px; margin:8px 0;">Баланс: <span id="vip-gallery-balance">0</span> коина(ов)</div>
-      <div id="vip-gallery-list" style="max-height:70vh; overflow:auto;"></div>
-    </div>
+  <div class="vip-actions">
+    <button id="vip-setpass-btn" class="btn">Задать/изменить VIP‑пароль</button>
+    <button id="vip-requestreset-btn" class="btn warn">Забыли пароль (получить код в Telegram)</button>
   </div>
-</body>
-</html>
-<script>
-// ========== DEMO сценарий: КЛИЕНТСКАЯ интеграция ==========
+</section>
 
+<div id="vip-modal-wrap" class="vip-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="vip-modal-title">
+  <div class="vip-modal">
+    <div class="row" style="justify-content:space-between;"><h3 id="vip-modal-title">Вход VIP</h3><button class="btn close" id="vip-close-btn" aria-label="Закрыть">✕</button></div>
+    <div class="desc" id="vip-modal-desc">Введите VIP‑пароль, чтобы подтвердить это устройство.</div>
+    <div class="row"><input type="password" id="vip-pass" placeholder="VIP‑пароль"></div>
+    <div class="actions"><button class="btn primary" id="vip-verify-btn">Подтвердить устройство</button></div>
+    <hr style="border-color:#2b3955; margin:12px 0;">
+    <div class="desc">Установить/изменить VIP‑пароль (только для VIP):</div>
+    <div class="row"><input type="password" id="vip-new-pass" placeholder="Новый пароль (мин. 4 символа)"></div>
+    <div class="actions"><button class="btn" id="vip-setpass-confirm">Сохранить пароль</button></div>
+    <hr style="border-color:#2b3955; margin:12px 0;">
+    <div class="desc">Сброс пароля: получите код в Telegram и введите его здесь:</div>
+    <div class="row"><input type="text" id="vip-reset-code" placeholder="Код из Telegram (например: ABC123)"></div>
+    <div class="row"><input type="password" id="vip-reset-new" placeholder="Новый пароль"></div>
+    <div class="actions">
+      <button class="btn warn" id="vip-requestreset-confirm">Отправить код в Telegram</button>
+      <button class="btn" id="vip-resetpass-confirm">Сбросить по коду</button>
+    </div>
+    <div class="desc" id="vip-msg" style="margin-top:8px; color:#9aa8c4;"></div>
+  </div>
+</div>
+
+<div id="vip-gallery-wrap" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:9999; align-items:center; justify-content:center;">
+  <div style="width:92%; max-width:860px; background:#121824; border:1px solid #2b3955; border-radius:12px; color:#e8eefc; padding:14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+      <div style="font-size:18px; color:#9fc3ff; font-weight:700;">Галерея призов</div>
+      <button id="vip-gallery-close" style="border:none; background:#2a3550; color:#cfe3ff; border-radius:8px; padding:6px 10px; cursor:pointer;">✕</button>
+    </div>
+    <div id="vip-gallery-note" style="color:#9aa8c4; font-size:14px; margin:8px 0;">Баланс: <span id="vip-gallery-balance">0</span> коина(ов)</div>
+    <div id="vip-gallery-list" style="max-height:70vh; overflow:auto;"></div>
+  </div>
+</div>
+
+<script>
+// ========== DEMO сценарий ==========
 const DEMO_BACKEND = 'https://vr-backend.apel-s-in.workers.dev';
 let demoScenarioInterval = null;
 
-window.demoScenarioShow = function() {
-  document.getElementById('demo-scenario-ui').style.display = '';
-  demoScenarioPoll(); // сразу показать статус
+window.demoScenarioShow = () => {
+  getEl('demo-scenario-ui').style.display = '';
+  demoScenarioPoll();
   if (!demoScenarioInterval) demoScenarioInterval = setInterval(demoScenarioPoll, 2500);
 };
-window.demoScenarioHide = function() {
-  document.getElementById('demo-scenario-ui').style.display = 'none';
+
+window.demoScenarioHide = () => {
+  getEl('demo-scenario-ui').style.display = 'none';
   if (demoScenarioInterval) { clearInterval(demoScenarioInterval); demoScenarioInterval = null; }
 };
-window.demoScenarioReset = async function() {
+
+window.demoScenarioReset = async () => {
   if (!confirm('Сбросить текущий DEMO-прогресс?')) return;
-  const sid = localStorage.getItem('vr_sid');
-  if (!sid) return NotificationSystem.warning('Вы не вошли как DEMO-тестер!');
-  // Узнать свой tg_id
-  const tgId = localStorage.getItem('tg_id');
-  if (!tgId) return NotificationSystem.warning('tg_id не определён');
-  await fetch(`${DEMO_BACKEND}/admin/demo/scenario/reset`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Session': sid },
-    body: JSON.stringify({ tgId }),
-    credentials: 'include'
-  });
-  NotificationSystem.success('DEMO сброшен');
+  const sid = localStorage.getItem('vr_sid'), tgId = localStorage.getItem('tg_id');
+  if (!sid || !tgId) return NotificationSystem.warning(sid ? 'tg_id не определён' : 'Вы не вошли как DEMO-тестер!');
+  
+  await fetch(`${DEMO_BACKEND}/admin/demo/scenario/reset`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session': sid }, body: JSON.stringify({ tgId }), credentials: 'include' });
+  NotificationSystem.success('DEMO сброшен'); 
   setTimeout(demoScenarioPoll, 1400);
 };
 
-// ПОЛЛИНГ статуса автосценария
 async function demoScenarioPoll() {
   try {
     const sid = localStorage.getItem('vr_sid');
     if (!sid || !localStorage.getItem('tg_id')) return;
-    // Получаем текущий статус сценария
-    const res = await fetch(`${DEMO_BACKEND}/demo/progress`, {
-      headers: { 'X-Session': sid }
-    });
+    
+    const res = await fetch(`${DEMO_BACKEND}/demo/progress`, { headers: { 'X-Session': sid } });
     if (!res.ok) return;
     const d = await res.json();
-    if (!d || !d.ok) return;
-    document.getElementById('demo-scenario-ui').style.display = '';
-    document.getElementById('demo-scenario-stage').textContent = d.currentStage || '…';
-    document.getElementById('demo-scenario-ach').textContent = d.progress?.completedCount || 0;
-
-    // При необходимости здесь можно оживить UI или сигнализировать действия пользователя (например, ожидается выбор приза)
-    // if (d.currentStage === 'stage2_claim_first') { ... }
-  } catch (e) { /* Тихо */ }
+    
+    if (d?.ok) {
+      getEl('demo-scenario-ui').style.display = '';
+      getEl('demo-scenario-stage').textContent = d.currentStage || '…';
+      getEl('demo-scenario-ach').textContent = d.progress?.completedCount || 0;
+    }
+  } catch (e) {}
 }
 
-// ВКЛЮЧИТЬ панель DEMO для теста (можно комментировать в релизе)
 setTimeout(() => {
-  const isDemo = window.location.hash === '#demo' || window.location.search.includes('demo') || localStorage.getItem('tg_id') === 'ВАШ_DEMO_TGID';
-  if (isDemo) window.demoScenarioShow();
+  if (window.location.hash === '#demo' || window.location.search.includes('demo') || localStorage.getItem('tg_id') === 'ВАШ_DEMO_TGID') window.demoScenarioShow();
 }, 2000);
 </script>
-<!-- DEMO ПРОГРЕСС (Только для тестирования) -->
+
 <div id="demo-scenario-ui" style="position:fixed;right:12px;bottom:12px;background:#222b;padding:16px;border-radius:12px;box-shadow:0 2px 12px #000a;z-index:10000;color:#fff;max-width:310px;font-size:.98em;display:none;">
   <div><b>DEMO-режим</b> — автосценарий <span id="demo-scenario-stage">…</span></div>
   <div style="margin:6px 0;">Прогресс: <span id="demo-scenario-ach">0</span></div>
