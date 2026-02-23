@@ -1132,10 +1132,14 @@ function initializeMainUi() {
   if (hasKeyboard()) insertHotkeysButton();
   restoreAnimationStates();
 
-  document.getElementById('feedback-link').onclick = () => NotificationSystem.info('Обратная связь в Telegram — скоро будет');
+  const fbLink = document.getElementById('feedback-link');
+  if (fbLink) fbLink.onclick = () => NotificationSystem.info('Обратная связь в Telegram — скоро будет');
 
-  document.getElementById('cover-gallery-arrow-left').onclick = () => { setCoverImage(coverGalleryIdx - 1); startCoverAutoPlay(); };
-  document.getElementById('cover-gallery-arrow-right').onclick = () => { setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); };
+  const leftArr = document.getElementById('cover-gallery-arrow-left');
+  if (leftArr) leftArr.onclick = () => { setCoverImage(coverGalleryIdx - 1); startCoverAutoPlay(); };
+
+  const rightArr = document.getElementById('cover-gallery-arrow-right');
+  if (rightArr) rightArr.onclick = () => { setCoverImage(coverGalleryIdx + 1); startCoverAutoPlay(); };
 
   let startX = null;
   const el = document.getElementById('cover-wrap');
