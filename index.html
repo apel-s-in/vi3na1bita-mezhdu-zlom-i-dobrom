@@ -7619,885 +7619,273 @@ function restorePlayerButtonsState() {
 
 // ==================== MEDIA SESSION API ====================
 function setupMediaSession() {
-  if ('mediaSession' in navigator) {
-    const track = config.tracks[currentTrack];
-    
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: track.title,
-      artist: config.artist || 'Витрина Разбита',
-      album: config.albumName || 'Между Злом и Добром',
-      artwork: [
-        { src: 'Cover.png', sizes: '512x512', type: 'image/png' },
-        { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }
-      ]
-    });
-    
-    navigator.mediaSession.setActionHandler('play', () => {
-      const audio = document.getElementById('audio');
-      if (audio) audio.play();
-      updatePlayPauseIcon();
-    });
-    
-    navigator.mediaSession.setActionHandler('pause', () => {
-      const audio = document.getElementById('audio');
-      if (audio) audio.pause();
-      updatePlayPauseIcon();
-    });
-    
-    navigator.mediaSession.setActionHandler('stop', () => {
-      stopPlayback();
-    });
-    
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      previousTrack();
-    });
-    
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      nextTrack();
-    });
-    
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      const audio = document.getElementById('audio');
-      if (audio) audio.currentTime = details.seekTime;
-    });
-    
-    navigator.mediaSession.setActionHandler('seekbackward', () => {
-      const audio = document.getElementById('audio');
-      if (audio) audio.currentTime = Math.max(0, audio.currentTime - 10);
-    });
-    
-    navigator.mediaSession.setActionHandler('seekforward', () => {
-      const audio = document.getElementById('audio');
-      if (audio) audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
-    });
-  }
+  if (!('mediaSession' in navigator) || !config) return;
+  const tr = config.tracks[currentTrack], ms = navigator.mediaSession;
+  ms.metadata = new MediaMetadata({
+    title: tr.title, artist: config.artist || 'Витрина Разбита', album: config.albumName || 'Между Злом и Добром',
+    artwork: [{src:'Cover.png',sizes:'512x512',type:'image/png'},{src:'icons/icon-192.png',sizes:'192x192',type:'image/png'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png'}]
+  });
+  const act = (fn) => () => { fn(); updatePlayPauseIcon(); };
+  const getAud = () => document.getElementById('audio');
+  const binds = {
+    play: act(() => getAud()?.play()), pause: act(() => getAud()?.pause()), stop: stopPlayback, previoustrack: previousTrack, nexttrack: nextTrack,
+    seekto: (d) => { const a = getAud(); if(a) a.currentTime = d.seekTime; },
+    seekbackward: () => { const a = getAud(); if(a) a.currentTime = Math.max(0, a.currentTime - 10); },
+    seekforward: () => { const a = getAud(); if(a) a.currentTime = Math.min(a.duration, a.currentTime + 10); }
+  };
+  for (const [k, v] of Object.entries(binds)) ms.setActionHandler(k, v);
 }
 
 // ==================== КАРАОКЕ ====================
 function loadLyrics(file) {
-  fetch(file)
-    .then(r => r.json())
-    .then(js => {
-      currentLyrics = js;
-      renderLyrics(0);
-    })
-    .catch(err => {
-      console.error('Failed to load lyrics:', err);
-      currentLyrics = [];
-    });
+  fetch(file).then(r => r.json()).then(js => { currentLyrics = js; renderLyrics(0); })
+    .catch(err => { console.error('Failed to load lyrics:', err); currentLyrics = []; });
 }
 
 function renderLyrics(time) {
-  if (!currentLyrics || !currentLyrics.length) {
-    const lyricsEl = document.getElementById('lyrics');
-    if (lyricsEl) lyricsEl.innerHTML = "";
-    return;
+  const el = document.getElementById("lyrics");
+  if (!el) return;
+  if (!currentLyrics?.length) return (el.innerHTML = "");
+  
+  let active = currentLyrics.findIndex(l => time < l.time) - 1;
+  if (active === -2) active = currentLyrics.length - 1; 
+  if (active < 0) active = 0;
+  
+  const win = 5, start = Math.max(0, active - 2), padTop = Math.max(0, 2 - active);
+  const rows = Array(padTop).fill('<div class="lyrics-window-line"></div>');
+  for (let i = start; i < Math.min(currentLyrics.length, start + win - padTop); i++) {
+    rows.push(`<div class="lyrics-window-line${i === active ? ' active' : ''}">${currentLyrics[i]?.line || ""}</div>`);
   }
-  
-  let active = 0;
-  for (let i = 0; i < currentLyrics.length; i++) {
-    if (time >= currentLyrics[i].time) active = i;
-  }
-  
-  const windowSize = 5;
-  const start = active < 2 ? 0 : active - 2;
-  const padTop = active < 2 ? 2 - active : 0;
-  const rows = [];
-  
-  for (let p = 0; p < padTop; ++p) {
-    rows.push('<div class="lyrics-window-line"></div>');
-  }
-  
-  for (let i = start; i < Math.min(currentLyrics.length, start + windowSize - padTop); i++) {
-    const cls = (i === active) ? 'lyrics-window-line active' : 'lyrics-window-line';
-    rows.push(`<div class="${cls}">${currentLyrics[i] ? currentLyrics[i].line : ""}</div>`);
-  }
-  
-  while (rows.length < windowSize) {
-    rows.push('<div class="lyrics-window-line"></div>');
-  }
-  
-  const lyricsEl = document.getElementById("lyrics");
-  if (lyricsEl) lyricsEl.innerHTML = rows.join("");
+  while (rows.length < win) rows.push('<div class="lyrics-window-line"></div>');
+  el.innerHTML = rows.join("");
 }
 
-// Функция копирования полного текста
 function copyLyrics() {
-  if (!config || currentTrack < 0 || !config.tracks[currentTrack].fulltext) {
-    NotificationSystem.warning("Файл с текстом не найден!");
-    return;
-  }
-  
-  fetch(config.tracks[currentTrack].fulltext)
-    .then(r => {
-      if (!r.ok) throw new Error("Не найден");
-      return r.text();
-    })
-    .then(txt => {
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(txt).then(
-          () => NotificationSystem.success("Текст песни скопирован!"),
-          () => NotificationSystem.error("Не удалось скопировать")
-        );
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = txt;
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand('copy');
-          NotificationSystem.success("Текст песни скопирован!");
-        } catch(e) {
-          NotificationSystem.error("Не удалось скопировать");
-        }
-        document.body.removeChild(textarea);
-      }
-    })
-    .catch(() => {
-      NotificationSystem.error("Не удалось загрузить текст!");
-    });
-}
-// ==================== КЛАВИАТУРНАЯ НАВИГАЦИЯ (ОБНОВЛЕНО) ====================
-window.addEventListener('keydown', function(e) {
-  // Проверяем, что фокус не в поле ввода
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-    return;
-  }
-  
-  // Проверяем наличие модальных окон
-  const hasActiveModal = document.querySelector('.modal-bg.active');
-  
-  // Esc закрывает модальные окна
-  if (e.key === 'Escape' && hasActiveModal) {
-    e.preventDefault();
-    document.querySelectorAll('.modal-bg.active').forEach(modal => {
-      modal.classList.remove('active');
-    });
-    return;
-  }
-  
-  // Остальные клавиши не работают при открытых модальных окнах
-  if (hasActiveModal) return;
-  
-  const audio = document.getElementById('audio');
-  
-  switch(e.key.toUpperCase()) {
-    // Воспроизведение
-    case ' ': // Пробел
-    case 'K':
-      e.preventDefault();
-      togglePlayPause();
-      break;
-      
-    case 'X':
-      e.preventDefault();
-      stopPlayback();
-      break;
-      
-    case 'N':
-      e.preventDefault();
-      nextTrack();
-      break;
-      
-    case 'P':
-      e.preventDefault();
-      previousTrack();
-      break;
-      
-    case 'J':
-      e.preventDefault();
-      if (audio) audio.currentTime = Math.max(0, audio.currentTime - 10);
-      break;
-      
-    case 'L':
-      e.preventDefault();
-      if (audio) audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
-      break;
-      
-    // Громкость
-    case '+':
-    case '=':
-      e.preventDefault();
-      const slider = document.getElementById('volume-slider');
-      if (slider) {
-        slider.value = Math.min(100, parseInt(slider.value) + 10);
-        slider.dispatchEvent(new Event('input'));
-      }
-      break;
-      
-    case '-':
-      e.preventDefault();
-      const sliderMinus = document.getElementById('volume-slider');
-      if (sliderMinus) {
-        sliderMinus.value = Math.max(0, parseInt(sliderMinus.value) - 10);
-        sliderMinus.dispatchEvent(new Event('input'));
-      }
-      break;
-      
-    case 'M':
-      e.preventDefault();
-      toggleMute();
-      break;
-      
-    case '0':
-      e.preventDefault();
-      toggleMute();
-      break;
-      
-    // Режимы
-    case 'R':
-      e.preventDefault();
-      toggleRepeat();
-      break;
-      
-    case 'U':
-      e.preventDefault();
-      toggleShuffle();
-      break;
-      
-    case 'F':
-      if (e.shiftKey) {
-        e.preventDefault();
-        toggleFavoritesFilter();
-      } else {
-        e.preventDefault();
-        toggleFavoritesOnly();
-      }
-      break;
-      
-    case 'T':
-      e.preventDefault();
-      toggleSleepMenu();
-      break;
-      
-    // Анимации
-    case 'A':
-      e.preventDefault();
-      toggleAnimation();
-      break;
-      
-    case 'B':
-      e.preventDefault();
-      toggleBit();
-      break;
-      
-    case '1':
-      e.preventDefault();
-      if (bitEnabled) {
-        bitIntensity = 100;
-        localStorage.setItem('bitIntensity', '100');
-        NotificationSystem.info('💿 Интенсивность пульсации: 100%');
-      }
-      break;
-      
-    case '2':
-      e.preventDefault();
-      if (bitEnabled) {
-        bitIntensity = 50;
-        localStorage.setItem('bitIntensity', '50');
-        NotificationSystem.info('💿 Интенсивность пульсации: 50%');
-      }
-      break;
-      
-    case '3':
-      e.preventDefault();
-      if (bitEnabled) {
-        bitIntensity = 15;
-        localStorage.setItem('bitIntensity', '15');
-        NotificationSystem.info('💿 Интенсивность пульсации: 15%');
-      }
-      break;
-      
-    // Интерфейс
-    case 'Y':
-      e.preventDefault();
-      if (currentTrack >= 0) {
-        toggleLyricsView();
-      }
-      break;
-      
-    case 'W':
-      e.preventDefault();
-      // Прокручиваем к плейлисту
-      document.getElementById('track-list')?.scrollIntoView({ behavior: 'smooth' });
-      break;
-      
-    case 'D':
-      e.preventDefault();
-      if (currentTrack >= 0) {
-        toggleLike(currentTrack);
-      }
-      break;
-      
-    case '/':
-      e.preventDefault();
-      // Фокус на поиск (если будет добавлен в будущем)
-      NotificationSystem.info('Поиск будет добавлен в следующей версии');
-      break;
-      
-    case '?':
-      e.preventDefault();
-      showHotkeysModal();
-      break;
-      
-    case 'V':
-      if (e.shiftKey) {
-        e.preventDefault();
-        const volumeSlider = document.getElementById('volume-slider');
-        if (volumeSlider) {
-          volumeSlider.value = 50;
-          volumeSlider.dispatchEvent(new Event('input'));
-          NotificationSystem.info('Громкость установлена на 50%');
-        }
-      }
-      break;
-      
-    // Навигация по спискам
-    case ',':
-      e.preventDefault();
-      window.scrollBy(0, -100);
-      break;
-      
-    case '.':
-      e.preventDefault();
-      window.scrollBy(0, 100);
-      break;
-      
-    case '[':
-      e.preventDefault();
-      if (config && config.tracks.length > 0) {
-        showTrack(0, true);
-      }
-      break;
-      
-    case ']':
-      e.preventDefault();
-      if (config && config.tracks.length > 0) {
-        showTrack(config.tracks.length - 1, true);
-      }
-      break;
-  }
-  
-  // Цифровые клавиши для быстрого перехода
-  if (e.key >= '1' && e.key <= '9' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-    const trackIndex = parseInt(e.key) - 1;
-    if (trackIndex < config.tracks.length) {
-      e.preventDefault();
-      showTrack(trackIndex, true);
+  const t = config?.tracks?.[currentTrack];
+  if (!t?.fulltext) return NotificationSystem.warning("Файл с текстом не найден!");
+  fetch(t.fulltext).then(r => { if (!r.ok) throw new Error(); return r.text(); }).then(txt => {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(txt).then(() => NotificationSystem.success("Текст песни скопирован!"), () => NotificationSystem.error("Не удалось скопировать"));
+    } else {
+      const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); NotificationSystem.success("Текст песни скопирован!"); } 
+      catch(e) { NotificationSystem.error("Не удалось скопировать"); } finally { document.body.removeChild(ta); }
     }
+  }).catch(() => NotificationSystem.error("Не удалось загрузить текст!"));
+}
+
+// ==================== КЛАВИАТУРНАЯ НАВИГАЦИЯ ====================
+window.addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  const modals = document.querySelectorAll('.modal-bg.active');
+  if (e.key === 'Escape' && modals.length) return modals.forEach(m => m.classList.remove('active'));
+  if (modals.length) return;
+  
+  const aud = document.getElementById('audio'), volSl = document.getElementById('volume-slider');
+  const setVol = (v) => { if (volSl) { volSl.value = v; volSl.dispatchEvent(new Event('input')); }};
+  const setBit = (v) => { if(bitEnabled) { bitIntensity = v; localStorage.setItem('bitIntensity', v); NotificationSystem.info(`💿 Интенсивность пульсации: ${v}%`); }};
+  
+  const keyMap = {
+    ' ': togglePlayPause, 'K': togglePlayPause, 'X': stopPlayback, 'N': nextTrack, 'P': previousTrack,
+    'J': () => { if(aud) aud.currentTime = Math.max(0, aud.currentTime - 10); },
+    'L': () => { if(aud) aud.currentTime = Math.min(aud.duration, aud.currentTime + 10); },
+    '+': () => setVol(Math.min(100, parseInt(volSl?.value||0) + 10)), '=': () => setVol(Math.min(100, parseInt(volSl?.value||0) + 10)),
+    '-': () => setVol(Math.max(0, parseInt(volSl?.value||0) - 10)),
+    'M': toggleMute, '0': toggleMute, 'R': toggleRepeat, 'U': toggleShuffle,
+    'F': () => e.shiftKey ? toggleFavoritesFilter() : toggleFavoritesOnly(),
+    'T': toggleSleepMenu, 'A': toggleAnimation, 'B': toggleBit,
+    '1': () => setBit(100), '2': () => setBit(50), '3': () => setBit(15),
+    'Y': () => currentTrack >= 0 && toggleLyricsView(), 'W': () => document.getElementById('track-list')?.scrollIntoView({behavior:'smooth'}),
+    'D': () => currentTrack >= 0 && toggleLike(currentTrack), '/': () => NotificationSystem.info('Поиск будет добавлен в следующей версии'),
+    '?': showHotkeysModal, 'V': () => { if(e.shiftKey) { setVol(50); NotificationSystem.info('Громкость установлена на 50%'); } },
+    ',': () => window.scrollBy(0, -100), '.': () => window.scrollBy(0, 100),
+    '[': () => config?.tracks?.length && showTrack(0, true), ']': () => config?.tracks?.length && showTrack(config.tracks.length - 1, true)
+  };
+
+  const handler = keyMap[e.key.toUpperCase()];
+  if (handler) { e.preventDefault(); handler(); }
+  else if (e.key >= '1' && e.key <= '9' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+    const idx = parseInt(e.key) - 1;
+    if (idx < config?.tracks?.length) { e.preventDefault(); showTrack(idx, true); }
   }
 });
 
 // ==================== DEEP LINKS ====================
 function parseDeepLink() {
-  const params = new URLSearchParams(window.location.search);
-  
-  const trackParam = params.get('track');
-  if (trackParam) {
-    const trackIndex = parseInt(trackParam, 10);
-    if (trackIndex >= 0 && trackIndex < config.tracks.length) {
-      showTrack(trackIndex, true);
-      
-      setTimeout(() => {
-        document.getElementById(`trk${trackIndex}`)?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }, 300);
-    }
+  const p = new URLSearchParams(window.location.search);
+  const trk = parseInt(p.get('track'), 10), time = parseInt(p.get('time'), 10);
+  if (!isNaN(trk) && trk >= 0 && trk < config.tracks.length) {
+    showTrack(trk, true);
+    setTimeout(() => document.getElementById(`trk${trk}`)?.scrollIntoView({behavior:'smooth',block:'center'}), 300);
   }
-  
-  const timeParam = params.get('time');
-  if (timeParam) {
-    setTimeout(() => {
-      const audio = document.getElementById('audio');
-      if (audio) {
-        audio.currentTime = parseInt(timeParam, 10);
-      }
-    }, 1000);
-  }
-  
-  // Поддержка shortcuts из manifest
-  const viewParam = params.get('view');
-  if (viewParam === 'favorites') {
-    setTimeout(() => {
-      if (getLiked().length > 0) {
-        toggleFavoritesFilter();
-      }
-    }, 1000);
-  }
-  
-  const shuffleParam = params.get('shuffle');
-  if (shuffleParam === '1') {
-    shuffleMode = true;
-    localStorage.setItem('shuffleMode', '1');
-  }
+  if (!isNaN(time)) setTimeout(() => { if (document.getElementById('audio')) document.getElementById('audio').currentTime = time; }, 1000);
+  if (p.get('view') === 'favorites') setTimeout(() => { if (getLiked().length > 0) toggleFavoritesFilter(); }, 1000);
+  if (p.get('shuffle') === '1') { shuffleMode = true; localStorage.setItem('shuffleMode', '1'); }
 }
 
-function getShareLink(trackIndex) {
-  const baseUrl = window.location.origin + window.location.pathname;
-  const audio = document.getElementById('audio');
-  const time = audio ? Math.floor(audio.currentTime) : 0;
-  
-  return `${baseUrl}?track=${trackIndex}${time > 10 ? `&time=${time}` : ''}`;
+function getShareLink(idx) {
+  const aud = document.getElementById('audio'), t = aud ? Math.floor(aud.currentTime) : 0;
+  return `${window.location.origin}${window.location.pathname}?track=${idx}${t > 10 ? `&time=${t}` : ''}`;
 }
 
 // ==================== СКАЧИВАНИЕ ТРЕКОВ ====================
-function getTrackFileName(track, idx, artist) {
-  return `${(idx + 1).toString().padStart(2, '0')} - ${track.title} - ${artist}.mp3`
-    .replace(/[\\/:"*?<>|]+/g, '_');
-}
+const getTrackFileName = (t, idx, art) => `${String(idx+1).padStart(2,'0')} - ${t.title} - ${art}.mp3`.replace(/[\\/:"*?<>|]+/g, '_');
+const closeDownloadModal = () => document.getElementById('download-modal').classList.remove('active');
 
 function openDownloadModal(e) {
   if (e) e.preventDefault();
-  
-  const tr = config.tracks[currentTrack];
-  const fileName = getTrackFileName(tr, currentTrack, config.artist);
-  const filenameEl = document.getElementById('download-modal-filename');
-  if (filenameEl) filenameEl.innerHTML = `<b>${fileName}</b>`;
+  const fn = getTrackFileName(config.tracks[currentTrack], currentTrack, config.artist);
+  const el = document.getElementById('download-modal-filename');
+  if (el) el.innerHTML = `<b>${fn}</b>`;
   document.getElementById('download-modal').classList.add('active');
 }
-
-function closeDownloadModal() {
-  document.getElementById('download-modal').classList.remove('active');
-}
-
-document.getElementById('download-modal').onclick = function(e) {
-  if (e.target === this) closeDownloadModal();
-};
+document.getElementById('download-modal').onclick = function(e) { if (e.target === this) closeDownloadModal(); };
 
 function downloadCurrentTrack() {
-  const tr = config.tracks[currentTrack];
-  const fileName = getTrackFileName(tr, currentTrack, config.artist);
-  const url = tr.audio;
-  
   const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  window.setTimeout(() => {
-    document.body.removeChild(a);
-  }, 250);
-  closeDownloadModal();
-  NotificationSystem.success('Файл будет загружен!');
+  a.href = config.tracks[currentTrack].audio; a.download = getTrackFileName(config.tracks[currentTrack], currentTrack, config.artist);
+  document.body.appendChild(a); a.click();
+  setTimeout(() => document.body.removeChild(a), 250);
+  closeDownloadModal(); NotificationSystem.success('Файл будет загружен!');
 }
 
 async function shareCurrentTrack() {
-  const track = config.tracks[currentTrack];
-  const shareUrl = getShareLink(currentTrack);
-  const shareText = `🎵 ${track.title} - ${config.artist}\n🎧 Слушай на:`;
-  
+  const t = config.tracks[currentTrack], url = getShareLink(currentTrack), txt = `🎵 ${t.title} - ${config.artist}\n🎧 Слушай на:`;
   if (navigator.share) {
-    try {
-      await navigator.share({
-        title: track.title,
-        text: shareText,
-        url: shareUrl
-      });
-      NotificationSystem.success('Ссылка отправлена!');
-      closeDownloadModal();
-    } catch (e) {
-      // Пользователь отменил
-    }
-  } else {
-    navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-    NotificationSystem.success('Ссылка скопирована!');
-  }
+    try { await navigator.share({title: t.title, text: txt, url}); NotificationSystem.success('Ссылка отправлена!'); closeDownloadModal(); } catch(e){}
+  } else { navigator.clipboard.writeText(`${txt}\n${url}`); NotificationSystem.success('Ссылка скопирована!'); }
 }
 
-async function openInAppCurrentTrack() {
-  await shareCurrentTrack();
-}
+const openInAppCurrentTrack = async () => await shareCurrentTrack();
 
-// Функция копирования прямой ссылки на MP3
 function copyLinkCurrentTrack() {
-  const track = config.tracks[currentTrack];
-  const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
-  const directUrl = baseUrl + track.audio;
-  
+  const url = window.location.origin + window.location.pathname.replace('index.html', '') + config.tracks[currentTrack].audio;
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(directUrl).then(
-      () => NotificationSystem.success('Прямая ссылка на MP3 скопирована!'),
-      () => NotificationSystem.error('Не удалось скопировать ссылку')
-    );
+    navigator.clipboard.writeText(url).then(() => NotificationSystem.success('Прямая ссылка на MP3 скопирована!'), () => NotificationSystem.error('Не удалось скопировать ссылку'));
   } else {
-    const textarea = document.createElement("textarea");
-    textarea.value = directUrl;
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand('copy');
-      NotificationSystem.success('Прямая ссылка на MP3 скопирована!');
-    } catch(e) {
-      NotificationSystem.error('Не удалось скопировать ссылку');
-    }
-    document.body.removeChild(textarea);
+    const ta = document.createElement("textarea"); ta.value = url; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); NotificationSystem.success('Прямая ссылка на MP3 скопирована!'); } 
+    catch(e) { NotificationSystem.error('Не удалось скопировать ссылку'); } finally { document.body.removeChild(ta); }
   }
   closeDownloadModal();
 }
 
 // ==================== СКАЧИВАНИЕ АЛЬБОМА ====================
-function loadJSZip() {
-  if (window.JSZip) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
+const loadJSZip = () => window.JSZip ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 
 function initializeAlbumDownloadCheckboxes() {
-  const onlyFavCheckbox = document.getElementById('onlyFavorites');
-  const fullAlbumCheckbox = document.getElementById('fullAlbum');
-  
-  onlyFavCheckbox.addEventListener('change', function() {
+  const onlyFav = document.getElementById('onlyFavorites'), fullAlb = document.getElementById('fullAlbum');
+  onlyFav.addEventListener('change', function() {
     if (this.checked) {
-      fullAlbumCheckbox.checked = false;
-      const likedTracks = getLiked();
-      if (likedTracks.length === 0) {
-        this.checked = false;
-        NotificationSystem.warning('Нет избранных треков для скачивания');
-      }
+      fullAlb.checked = false;
+      if (getLiked().length === 0) { this.checked = false; NotificationSystem.warning('Нет избранных треков для скачивания'); }
     }
   });
-  
-  fullAlbumCheckbox.addEventListener('change', function() {
-    if (this.checked) {
-      onlyFavCheckbox.checked = false;
-    }
-  });
-  
+  fullAlb.addEventListener('change', function() { if (this.checked) onlyFav.checked = false; });
   checkFavoritesAvailable();
 }
 
 function checkFavoritesAvailable() {
-  const favCheckbox = document.getElementById('onlyFavorites');
-  const likedTracks = getLiked();
-  
-  if (likedTracks.length === 0) {
-    favCheckbox.disabled = true;
-    favCheckbox.parentElement.style.opacity = '0.5';
-    favCheckbox.parentElement.title = 'Нет избранных треков';
-  } else {
-    favCheckbox.disabled = false;
-    favCheckbox.parentElement.style.opacity = '1';
-    favCheckbox.parentElement.title = `Избранных: ${likedTracks.length}`;
-  }
+  const favCb = document.getElementById('onlyFavorites'), liked = getLiked();
+  favCb.disabled = !liked.length;
+  favCb.parentElement.style.opacity = liked.length ? '1' : '0.5';
+  favCb.parentElement.title = liked.length ? `Избранных: ${liked.length}` : 'Нет избранных треков';
 }
 
-function openAlbumDownloadModal() {
-  closeDownloadModal();
-  checkFavoritesAvailable();
-  document.getElementById('albumDownloadModal').classList.add('active');
-}
+function openAlbumDownloadModal() { closeDownloadModal(); checkFavoritesAvailable(); document.getElementById('albumDownloadModal').classList.add('active'); }
+function closeAlbumDownloadModal() { document.getElementById('albumDownloadModal').classList.remove('active'); }
+document.getElementById('albumDownloadModal').onclick = function(e) { if (e.target === this) closeAlbumDownloadModal(); };
 
-function closeAlbumDownloadModal() {
-  document.getElementById('albumDownloadModal').classList.remove('active');
-}
-
-document.getElementById('albumDownloadModal').onclick = function(e) {
-  if (e.target === this) closeAlbumDownloadModal();
-};
-
-// Функция подготовки файлов
 async function prepareFilesList() {
-  filesToDownload = [];
-  const addedFiles = new Set();
+  filesToDownload = []; const addedFiles = new Set();
+  const liked = getLiked(), indices = downloadOptions.onlyFavorites && liked.length ? liked : (downloadOptions.fullAlbum ? config.tracks.map((_, i) => i) : []);
   
-  let trackIndices = [];
-  const likedTracks = getLiked();
-  
-  if (downloadOptions.onlyFavorites && likedTracks.length > 0) {
-    trackIndices = likedTracks;
-  } else if (downloadOptions.fullAlbum) {
-    trackIndices = config.tracks.map((_, i) => i);
-  }
-  
-  for (let idx of trackIndices) {
-    const track = config.tracks[idx];
-    const num = String(idx + 1).padStart(2, '0');
-    const mp3FileName = `${num} - ${track.title} - ${config.artist}.mp3`;
+  for (let idx of indices) {
+    const tr = config.tracks[idx], num = String(idx + 1).padStart(2, '0');
+    const mp3 = `${num} - ${tr.title} - ${config.artist}.mp3`, txt = `${num} - ${tr.title} - ${config.artist}.txt`;
     
-    if (!addedFiles.has(mp3FileName)) {
-      addedFiles.add(mp3FileName);
-      filesToDownload.push({
-        url: track.audio,
-        name: mp3FileName,
-        type: 'audio'
-      });
-    }
-    
-    if (downloadOptions.includeLyrics && track.fulltext) {
-      const lyricsName = `${num} - ${track.title} - ${config.artist}.txt`;
-      
-      if (!addedFiles.has(lyricsName)) {
-        addedFiles.add(lyricsName);
-        try {
-          const response = await fetch(track.fulltext);
-          const text = await response.text();
-          filesToDownload.push({
-            content: text,
-            name: lyricsName,
-            type: 'text'
-          });
-        } catch(e) {
-          console.error('Не удалось загрузить текст для', track.title);
-        }
-      }
+    if (!addedFiles.has(mp3)) { addedFiles.add(mp3); filesToDownload.push({url: tr.audio, name: mp3, type: 'audio'}); }
+    if (downloadOptions.includeLyrics && tr.fulltext && !addedFiles.has(txt)) {
+      addedFiles.add(txt);
+      try { const res = await fetch(tr.fulltext); filesToDownload.push({content: await res.text(), name: txt, type: 'text'}); } catch(e) {}
     }
   }
   
-  if (downloadOptions.includeCovers) {
-    coverGalleryArr.forEach(cover => {
-      const coverName = cover.split('/').pop();
-      if (!addedFiles.has(coverName)) {
-        addedFiles.add(coverName);
-        filesToDownload.push({
-          url: cover,
-          name: coverName,
-          type: 'image'
-        });
-      }
-    });
-  }
-  
-  if (!addedFiles.has('logo.png')) {
-    filesToDownload.push({
-      url: 'img/logo.png',
-      name: 'logo.png',
-      type: 'image'
-    });
-  }
-  
-  if (!addedFiles.has('social.txt')) {
-    filesToDownload.push({
-      content: generateSocialText(),
-      name: 'social.txt',
-      type: 'text'
-    });
-  }
-  
-  console.log(`Подготовлено ${filesToDownload.length} файлов для архива`);
+  if (downloadOptions.includeCovers) coverGalleryArr.forEach(c => { const n = c.split('/').pop(); if(!addedFiles.has(n)) { addedFiles.add(n); filesToDownload.push({url: c, name: n, type: 'image'}); }});
+  if (!addedFiles.has('logo.png')) filesToDownload.push({url: 'img/logo.png', name: 'logo.png', type: 'image'});
+  if (!addedFiles.has('social.txt')) filesToDownload.push({content: generateSocialText(), name: 'social.txt', type: 'text'});
 }
 
-function generateSocialText() {
-  const socials = config.socials || [];
-  let socialLinks = '';
-  
-  socials.forEach(social => {
-    socialLinks += `${social.title}: ${social.url}\n`;
-  });
-  
-  return `═══════════════════════════════════════
-       ВИТРИНА РАЗБИТА - Между Злом и Добром
-═══════════════════════════════════════
+const generateSocialText = () => `═══════════════════════════════════════\n       ВИТРИНА РАЗБИТА - Между Злом и Добром\n═══════════════════════════════════════\n\nСпасибо за интерес к нашему творчеству!\nВаша поддержка очень важна для нас.\n\nПодписывайтесь на наши социальные сети:\n\n${(config.socials||[]).map(s => `${s.title}: ${s.url}\n`).join('')}Делитесь музыкой с друзьями!\nС любовью, группа "Витрина Разбита"\n\n═══════════════════════════════════════`;
 
-Спасибо за интерес к нашему творчеству!
-Ваша поддержка очень важна для нас.
-
-Подписывайтесь на наши социальные сети:
-
-${socialLinks}
-Делитесь музыкой с друзьями!
-С любовью, группа "Витрина Разбита"
-
-═══════════════════════════════════════`;
-}
 async function prepareDownload() {
-  downloadOptions.includeCovers = document.getElementById('includeCovers').checked;
-  downloadOptions.includeLyrics = document.getElementById('includeLyrics').checked;
-  downloadOptions.onlyFavorites = document.getElementById('onlyFavorites').checked;
-  downloadOptions.fullAlbum = document.getElementById('fullAlbum').checked;
+  Object.assign(downloadOptions, { includeCovers: document.getElementById('includeCovers').checked, includeLyrics: document.getElementById('includeLyrics').checked, onlyFavorites: document.getElementById('onlyFavorites').checked, fullAlbum: document.getElementById('fullAlbum').checked });
+  if (!downloadOptions.onlyFavorites && !downloadOptions.fullAlbum) return NotificationSystem.warning('Выберите треки для скачивания');
+  if (downloadOptions.onlyFavorites && !getLiked().length) return NotificationSystem.warning('Нет избранных треков для скачивания');
   
-  if (!downloadOptions.onlyFavorites && !downloadOptions.fullAlbum) {
-    NotificationSystem.warning('Выберите треки для скачивания');
-    return;
-  }
+  await loadJSZip(); await prepareFilesList();
+  if (!filesToDownload.length) return NotificationSystem.error('Нет файлов для создания архива');
   
-  if (downloadOptions.onlyFavorites && getLiked().length === 0) {
-    NotificationSystem.warning('Нет избранных треков для скачивания');
-    return;
-  }
-  
-  await loadJSZip();
-  await prepareFilesList();
-  
-  if (filesToDownload.length === 0) {
-    NotificationSystem.error('Нет файлов для создания архива');
-    return;
-  }
-  
-  const sizeMB = await calculateArchiveSize();
-  
-  document.getElementById('archiveSize').textContent = sizeMB + ' МБ';
+  document.getElementById('archiveSize').textContent = await calculateArchiveSize() + ' МБ';
   document.getElementById('fileCount').textContent = filesToDownload.length;
-  
-  closeAlbumDownloadModal();
-  document.getElementById('sizeConfirmModal').classList.add('active');
+  closeAlbumDownloadModal(); document.getElementById('sizeConfirmModal').classList.add('active');
 }
 
-// Функция расчёта размера архива
 async function calculateArchiveSize() {
-  let totalSize = 0;
-  const promises = [];
-  
-  for (let file of filesToDownload) {
-    if (file.url) {
-      const headPromise = fetch(file.url, { method: 'HEAD' })
-        .then(response => {
-          const size = response.headers.get('content-length');
-          return size ? parseInt(size) : null;
-        })
-        .catch(() => null);
-      
-      const heuristicPromise = new Promise(resolve => {
-        setTimeout(() => {
-          if (file.type === 'audio') resolve(4.7 * 1024 * 1024);
-          else if (file.type === 'image') resolve(500 * 1024);
-          else if (file.type === 'text') resolve(5 * 1024);
-          else resolve(100 * 1024);
-        }, 500);
-      });
-      
-      promises.push(
-        Promise.race([headPromise, heuristicPromise]).then(size => {
-          if (size) totalSize += size;
-        })
-      );
-    } else if (file.content) {
-      totalSize += new Blob([file.content]).size;
-    }
-  }
-  
-  await Promise.allSettled(promises);
-  
-  totalSize = Math.ceil(totalSize * 1.1);
-  
-  const sizeMB = (totalSize / 1024 / 1024).toFixed(1);
-  
-  if (sizeMB < 0.1) {
-    return "~" + (filesToDownload.length * 0.5).toFixed(1);
-  }
-  if (sizeMB > 500) {
-    return "~" + Math.min(sizeMB, 200).toFixed(1);
-  }
-  
-  return sizeMB;
+  let size = 0;
+  await Promise.allSettled(filesToDownload.map(f => f.url ? Promise.race([fetch(f.url, {method:'HEAD'}).then(r => parseInt(r.headers.get('content-length'))||null).catch(()=>null), new Promise(r => setTimeout(() => r(f.type==='audio'?4.7*1024*1024:f.type==='image'?500*1024:100*1024), 500))]).then(s => {if(s) size+=s;}) : (size += new Blob([f.content]).size)));
+  const mb = (Math.ceil(size * 1.1) / 1024 / 1024).toFixed(1);
+  return mb < 0.1 ? "~" + (filesToDownload.length * 0.5).toFixed(1) : (mb > 500 ? "~" + Math.min(mb, 200).toFixed(1) : mb);
 }
 
-function closeSizeConfirmModal() {
-  document.getElementById('sizeConfirmModal').classList.remove('active');
-}
-
-document.getElementById('sizeConfirmModal').onclick = function(e) {
-  if (e.target === this) closeSizeConfirmModal();
-};
-
-function startDownload() {
-  closeSizeConfirmModal();
-  createAndDownloadZip();
-}
+const closeSizeConfirmModal = () => document.getElementById('sizeConfirmModal').classList.remove('active');
+document.getElementById('sizeConfirmModal').onclick = function(e) { if (e.target === this) closeSizeConfirmModal(); };
+const startDownload = () => { closeSizeConfirmModal(); createAndDownloadZip(); };
 
 function showProgressModal() {
   document.getElementById('downloadProgressModal').classList.add('active');
   document.getElementById('progressFill').style.width = '0%';
-  document.getElementById('progressText').textContent = 'Загрузка файлов: 0/' + filesToDownload.length;
+  document.getElementById('progressText').textContent = `Загрузка файлов: 0/${filesToDownload.length}`;
   document.getElementById('errorsList').style.display = 'none';
 }
 
-function updateProgress(completed, total) {
-  const percent = Math.round((completed / total) * 100);
-  document.getElementById('progressFill').style.width = percent + '%';
-  document.getElementById('progressText').textContent = `Загрузка файлов: ${completed}/${total}`;
+function updateProgress(c, t) {
+  document.getElementById('progressFill').style.width = Math.round((c/t)*100) + '%';
+  document.getElementById('progressText').textContent = `Загрузка файлов: ${c}/${t}`;
 }
 
-function showErrors(errors) {
-  if (errors.length > 0) {
-    document.getElementById('errorsList').style.display = 'block';
-    document.getElementById('errorsListContent').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
-  }
+function showErrors(errs) {
+  if (!errs.length) return;
+  document.getElementById('errorsList').style.display = 'block';
+  document.getElementById('errorsListContent').innerHTML = errs.map(e => `<li>${e}</li>`).join('');
 }
 
-// Функция создания и скачивания ZIP архива
 async function createAndDownloadZip() {
-  if (!window.JSZip) {
-    await loadJSZip();
-  }
-  
-  const zip = new JSZip();
-  const errors = [];
-  let completed = 0;
-  
+  if (!window.JSZip) await loadJSZip();
+  const zip = new JSZip(), errs = []; let done = 0;
   showProgressModal();
   
-  // Параллельная загрузка с ограничением
-  const BATCH_SIZE = 5;
-  
-  for (let i = 0; i < filesToDownload.length; i += BATCH_SIZE) {
-    const batch = filesToDownload.slice(i, i + BATCH_SIZE);
-    
-    await Promise.allSettled(
-      batch.map(async file => {
-        try {
-          if (file.url) {
-            const response = await fetch(file.url);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const blob = await response.blob();
-            zip.file(file.name, blob);
-          } else if (file.content) {
-            zip.file(file.name, file.content);
-          }
-          
-          completed++;
-          updateProgress(completed, filesToDownload.length);
-          
-        } catch (error) {
-          errors.push(file.name);
-          console.error(`Ошибка загрузки ${file.name}:`, error);
-          completed++;
-          updateProgress(completed, filesToDownload.length);
-        }
-      })
-    );
+  for (let i = 0; i < filesToDownload.length; i += 5) {
+    await Promise.allSettled(filesToDownload.slice(i, i + 5).map(async f => {
+      try {
+        if (f.url) { const r = await fetch(f.url); if(!r.ok) throw new Error(); zip.file(f.name, await r.blob()); } 
+        else if (f.content) zip.file(f.name, f.content);
+      } catch (e) { errs.push(f.name); }
+      updateProgress(++done, filesToDownload.length);
+    }));
   }
   
-  if (errors.length > 0) {
-    showErrors(errors);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
-  
+  if (errs.length) { showErrors(errs); await new Promise(r => setTimeout(r, 2000)); }
   document.getElementById('progressText').textContent = 'Создание архива...';
   
-  const content = await zip.generateAsync({
-    type: "blob",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-    streamFiles: true
-  }, function updateCallback(metadata) {
-    const progress = metadata.percent.toFixed(0);
-    document.getElementById('progressText').textContent = `Создание архива: ${progress}%`;
-    document.getElementById('progressFill').style.width = progress + '%';
+  const content = await zip.generateAsync({type: "blob", compression: "DEFLATE", compressionOptions: {level: 6}, streamFiles: true}, m => {
+    document.getElementById('progressText').textContent = `Создание архива: ${m.percent.toFixed(0)}%`;
+    document.getElementById('progressFill').style.width = m.percent.toFixed(0) + '%';
   });
   
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(content);
-  
-  const date = new Date().toISOString().split('T')[0];
-  link.download = `vitrina-razbita-${date}.zip`;
-  
-  link.click();
-  
-  setTimeout(() => {
-    document.getElementById('downloadProgressModal').classList.remove('active');
-    NotificationSystem.success('Архив успешно скачан!');
-    URL.revokeObjectURL(link.href);
-  }, 1500);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(content); a.download = `vitrina-razbita-${new Date().toISOString().split('T')[0]}.zip`; a.click();
+  setTimeout(() => { document.getElementById('downloadProgressModal').classList.remove('active'); NotificationSystem.success('Архив успешно скачан!'); URL.revokeObjectURL(a.href); }, 1500);
 }
-
 // ==================== ОФЛАЙН РЕЖИМ ====================
 function offlineUIClick() {
   if (offlineDownloading) return;
