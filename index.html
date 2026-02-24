@@ -711,8 +711,6 @@ function setupMediaSession() {
   for (const [k, v] of Object.entries(binds)) ms.setActionHandler(k, v);
 }
 
-// legacy loadLyrics/renderLyrics removed (LyricsController fetches & renders)
-
 function copyLyrics() {
   const t = config?.tracks?.[currentTrack];
   if (!t?.fulltext) return NotificationSystem.warning("Файл с текстом не найден!");
@@ -1151,8 +1149,6 @@ window.addEventListener('appinstalled', () => Ach.unlock('pwa_installed'));
 function openFeedbackModal() { NotificationSystem.info('Обратная связь в Telegram — скоро будет'); }
 function closeFeedbackModal() {}
 
-// escapeHtml moved up with LyricsController
-// LyricsController moved up (see earlier in file)
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator && 'caches' in window) console.log('PWA features supported');
   else console.warn('PWA features not fully supported');
