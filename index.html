@@ -387,131 +387,58 @@ header{width:100%;text-align:center;margin:0 auto}
   .bottom-controls-center{padding-bottom:calc(env(safe-area-inset-bottom) + 10px)}
 }
 /* lyrics: countdown / spinner / placeholder */
-.lyrics-placeholder{
-  opacity:.75;
-  text-align:center;
-  padding:10px 0;
-  font-size:1em;
-  color:#c9c9c9;
-}
-.lyrics-spinner{
-  width:22px;height:22px;
-  border:2px solid rgba(255,255,255,.25);
-  border-top-color: var(--secondary-color);
-  border-radius:50%;
-  margin:6px auto;
-  animation:spin .8s linear infinite;
-}
+.lyrics-placeholder{opacity:.75;text-align:center;padding:10px 0;font-size:1em;color:#c9c9c9}
+.lyrics-spinner{width:22px;height:22px;border:2px solid rgba(255,255,255,.25);border-top-color:var(--secondary-color);border-radius:50%;margin:6px auto;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-.lyrics-countdown{
-  font: 700 46px/1 "SF Mono",Monaco,"Courier New",monospace;
-  color: var(--secondary-color);
-  text-align:center;
-  padding:8px 0;
-  letter-spacing:.04em;
-}
-.lyrics-countdown.fade-out{
-  transition: opacity .25s ease;
-}
-/* no hover */
+.lyrics-countdown{font:700 46px/1 "SF Mono",Monaco,"Courier New",monospace;color:var(--secondary-color);text-align:center;padding:8px 0;letter-spacing:.04em}
+.lyrics-countdown.fade-out{transition:opacity .25s ease}
 @media (hover:none){.tooltip{display:none}}
 </style>
-  <!-- turnstile removed: no external services -->
 </head>
 <body>
 <div id="promocode-block"><div class="promo-inner"><img class="promo-cover" src="Cover.png" alt="Обложка" draggable="false"/><h2>Вход по промокоду</h2><input id="promo-inp" type="text" placeholder="Введите промокод" autocomplete="off" autofocus disabled /><button id="promo-btn" onclick="checkPromo()" disabled>Войти</button><div id="promo-error"></div></div></div>
 <div id="main-block" class="hidden">
   <header>
     <div id="cover-wrap">
-      <button class="cover-gallery-arrow" id="cover-gallery-arrow-left" aria-label="Предыдущая обложка" type="button">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true">
-          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-        </svg>
-      </button>
-
+      <button class="cover-gallery-arrow" id="cover-gallery-arrow-left" aria-label="Предыдущая обложка" type="button"><svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
       <img id="cover" src="Cover.png" alt="Обложка" draggable="false" />
-
-      <button class="cover-gallery-arrow" id="cover-gallery-arrow-right" aria-label="Следующая обложка" type="button">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true">
-          <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
-        </svg>
-      </button>
+      <button class="cover-gallery-arrow" id="cover-gallery-arrow-right" aria-label="Следующая обложка" type="button"><svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg></button>
     </div>
-
     <div class="socials-under-cover" id="social-links" aria-label="Социальные сети"></div>
-
-    <!-- Прогресс достижений -->
     <div id="ach-progress-root" class="ach-progress-root" aria-live="polite">
-      <!-- подсказка сразу под соцблоком -->
-      <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">
-        ✨ Мы готовим достижения. Слушайте — прогресс уже копится.
-      </div>
-
-      <!-- Новый заголовок по центру и КАПСОМ -->
-      <div class="ach-progress-header ach-center">
-        <span class="ach-progress-title">ПРОГРЕСС ДОСТИЖЕНИЙ</span>
-      </div>
-
-      <!-- ОДНА шкала прогресса + подпись ВЫПОЛНЕНО: X / Y -->
+      <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">✨ Мы готовим достижения. Слушайте — прогресс уже копится.</div>
+      <div class="ach-progress-header ach-center"><span class="ach-progress-title">ПРОГРЕСС ДОСТИЖЕНИЙ</span></div>
       <div class="ach-progress-bars">
-        <div class="ach-bar ach-bar-single">
-          <div class="ach-bar-fill" id="ach-one-fill" style="width:0%"></div>
-        </div>
+        <div class="ach-bar ach-bar-single"><div class="ach-bar-fill" id="ach-one-fill" style="width:0%"></div></div>
         <div class="ach-done-label" id="ach-done-label">ВЫПОЛНЕНО: 0 / 34</div>
-        <!-- Новая строка-счётчик секретных (показывается после старта секретного этапа) -->
         <div class="ach-done-label" id="ach-secret-label" style="display:none;">СЕКРЕТНЫЕ: 0 / 0</div>
       </div>
-
-      <!-- Кнопки резервной копии -->
       <div class="ach-backup-controls" id="ach-backup-controls">
         <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
         <input type="file" id="backup-file-input" accept="application/json" hidden />
       </div>
-
-      <!-- Anti‑tamper баннер (скрыт по умолчанию) -->
       <div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive">
-        <div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div>
-        <div style="margin-top:6px; color:#ffd1d1;">
-          Для участия в призах импортируйте валидный бэкап, иначе прогресс может не подтверждаться.
-        </div>
+        <div style="font-weight:800;letter-spacing:.04em;text-transform:uppercase;">Обнаружены изменения данных</div>
+        <div style="margin-top:6px;color:#ffd1d1;">Для участия в призах импортируйте валидный бэкап, иначе прогресс может не подтверждаться.</div>
         <div class="actions">
           <button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button>
           <button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button>
         </div>
       </div>
-
       <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
     </div>
   </header>
-
   <div class="track-list" id="track-list"></div>
+  <div class="bottom-controls-center"><button class="filter-favorites-btn" id="filter-favorites-btn" onclick="toggleFavoritesFilter()">Скрыть не отмеченные ⭐ песни</button><img class="logo-bottom" id="logo-bottom" src="img/logo.png" alt="Логотип" onclick="handleLogoClick()"/><button id="install-pwa-btn" style="display:none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button><button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button><div id="my-stats-root" class="my-stats-root"><button class="my-stats-header" id="my-stats-toggle" type="button" aria-expanded="false">МОЯ СТАТИСТИКА<span class="chev" aria-hidden="true">▼</span></button><div class="my-stats-body" id="my-stats-body" hidden></div></div><button class="hotkeys-btn" id="hotkeys-btn" style="display:none;" onclick="showHotkeysModal()">ГОРЯЧИЕ КЛАВИШИ</button><span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span><button class="support-link" id="support-link" type="button">ПОДДЕРЖАТЬ</button><button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button></div>
+</div>
 
-  <div class="bottom-controls-center"><button class="filter-favorites-btn" id="filter-favorites-btn" onclick="toggleFavoritesFilter()">Скрыть не отмеченные ⭐ песни</button><img class="logo-bottom" id="logo-bottom" src="img/logo.png" alt="Логотип" onclick="handleLogoClick()"/><button id="install-pwa-btn" style="display: none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button><button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button><div id="my-stats-root" class="my-stats-root"><button class="my-stats-header" id="my-stats-toggle" type="button" aria-expanded="false">МОЯ СТАТИСТИКА<span class="chev" aria-hidden="true">▼</span></button><div class="my-stats-body" id="my-stats-body" hidden></div></div><!-- prizes removed -->
-<!-- global stats removed --><button class="hotkeys-btn" id="hotkeys-btn" style="display:none;" onclick="showHotkeysModal()">ГОРЯЧИЕ КЛАВИШИ</button><span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span><button class="support-link" id="support-link" type="button">ПОДДЕРЖАТЬ</button><button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button></div></div>
-<!-- feedback modal removed -->
-<!-- prizes modals removed -->
-<div class="modal-bg" id="albumDownloadModal"><div class="modal-feedback" style="max-width: 400px;"><h2 style="text-align: center; margin-bottom: 25px;">Между Злом и Добром</h2><div class="download-options"><label class="checkbox-container"><input type="checkbox" id="includeCovers" checked><span class="checkmark"></span>Обложки (галерея)</label><label class="checkbox-container"><input type="checkbox" id="includeLyrics" checked><span class="checkmark"></span>Тексты песен</label><hr style="margin: 15px 0; border-color: #333;"><label class="checkbox-container"><input type="checkbox" id="onlyFavorites"><span class="checkmark"></span>Только избранные песни</label><label class="checkbox-container"><input type="checkbox" id="fullAlbum" checked><span class="checkmark"></span>Полностью альбом</label></div><div class="modal-buttons"><button onclick="closeAlbumDownloadModal()" class="btn-secondary">ОТМЕНА</button><button onclick="prepareDownload()" class="btn-primary">СКАЧАТЬ</button></div></div></div>
+<div class="modal-bg" id="albumDownloadModal"><div class="modal-feedback" style="max-width:400px;"><h2 style="text-align:center;margin-bottom:25px;">Между Злом и Добром</h2><div class="download-options"><label class="checkbox-container"><input type="checkbox" id="includeCovers" checked><span class="checkmark"></span>Обложки (галерея)</label><label class="checkbox-container"><input type="checkbox" id="includeLyrics" checked><span class="checkmark"></span>Тексты песен</label><hr style="margin:15px 0;border-color:#333;"><label class="checkbox-container"><input type="checkbox" id="onlyFavorites"><span class="checkmark"></span>Только избранные песни</label><label class="checkbox-container"><input type="checkbox" id="fullAlbum" checked><span class="checkmark"></span>Полностью альбом</label></div><div class="modal-buttons"><button onclick="closeAlbumDownloadModal()" class="btn-secondary">ОТМЕНА</button><button onclick="prepareDownload()" class="btn-primary">СКАЧАТЬ</button></div></div></div>
 <div class="modal-bg" id="modal-backup-prompt"><div class="modal-feedback" style="max-width:400px;"><button class="bigclose" onclick="closeBackupPrompt()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Сохраните ваши достижения</div><div style="color:#bbb;line-height:1.5;margin-bottom:10px;">Сохраните файл резервной копии, чтобы не потерять прогресс. При утере данных приз может быть не подтверждён без файла.</div><label class="checkbox-container" style="margin-top:6px;"><input type="checkbox" id="backup-opt-never"><span class="checkmark"></span>Не напоминать больше</label><label class="checkbox-container" style="margin-top:6px;"><input type="checkbox" id="backup-opt-5"><span class="checkmark"></span>Напомнить через 5 достижений</label><div style="display:flex;gap:8px;justify-content:center;margin-top:12px;"><button class="btn-secondary" onclick="closeBackupPromptWithChoice()">Отмена</button><button class="btn-primary" onclick="backupExportWithLevel()">Сохранить…</button></div></div></div>
 <div class="modal-bg" id="reset-modal"><div class="modal-feedback" style="max-width:320px;"><button class="bigclose" onclick="closeResetModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Очистка данных</div><button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeResetModal();promptReset('stats')">Очистить статистику</button><button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeResetModal();promptReset('ach')">Очистить достижения</button><button class="offline-btn online" style="width:98%;" onclick="closeResetModal();promptReset('all')">Сбросить всё</button></div></div>
-
-<div class="modal-bg" id="modal-offline">
-  <div class="modal-feedback" style="max-width: 420px;">
-    <button class="bigclose" onclick="closeOfflineModal()" title="Закрыть">
-      <svg viewBox="0 0 48 48">
-        <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
-        <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
-      </svg>
-    </button>
-    <div id="offline-step"></div>
-  </div>
-</div>
-<div class="modal-bg" id="backup-actions-modal"><div class="modal-feedback" style="max-width:360px;"><button class="bigclose" onclick="closeBackupActions()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div class="download-modal-title">Сохранение достижений</div><button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupExportWithLevel()">Сохранить на устройство</button>
-<button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupShare()">Отправить</button>
-<button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();document.getElementById('backup-file-input').click()">Импорт</button>
-<div style="text-align:center;color:#9aa8c4;font-size:.9em;margin-top:6px;">Облачный бэкап — скоро будет</div></div></div>
-<div class="modal-bg" id="sizeConfirmModal"><div class="modal-feedback" style="max-width: 350px;"><h3 style="text-align: center;">Подтверждение загрузки</h3><div class="size-info"><div style="font-size: 48px; color: #E80100; margin-bottom: 15px;">📦</div><p style="font-size: 18px; margin: 10px 0;">Размер архива: <strong id="archiveSize">0 МБ</strong></p><p style="color: #888; font-size: 14px;">Файлов в архиве: <span id="fileCount">0</span></p></div><div class="modal-buttons"><button onclick="closeSizeConfirmModal()" class="btn-secondary">ОТМЕНА</button><button onclick="startDownload()" class="btn-primary">СКАЧАТЬ</button></div></div></div>
-<div class="modal-bg" id="downloadProgressModal"><div class="modal-feedback" style="max-width: 400px;"><h3 style="text-align: center; margin-bottom: 20px;">Подготовка архива</h3><div class="progress-bar"><div id="progressFill" class="progress-fill" style="width: 0%"></div></div><p id="progressText" style="text-align: center; margin-top: 10px;">Загрузка файлов: 0/0</p><div id="errorsList" style="display: none; color: #ff6b6b; font-size: 14px; margin-top: 15px;"><p><strong>Не удалось загрузить:</strong></p><ul id="errorsListContent"></ul></div></div></div>
+<div class="modal-bg" id="modal-offline"><div class="modal-feedback" style="max-width:420px;"><button class="bigclose" onclick="closeOfflineModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div id="offline-step"></div></div></div>
+<div class="modal-bg" id="backup-actions-modal"><div class="modal-feedback" style="max-width:360px;"><button class="bigclose" onclick="closeBackupActions()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div class="download-modal-title">Сохранение достижений</div><button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupExportWithLevel()">Сохранить на устройство</button><button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupShare()">Отправить</button><button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();document.getElementById('backup-file-input').click()">Импорт</button><div style="text-align:center;color:#9aa8c4;font-size:.9em;margin-top:6px;">Облачный бэкап — скоро будет</div></div></div>
+<div class="modal-bg" id="sizeConfirmModal"><div class="modal-feedback" style="max-width:350px;"><h3 style="text-align:center;">Подтверждение загрузки</h3><div class="size-info"><div style="font-size:48px;color:#E80100;margin-bottom:15px;">📦</div><p style="font-size:18px;margin:10px 0;">Размер архива: <strong id="archiveSize">0 МБ</strong></p><p style="color:#888;font-size:14px;">Файлов в архиве: <span id="fileCount">0</span></p></div><div class="modal-buttons"><button onclick="closeSizeConfirmModal()" class="btn-secondary">ОТМЕНА</button><button onclick="startDownload()" class="btn-primary">СКАЧАТЬ</button></div></div></div>
+<div class="modal-bg" id="downloadProgressModal"><div class="modal-feedback" style="max-width:400px;"><h3 style="text-align:center;margin-bottom:20px;">Подготовка архива</h3><div class="progress-bar"><div id="progressFill" class="progress-fill" style="width:0%"></div></div><p id="progressText" style="text-align:center;margin-top:10px;">Загрузка файлов: 0/0</p><div id="errorsList" style="display:none;color:#ff6b6b;font-size:14px;margin-top:15px;"><p><strong>Не удалось загрузить:</strong></p><ul id="errorsListContent"></ul></div></div></div>
 <div class="modal-bg" id="hotkeys-modal"><div class="hotkeys-modal"><button class="bigclose" onclick="closeHotkeysModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><h2>📌 ГОРЯЧИЕ КЛАВИШИ</h2><div class="hotkeys-section"><h3>▶️ Воспроизведение</h3><div class="hotkey-item"><span class="hotkey-combo">K / Пробел</span><span class="hotkey-desc">Воспроизведение/Пауза</span></div><div class="hotkey-item"><span class="hotkey-combo">X</span><span class="hotkey-desc">Стоп</span></div><div class="hotkey-item"><span class="hotkey-combo">N</span><span class="hotkey-desc">Следующий трек</span></div><div class="hotkey-item"><span class="hotkey-combo">P</span><span class="hotkey-desc">Предыдущий трек</span></div><div class="hotkey-item"><span class="hotkey-combo">J / L</span><span class="hotkey-desc">Перемотка ←10сек / 10сек→</span></div><div class="hotkey-item"><span class="hotkey-combo">+ / -</span><span class="hotkey-desc">Громкость ±10%</span></div></div><div class="hotkeys-section"><h3>🎵 Режимы</h3><div class="hotkey-item"><span class="hotkey-combo">R</span><span class="hotkey-desc">Повтор</span></div><div class="hotkey-item"><span class="hotkey-combo">U</span><span class="hotkey-desc">Случайный порядок</span></div><div class="hotkey-item"><span class="hotkey-combo">F</span><span class="hotkey-desc">Избранные</span></div><div class="hotkey-item"><span class="hotkey-combo">M</span><span class="hotkey-desc">Без звука</span></div><div class="hotkey-item"><span class="hotkey-combo">T</span><span class="hotkey-desc">Таймер сна</span></div></div><div class="hotkeys-section"><h3>✨ Эффекты</h3><div class="hotkey-item"><span class="hotkey-combo">A</span><span class="hotkey-desc">Анимация лирики</span></div><div class="hotkey-item"><span class="hotkey-combo">B</span><span class="hotkey-desc">Пульсация логотипа</span></div><div class="hotkey-item"><span class="hotkey-combo">1 / 2 / 3</span><span class="hotkey-desc">Интенсивность (100%/50%/15%)</span></div></div><div class="hotkeys-section"><h3>📱 Интерфейс</h3><div class="hotkey-item"><span class="hotkey-combo">Y</span><span class="hotkey-desc">Показать лирику</span></div><div class="hotkey-item"><span class="hotkey-combo">W</span><span class="hotkey-desc">Показать плейлист</span></div><div class="hotkey-item"><span class="hotkey-combo">D</span><span class="hotkey-desc">В избранное</span></div><div class="hotkey-item"><span class="hotkey-combo">/</span><span class="hotkey-desc">Поиск</span></div><div class="hotkey-item"><span class="hotkey-combo">?</span><span class="hotkey-desc">Эта справка</span></div><div class="hotkey-item"><span class="hotkey-combo">Esc</span><span class="hotkey-desc">Закрыть окно</span></div></div><div class="hotkeys-section"><h3>💡 Комбинации</h3><div class="hotkey-item"><span class="hotkey-combo">Shift + F</span><span class="hotkey-desc">Фильтр избранных</span></div><div class="hotkey-item"><span class="hotkey-combo">Shift + V</span><span class="hotkey-desc">Громкость 50%</span></div><div class="hotkey-item"><span class="hotkey-combo">0</span><span class="hotkey-desc">Выключить/включить звук</span></div></div></div></div>
 <div class="modal-bg" id="achievements-modal"><div class="modal-feedback ach-modal"><button class="bigclose" onclick="closeAchievementsModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div class="sticky-head"><h2>Список достижений</h2><div class="ach-tabs"><button class="ach-tab active" data-filter="all">Все</button><button class="ach-tab" data-filter="available">Доступные</button><button class="ach-tab" data-filter="done">Выполненные</button><button class="ach-tab" data-filter="secret">Секретные</button></div></div><div class="ach-list-wrap" id="ach-list-container"></div></div></div>
 
@@ -519,440 +446,30 @@ header{width:100%;text-align:center;margin:0 auto}
 const VERSION='6.3.1',BUILD_DATE='2025-01-17';
 setTimeout(()=>{try{const i=document.getElementById('promo-inp'),b=document.getElementById('promo-btn');if(i&&b&&(i.disabled||b.disabled)){i.disabled=!1;b.disabled=!1;const e=document.getElementById('promo-error');if(e&&!configLoaded){e.textContent='Конфиг ещё грузится... Можно попробовать промокод';e.style.color='#9aa8c4'}}}catch(e){}},1000);
 console.log(`%c🎵 Витрина Разбита PWA v${VERSION}`,'color: #E80100; font-size: 16px; font-weight: bold;');console.log(`%cBuild: ${BUILD_DATE}`,'color: #4daaff; font-size: 12px;');
-const FeatureFlags={
-  achievementsUI:(localStorage.getItem('ff_achievements_ui')??'1')==='1',
-  statsCollect:(localStorage.getItem('ff_stats_collect')??'1')==='1',
-  achievementsLogic:(localStorage.getItem('ff_achievements_logic')??'0')==='1'
-};
-localStorage.setItem('secret_start_at', '1');
+const FeatureFlags={achievementsUI:(localStorage.getItem('ff_achievements_ui')??'1')==='1',statsCollect:(localStorage.getItem('ff_stats_collect')??'1')==='1',achievementsLogic:(localStorage.getItem('ff_achievements_logic')??'0')==='1'};
+localStorage.setItem('secret_start_at','1');
 const DOM={};let config=null,promoPassed=!1,configLoaded=!1,coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'],coverGalleryIdx=0,coverAutoplay=null,currentTrack=-1,autoPlayEnabled=!0,offlineMode=!1,offlineDownloading=!1,deferredPrompt=null,shuffleMode=!1,shuffledPlaylist=[],shuffleIndex=0,repeatMode=!1,favoritesOnlyMode=!1,availableTracks=[],favoritesFilterActive=!1,animationEnabled=!1,bitEnabled=!1,bitIntensity=100,audioContext=null,analyser=null,audioSource=null,animationFrame=null,hasShownAnimationWarning=!1,hasShownBitWarning=!1,downloadOptions={includeCovers:!0,includeLyrics:!0,onlyFavorites:!1,fullAlbum:!0},filesToDownload=[];
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').then(async r=>{console.log('Service Worker registered',r);await navigator.serviceWorker.ready;syncOfflineState();try{r.active&&r.active.postMessage({type:'REQUEST_OFFLINE_STATE'})}catch(e){}try{r.update()}catch(e){}setInterval(async()=>{try{const x=await navigator.serviceWorker.getRegistration();if(x)x.update()}catch(e){}},36e5);r.addEventListener('updatefound',()=>{const w=r.installing;w.addEventListener('statechange',()=>{if(w.state==='activated')NotificationSystem.info('Приложение обновлено')})})});let __swReloaded=!1;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(__swReloaded)return;__swReloaded=!0;try{NotificationSystem.info('Обновление применено, перезагрузка...')}catch(e){}setTimeout(()=>location.reload(),300)});navigator.serviceWorker.addEventListener('message',e=>{const m=e.data||{};if(m.type==='CACHE_UPDATED')console.log('Cache updated to version:',m.version);if(m.type==='OFFLINE_STATE'){offlineMode=!!m.value;setOfflineUIState(offlineMode?'offline':'online')}if(m.type==='CLEAR_ALL_POSITIONS')PositionManager.clearAll()})}function syncOfflineState(){offlineMode=localStorage.getItem('offlineMode')==='1';if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'SET_OFFLINE_MODE',value:offlineMode})}
 
-class NotificationSystem {
-  static queue = []; static isShowing = false;
-  static show(message, type = 'info', duration = 3000) {
-    this.queue.push({ message, type, duration });
-    if (!this.isShowing) this.processQueue();
-  }
-  static async processQueue() {
-    if (!this.queue.length) return (this.isShowing = false);
-    this.isShowing = true;
-    const { message, type, duration } = this.queue.shift();
-    const t = document.createElement('div');
-    t.className = `toast toast-${type}`;
-    t.innerHTML = `<div class="toast-content"><span class="toast-emoji" aria-hidden="true"></span><span class="toast-text">${message}</span></div>`;
-    document.body.appendChild(t);
-    try { AnimatedEmoji.mount(t.querySelector('.toast-emoji'), type, message, 24); } catch(e) {}
-    await new Promise(r => setTimeout(r, 50)); t.classList.add('show');
-    await new Promise(r => setTimeout(r, duration)); t.classList.remove('show');
-    await new Promise(r => setTimeout(r, 300)); t.remove();
-    this.processQueue();
-  }
-  static getIcon(type) { return { info: '📢', success: '✅', error: '❌', warning: '⚠️', offline: '📡' }[type] || '📢'; }
-  static info(msg) { this.show(msg, 'info'); }
-  static success(msg) { this.show(msg, 'success'); }
-  static error(msg) { this.show(msg, 'error', 5000); }
-  static warning(msg) { this.show(msg, 'warning', 4000); }
-  static offline(msg) { this.show(msg, 'offline'); }
-}
+class NotificationSystem{static queue=[];static isShowing=!1;static show(m,t='info',d=3000){this.queue.push({m,t,d});if(!this.isShowing)this.processQueue()}static async processQueue(){if(!this.queue.length)return(this.isShowing=!1);this.isShowing=!0;const{m,t,d}=this.queue.shift();const el=document.createElement('div');el.className=`toast toast-${t}`;el.innerHTML=`<div class="toast-content"><span class="toast-emoji" aria-hidden="true"></span><span class="toast-text">${m}</span></div>`;document.body.appendChild(el);try{AnimatedEmoji.mount(el.querySelector('.toast-emoji'),t,m,24)}catch(e){}await new Promise(r=>setTimeout(r,50));el.classList.add('show');await new Promise(r=>setTimeout(r,d));el.classList.remove('show');await new Promise(r=>setTimeout(r,300));el.remove();this.processQueue()}static getIcon(t){return{info:'📢',success:'✅',error:'❌',warning:'⚠️',offline:'📡'}[t]||'📢'}static info(m){this.show(m,'info')}static success(m){this.show(m,'success')}static error(m){this.show(m,'error',5000)}static warning(m){this.show(m,'warning',4000)}static offline(m){this.show(m,'offline')}}
 
-/* ==================== escapeHtml + LYRICS CONTROLLER (moved up) ==================== */
-const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const escapeHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-const LyricsController = (() => {
-  const LS = { VIEW: 'lyricsViewMode', ANIM: 'animationEnabled' };
-  const SS = { C404: 'lyrics_404_cache:v2', PRE: 'lyrics_cache_' };
-  const NO_LYR = '__NO_LYRICS__';
-  const PENDING = new Map();
+const LyricsController=(()=>{const LS={VIEW:'lyricsViewMode',ANIM:'animationEnabled'},SS={C404:'lyrics_404_cache:v2',PRE:'lyrics_cache_'},NO_LYR='__NO_LYRICS__',PENDING=new Map(),st={list:[],has:!1,mode:'normal',anim:!1,activeIdx:-100,firstTime:null,lastCountdownSec:null,_normalized:!1},dom={win:null,lyr:null,bg:null},store=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch{}},sess=(k,v)=>{try{if(v===undefined){const r=sessionStorage.getItem(k);return r?JSON.parse(r):null}sessionStorage.setItem(k,JSON.stringify(v))}catch{}},c404={get:()=>sess(SS.C404)||{},has:u=>!!c404.get()[u],add:u=>{const m=c404.get();m[u]=Date.now();const keys=Object.keys(m);if(keys.length>50)keys.sort((a,b)=>m[a]-m[b]).slice(0,20).forEach(x=>delete m[x]);sess(SS.C404,m)}};function initDom(){const blk=document.getElementById('lyricsplayerblock');if(!blk)return!1;dom.win=blk.querySelector('#lyrics-window');dom.lyr=blk.querySelector('#lyrics');dom.bg=blk.querySelector('.lyrics-animated-bg');return!!dom.win&&!!dom.lyr}function parse(arr){st.list=(Array.isArray(arr)?arr:[]).map(i=>({time:Number(i?.time),text:String(i?.line??i?.text??'').trim()})).filter(x=>Number.isFinite(x.time)&&x.text.length>0).sort((a,b)=>a.time-b.time);st.has=st.list.length>0;st.firstTime=st.has?st.list[0].time:null;st.activeIdx=-100;st.lastCountdownSec=null;st._normalized=!1}function normalizeTimesIfNeeded(){if(!st.has||st._normalized)return;st._normalized=!0;const t0=st.firstTime;if(!t0)return;if(t0>300){const div=t0/1000;if(div>0&&div<300){st.list=st.list.map(x=>({...x,time:x.time/1000}));st.firstTime=st.list[0].time}}}async function fetchLyricsJson(url){const u=String(url||'').trim();if(!u||c404.has(u))return null;const k=SS.PRE+u,cached=sess(k);if(cached)return cached===NO_LYR?null:cached;if(PENDING.has(u))return PENDING.get(u);const p=(async()=>{try{const r=await fetch(u,{cache:'force-cache',headers:{Accept:'application/json'}});if(!r.ok){if(r.status===404)c404.add(u);throw new Error('HTTP '+r.status)}const j=await r.json();if(Array.isArray(j)){sess(k,j);return j}}catch(e){if(!navigator.onLine)return null}sess(k,NO_LYR);return null})();PENDING.set(u,p);const res=await p;PENDING.delete(u);return res}function setPlaceholder(html){if(!initDom())return;dom.lyr.innerHTML=html}function updateWindowMode(){if(!initDom())return;dom.win.classList.remove('lyrics-normal','lyrics-hidden','lyrics-expanded');dom.win.classList.add(`lyrics-${st.mode}`);const anim=st.anim&&st.mode!=='hidden'&&st.has;dom.bg?.classList.toggle('active',anim);dom.win?.classList.toggle('animation-active',anim)}function computeActiveIndex(posSec){let lo=0,hi=st.list.length-1,ans=0;while(lo<=hi){const mid=(lo+hi)>>1;if(posSec>=st.list[mid].time){ans=mid;lo=mid+1}else hi=mid-1}return ans}function renderWindow(activeIdx){if(!initDom()||!st.has)return;const winSz=st.mode==='expanded'?9:5,half=(winSz-1)/2,start=Math.max(0,activeIdx-half),padTop=Math.max(0,half-activeIdx),end=Math.min(st.list.length,start+winSz-padTop);let html='';for(let i=0;i<padTop;i++)html+='<div class="lyrics-window-line"></div>';for(let i=start;i<end;i++)html+=`<div class="lyrics-window-line${i===activeIdx?' active':''}">${escapeHtml(st.list[i].text)}</div>`;const drawn=padTop+(end-start);for(let i=drawn;i<winSz;i++)html+='<div class="lyrics-window-line"></div>';dom.lyr.innerHTML=html}function renderTick(posSec){if(st.mode==='hidden'||!initDom()||!st.has)return;normalizeTimesIfNeeded();const first=st.firstTime??0;if(posSec<first&&first>5){const rem=first-posSec,sec=Math.ceil(rem);if(st.lastCountdownSec===sec&&rem>=1)return;st.lastCountdownSec=sec;st.activeIdx=-sec;const style=rem<1?` style="opacity:${Math.max(0,Math.min(1,rem)).toFixed(2)}"`:'',cls=rem<1?' fade-out':'';dom.lyr.innerHTML=`<div class="lyrics-countdown${cls}"${style}>${sec}</div>`;return}const idx=computeActiveIndex(posSec);if(idx===st.activeIdx)return;st.activeIdx=idx;st.lastCountdownSec=null;renderWindow(idx)}async function onTrackChange(track){st.has=!1;st.list=[];st.firstTime=null;st.activeIdx=-100;st.lastCountdownSec=null;st._normalized=!1;updateWindowMode();if(!initDom())return;if(!track?.lyrics){setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');return}setPlaceholder('<div class="lyrics-spinner"></div>');const data=await fetchLyricsJson(track.lyrics);if(data){parse(data);normalizeTimesIfNeeded();updateWindowMode();const a=document.getElementById('audio');renderTick(a&&Number.isFinite(a.currentTime)?a.currentTime:0)}else{st.has=!1;setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>')}}function setMode(mode){if(!['normal','hidden','expanded'].includes(mode))mode='normal';st.mode=mode;store(LS.VIEW,mode);updateWindowMode();st.activeIdx=-100;const a=document.getElementById('audio');if(a&&Number.isFinite(a.currentTime))renderTick(a.currentTime)}function setAnim(enabled){st.anim=!!enabled;store(LS.ANIM,st.anim?'1':'0');updateWindowMode()}function bootstrapFromStorage(){const m=store(LS.VIEW);st.mode=['normal','hidden','expanded'].includes(m)?m:'normal';st.anim=store(LS.ANIM)==='1'}return{bootstrapFromStorage,onTrackChange,renderTick,setMode,setAnim,getState:()=>({...st})}})();
 
-  const st = {
-    list: [],
-    has: false,
-    mode: 'normal',      // normal | hidden | expanded
-    anim: false,
-    activeIdx: -100,     // last rendered active line index, or negative values for countdown state
-    firstTime: null,     // first line time
-    lastCountdownSec: null,
-    _normalized: false
-  };
+const getDeviceHash=()=>{let h=localStorage.getItem('device_hash');if(h)return h;const b=new Uint8Array(16);crypto.getRandomValues(b);h='dev_'+Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('device_hash',h);return h};
 
-  const dom = { win:null, lyr:null, bg:null };
+const CRC_LS_KEY='vr_crc_v1';
+const Integrity={async compute(){const s=StatsStore.s,base={deviceHash:getDeviceHash(),stats:s?{totals:s.totals,perTrack:s.perTrack,unique:s.uniqueTracksPlayed,byDay:s.byDay,streak:s.streak,likedCount:s.likedCount}:null,achievements:s?s.achievements:null},hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(base)));return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('')},async update(){try{localStorage.setItem(CRC_LS_KEY,await this.compute())}catch(e){}},async verifyOnBoot(){try{const saved=localStorage.getItem(CRC_LS_KEY),crc=await this.compute();if(saved&&saved!==crc){localStorage.setItem('tamper_detected','1');NotificationSystem.error('Обнаружены изменения данных. Для восстановления используйте бэкап.');return!1}localStorage.removeItem('tamper_detected');return!0}catch(e){return!0}}};
 
-  const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} };
-  const sess = (k, v) => {
-    try {
-      if (v === undefined) { const r = sessionStorage.getItem(k); return r ? JSON.parse(r) : null; }
-      sessionStorage.setItem(k, JSON.stringify(v));
-    } catch {}
-  };
+const STATS_LS_KEY='vr_stats_v1';
+const StatsStore={s:null,init(){try{const raw=localStorage.getItem(STATS_LS_KEY);if(raw){this.s=JSON.parse(raw);if(Array.isArray(this.s.uniqueTracksPlayed))this.s.uniqueTracksPlayed=[...new Set(this.s.uniqueTracksPlayed)];this.s.achievements=this.s.achievements||{};this.s.lastMajorAchAt=this.s.lastMajorAchAt||0;this.s.backups=this.s.backups||{dates:[]};this.s.socialsVisited=this.s.socialsVisited||{};this.s.sleepTimerStops=this.s.sleepTimerStops||0;if(Array.isArray(this.s.perTrack))this.s.perTrack.forEach(pt=>{if(pt){pt.byHour=pt.byHour||Array(24).fill(0);pt.byWeekday=pt.byWeekday||Array(7).fill(0)}})}else this.s=this._fresh()}catch{this.s=this._fresh()}},_fresh:()=>({schema:2,deviceHash:getDeviceHash(),createdAt:Date.now(),totals:{totalSeconds:0,totalValidPlays:0,totalFullPlays:0},perTrack:Array.from({length:16},()=>({validPlays:0,fullPlays:0,totalSeconds:0,lastPlayedAt:0,byHour:Array(24).fill(0),byWeekday:Array(7).fill(0)})),uniqueTracksPlayed:[],byDay:{},streak:{current:0,max:0,lastDay:null},likedCount:(JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length,achievements:{},lastMajorAchAt:0,backups:{dates:[]},socialsVisited:{},sleepTimerStops:0}),save(){localStorage.setItem(STATS_LS_KEY,JSON.stringify(this.s));Integrity.update()}};
 
-  const c404 = {
-    get: () => sess(SS.C404) || {},
-    has: (u) => !!c404.get()[u],
-    add: (u) => {
-      const m = c404.get(); m[u] = Date.now();
-      const keys = Object.keys(m);
-      if (keys.length > 50) keys.sort((a,b)=>m[a]-m[b]).slice(0, 20).forEach(x => delete m[x]);
-      sess(SS.C404, m);
-    }
-  };
+const isValidListen=(l,e)=>l>=13000||e,isFullListen=(l,d,e)=>d?(e||l>=0.9*d):!1,localDayKey=ts=>{const d=new Date(ts);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`},isBetweenLocalTime=(ts,f,t)=>{const time=new Date(ts).toTimeString().slice(0,8);return time>=f&&time<=t},getISOWeekId=ts=>{const d=new Date(ts);d.setDate(d.getDate()-((d.getDay()+6)%7)+3);const fw=new Date(d.getFullYear(),0,4);return`${d.getFullYear()}-W${String(1+Math.round((d-fw)/604800000)).padStart(2,'0')}`},isWeekendLocal=ts=>[0,6].includes(new Date(ts).getDay());
 
-  function initDom() {
-    const blk = document.getElementById('lyricsplayerblock');
-    if (!blk) return false;
-    dom.win = blk.querySelector('#lyrics-window');
-    dom.lyr = blk.querySelector('#lyrics');
-    dom.bg  = blk.querySelector('.lyrics-animated-bg');
-    return !!dom.win && !!dom.lyr;
-  }
+const Stats={active:FeatureFlags.statsCollect,lastStart:null,onStart(idx){if(this.active&&document.getElementById('audio'))this.lastStart={ts:Date.now(),trackIndex:idx,startPosMs:Math.floor((document.getElementById('audio').currentTime||0)*1000)}},onPauseOrStop(opts={ended:!1}){if(!this.active||!this.lastStart)return;const a=document.getElementById('audio');if(!a)return;const now=Date.now(),dMs=Math.floor((a.duration||0)*1000),posMs=opts.ended?dMs:Math.floor((a.currentTime||0)*1000),lMs=Math.max(0,posMs-(this.lastStart.startPosMs||0)),valid=isValidListen(lMs,opts.ended),full=isFullListen(lMs,dMs,opts.ended);if(valid&&shuffleMode)Ach.incShuffleValid();if(valid||full){const s=StatsStore.s,idx=this.lastStart.trackIndex;Session.onListenStop({trackIndex:idx,ts:now,listenedMs:lMs,durationMs:dMs,ended:opts.ended,flags:{favoritesOnly:!!favoritesOnlyMode,shuffle:!!shuffleMode,isFavoriteNow:isLiked(idx)}});if(valid){s.totals.totalValidPlays++;s.totals.totalSeconds+=lMs/1000;if(!s.uniqueTracksPlayed.includes(idx))s.uniqueTracksPlayed.push(idx)}if(full)s.totals.totalFullPlays++;const pt=s.perTrack[idx];if(valid)pt.validPlays++;if(full)pt.fullPlays++;pt.totalSeconds+=lMs/1000;pt.lastPlayedAt=now;if(valid){try{const d=new Date(now),h=d.getHours(),w=(d.getDay()+6)%7;pt.byHour[h]=(pt.byHour[h]||0)+1;pt.byWeekday[w]=(pt.byWeekday[w]||0)+1}catch(e){}const key=localDayKey(now);s.byDay[key]=s.byDay[key]||{valid:0,seconds:0};s.byDay[key].valid++;s.byDay[key].seconds+=lMs/1000;if(!s.streak.lastDay)s.streak.current=1;else if(key!==s.streak.lastDay)s.streak.current=Math.round((new Date(key+'T00:00:00')-new Date(s.streak.lastDay+'T00:00:00'))/86400000)===1?s.streak.current+1:1;s.streak.lastDay=key;s.streak.max=Math.max(s.streak.max,s.streak.current)}StatsStore.save();AchProgress.updateFromStats();Ach.evaluateAfterListen({ts:now});MyStats.update()}if(opts.ended)this.lastStart=null},onLikedCountChanged(cnt){if(this.active){StatsStore.s.likedCount=cnt;StatsStore.save()}}};
 
-  function parse(arr) {
-    st.list = (Array.isArray(arr) ? arr : [])
-      .map(i => ({ time: Number(i?.time), text: String(i?.line ?? i?.text ?? '').trim() }))
-      .filter(x => Number.isFinite(x.time) && x.text.length > 0)
-      .sort((a,b) => a.time - b.time);
-
-    st.has = st.list.length > 0;
-    st.firstTime = st.has ? st.list[0].time : null;
-    st.activeIdx = -100;
-    st.lastCountdownSec = null;
-    st._normalized = false;
-  }
-
-  function normalizeTimesIfNeeded() {
-    if (!st.has || st._normalized) return;
-    st._normalized = true;
-
-    const t0 = st.firstTime;
-    if (!t0) return;
-
-    // эвристика ms->sec: если ранние таймкоды выглядят как миллисекунды
-    // (например 15000 вместо 15)
-    if (t0 > 300) {
-      const div = t0 / 1000;
-      if (div > 0 && div < 300) {
-        st.list = st.list.map(x => ({ ...x, time: x.time / 1000 }));
-        st.firstTime = st.list[0].time;
-      }
-    }
-  }
-
-  async function fetchLyricsJson(url) {
-    const u = String(url || '').trim();
-    if (!u || c404.has(u)) return null;
-
-    const k = SS.PRE + u;
-    const cached = sess(k);
-    if (cached) return cached === NO_LYR ? null : cached;
-
-    if (PENDING.has(u)) return PENDING.get(u);
-
-    const p = (async () => {
-      try {
-        const r = await fetch(u, { cache: 'force-cache', headers: { Accept: 'application/json' } });
-        if (!r.ok) { if (r.status === 404) c404.add(u); throw new Error('HTTP ' + r.status); }
-        const j = await r.json();
-        if (Array.isArray(j)) { sess(k, j); return j; }
-      } catch (e) {
-        if (!navigator.onLine) return null;
-      }
-      sess(k, NO_LYR);
-      return null;
-    })();
-
-    PENDING.set(u, p);
-    const res = await p;
-    PENDING.delete(u);
-    return res;
-  }
-
-  function setPlaceholder(html) {
-    if (!initDom()) return;
-    dom.lyr.innerHTML = html;
-  }
-
-  function updateWindowMode() {
-    if (!initDom()) return;
-
-    dom.win.classList.remove('lyrics-normal','lyrics-hidden','lyrics-expanded');
-    dom.win.classList.add(`lyrics-${st.mode}`);
-
-    const anim = st.anim && st.mode !== 'hidden' && st.has;
-    dom.bg?.classList.toggle('active', anim);
-    dom.win?.classList.toggle('animation-active', anim);
-  }
-
-  function computeActiveIndex(posSec) {
-    let lo = 0, hi = st.list.length - 1, ans = 0;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (posSec >= st.list[mid].time) { ans = mid; lo = mid + 1; }
-      else hi = mid - 1;
-    }
-    return ans;
-  }
-
-  function renderWindow(activeIdx) {
-    if (!initDom() || !st.has) return;
-
-    const winSz = (st.mode === 'expanded') ? 9 : 5;
-    const half = (winSz - 1) / 2;
-    const start = Math.max(0, activeIdx - half);
-    const padTop = Math.max(0, half - activeIdx);
-    const end = Math.min(st.list.length, start + winSz - padTop);
-
-    let html = '';
-    for (let i = 0; i < padTop; i++) html += '<div class="lyrics-window-line"></div>';
-    for (let i = start; i < end; i++) {
-      html += `<div class="lyrics-window-line${i === activeIdx ? ' active' : ''}">${escapeHtml(st.list[i].text)}</div>`;
-    }
-    const drawn = padTop + (end - start);
-    for (let i = drawn; i < winSz; i++) html += '<div class="lyrics-window-line"></div>';
-
-    dom.lyr.innerHTML = html;
-  }
-
-  const COUNTDOWN_THRESHOLD_SEC = 5;
-
-  function renderTick(posSec) {
-    if (st.mode === 'hidden') return;
-    if (!initDom()) return;
-    if (!st.has) return;
-
-    normalizeTimesIfNeeded();
-
-    const first = st.firstTime ?? 0;
-
-    if (posSec < first && first > COUNTDOWN_THRESHOLD_SEC) {
-      const rem = first - posSec;
-      const sec = Math.ceil(rem);
-
-      if (st.lastCountdownSec === sec && rem >= 1) return;
-
-      st.lastCountdownSec = sec;
-      st.activeIdx = -sec;
-
-      const style = rem < 1 ? ` style="opacity:${Math.max(0, Math.min(1, rem)).toFixed(2)}"` : '';
-      const cls = rem < 1 ? ' fade-out' : '';
-      dom.lyr.innerHTML = `<div class="lyrics-countdown${cls}"${style}>${sec}</div>`;
-      return;
-    }
-
-    const idx = computeActiveIndex(posSec);
-    if (idx === st.activeIdx) return;
-    st.activeIdx = idx;
-    st.lastCountdownSec = null;
-    renderWindow(idx);
-  }
-
-  async function onTrackChange(track) {
-    st.has = false;
-    st.list = [];
-    st.firstTime = null;
-    st.activeIdx = -100;
-    st.lastCountdownSec = null;
-    st._normalized = false;
-
-    updateWindowMode();
-    if (!initDom()) return;
-
-    if (!track?.lyrics) {
-      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
-      return;
-    }
-
-    setPlaceholder('<div class="lyrics-spinner"></div>');
-
-    const data = await fetchLyricsJson(track.lyrics);
-    if (data) {
-      parse(data);
-      normalizeTimesIfNeeded();
-      updateWindowMode();
-      const a = document.getElementById('audio');
-      renderTick(a && Number.isFinite(a.currentTime) ? a.currentTime : 0);
-    } else {
-      st.has = false;
-      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
-    }
-  }
-
-  function setMode(mode) {
-    if (!['normal','hidden','expanded'].includes(mode)) mode = 'normal';
-    st.mode = mode;
-    store(LS.VIEW, mode);
-    updateWindowMode();
-
-    st.activeIdx = -100;
-    const a = document.getElementById('audio');
-    if (a && Number.isFinite(a.currentTime)) renderTick(a.currentTime);
-  }
-
-  function setAnim(enabled) {
-    st.anim = !!enabled;
-    store(LS.ANIM, st.anim ? '1' : '0');
-    updateWindowMode();
-  }
-
-  function bootstrapFromStorage() {
-    const m = store(LS.VIEW);
-    st.mode = ['normal','hidden','expanded'].includes(m) ? m : 'normal';
-    st.anim = store(LS.ANIM) === '1';
-  }
-
-  return { bootstrapFromStorage, onTrackChange, renderTick, setMode, setAnim, getState: () => ({ ...st }) };
-})();
-
-const getDeviceHash = () => {
-  let h = localStorage.getItem('device_hash'); if (h) return h;
-  const b = new Uint8Array(16); crypto.getRandomValues(b);
-  h = 'dev_' + Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
-  localStorage.setItem('device_hash', h); return h;
-};
-
-const CRC_LS_KEY = 'vr_crc_v1';
-const Integrity = {
-  async compute() {
-    const s = StatsStore.s;
-    const base = { deviceHash: getDeviceHash(), stats: s ? { totals: s.totals, perTrack: s.perTrack, unique: s.uniqueTracksPlayed, byDay: s.byDay, streak: s.streak, likedCount: s.likedCount } : null, achievements: s ? s.achievements : null };
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(base)));
-    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  },
-  async update() { try { localStorage.setItem(CRC_LS_KEY, await this.compute()); } catch(e){} },
-  async verifyOnBoot() {
-    try {
-      const saved = localStorage.getItem(CRC_LS_KEY), crc = await this.compute();
-      if (saved && saved !== crc) {
-        localStorage.setItem('tamper_detected', '1');
-        NotificationSystem.error('Обнаружены изменения данных. Для восстановления используйте бэкап.');
-        return false;
-      }
-      localStorage.removeItem('tamper_detected'); return true;
-    } catch(e){ return true; }
-  }
-};
-
-const STATS_LS_KEY = 'vr_stats_v1';
-const StatsStore = {
-  s: null,
-  init() {
-    try {
-      const raw = localStorage.getItem(STATS_LS_KEY);
-      if (raw) {
-        this.s = JSON.parse(raw);
-        if (Array.isArray(this.s.uniqueTracksPlayed)) this.s.uniqueTracksPlayed = [...new Set(this.s.uniqueTracksPlayed)];
-        this.s.achievements = this.s.achievements || {};
-        this.s.lastMajorAchAt = this.s.lastMajorAchAt || 0;
-        this.s.backups = this.s.backups || { dates: [] };
-        this.s.socialsVisited = this.s.socialsVisited || {};
-        this.s.sleepTimerStops = this.s.sleepTimerStops || 0;
-        if (Array.isArray(this.s.perTrack)) {
-          this.s.perTrack.forEach(pt => { if(pt) { pt.byHour = pt.byHour || Array(24).fill(0); pt.byWeekday = pt.byWeekday || Array(7).fill(0); }});
-        }
-      } else this.s = this._fresh();
-    } catch { this.s = this._fresh(); }
-  },
-  _fresh: () => ({ schema: 2, deviceHash: getDeviceHash(), createdAt: Date.now(), totals: { totalSeconds: 0, totalValidPlays: 0, totalFullPlays: 0 }, perTrack: Array.from({length: 16}, ()=>({ validPlays:0, fullPlays:0, totalSeconds:0, lastPlayedAt:0, byHour: Array(24).fill(0), byWeekday: Array(7).fill(0) })), uniqueTracksPlayed: [], byDay: {}, streak: { current: 0, max: 0, lastDay: null }, likedCount: (JSON.parse(localStorage.getItem('likedTracks')||'[]')||[]).length, achievements: {}, lastMajorAchAt: 0, backups: { dates: [] }, socialsVisited: {}, sleepTimerStops: 0 }),
-  save() { localStorage.setItem(STATS_LS_KEY, JSON.stringify(this.s)); Integrity.update(); }
-};
-
-const isValidListen = (l, e) => l >= 13000 || e;
-const isFullListen = (l, d, e) => d ? (e || l >= 0.9 * d) : false;
-const localDayKey = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-const isBetweenLocalTime = (ts, f, t) => { const time = new Date(ts).toTimeString().slice(0,8); return time >= f && time <= t; };
-const getISOWeekId = ts => { const d = new Date(ts); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3); const fw = new Date(d.getFullYear(), 0, 4); return `${d.getFullYear()}-W${String(1 + Math.round((d - fw) / 604800000)).padStart(2,'0')}`; };
-const isWeekendLocal = ts => [0,6].includes(new Date(ts).getDay());
-
-const Stats = {
-  active: FeatureFlags.statsCollect, lastStart: null,
-  onStart(idx) { if (this.active && document.getElementById('audio')) this.lastStart = { ts: Date.now(), trackIndex: idx, startPosMs: Math.floor((document.getElementById('audio').currentTime||0)*1000) }; },
-  onPauseOrStop(opts={ ended:false }) {
-    if (!this.active || !this.lastStart) return;
-    const a = document.getElementById('audio'); if (!a) return;
-    const now = Date.now(), dMs = Math.floor((a.duration||0)*1000), posMs = opts.ended ? dMs : Math.floor((a.currentTime||0)*1000);
-    const lMs = Math.max(0, posMs - (this.lastStart.startPosMs||0)), valid = isValidListen(lMs, opts.ended), full = isFullListen(lMs, dMs, opts.ended);
-    if (valid && shuffleMode) Ach.incShuffleValid();
-    if (valid || full) {
-      const s = StatsStore.s, idx = this.lastStart.trackIndex;
-      Session.onListenStop({ trackIndex: idx, ts: now, listenedMs: lMs, durationMs: dMs, ended: opts.ended, flags: { favoritesOnly: !!favoritesOnlyMode, shuffle: !!shuffleMode, isFavoriteNow: isLiked(idx) } });
-      if (valid) {
-        s.totals.totalValidPlays++; s.totals.totalSeconds += lMs/1000;
-        if (!s.uniqueTracksPlayed.includes(idx)) s.uniqueTracksPlayed.push(idx);
-      }
-      if (full) s.totals.totalFullPlays++;
-      const pt = s.perTrack[idx];
-      if (valid) pt.validPlays++; if (full) pt.fullPlays++;
-      pt.totalSeconds += lMs/1000; pt.lastPlayedAt = now;
-      if (valid) {
-        try { const d = new Date(now), h = d.getHours(), w = (d.getDay() + 6) % 7; pt.byHour[h] = (pt.byHour[h]||0) + 1; pt.byWeekday[w] = (pt.byWeekday[w]||0) + 1; } catch(e){}
-        const key = localDayKey(now);
-        s.byDay[key] = s.byDay[key] || { valid:0, seconds:0 }; s.byDay[key].valid++; s.byDay[key].seconds += lMs/1000;
-        if (!s.streak.lastDay) s.streak.current = 1;
-        else if (key !== s.streak.lastDay) s.streak.current = Math.round((new Date(key+'T00:00:00') - new Date(s.streak.lastDay+'T00:00:00'))/86400000) === 1 ? s.streak.current + 1 : 1;
-        s.streak.lastDay = key; s.streak.max = Math.max(s.streak.max, s.streak.current);
-      }
-      StatsStore.save(); AchProgress.updateFromStats(); Ach.evaluateAfterListen({ ts: now }); MyStats.update();
-    }
-    if (opts.ended) this.lastStart = null;
-  },
-  onLikedCountChanged(cnt) { if(this.active){ StatsStore.s.likedCount = cnt; StatsStore.save(); } }
-};
-
-const SESSION_GAP_MS = 1800000, FAVORITES_WINDOW_MS = 7200000, ALBUM_SESSION_LIMIT_MS = 14400000;
-const Session = {
-  id: null, startedAt: 0, lastActiveAt: 0, favOrderedRun: [], albumExpected: 0, albumFirstAt: 0, favShuffleEvents: [], favShuffleWindowStart: 0, midnightTriple: { trackIndex: null, count: 0 },
-  reset(n = Date.now()) { this.id = crypto.randomUUID(); this.startedAt = this.lastActiveAt = this.albumFirstAt = n; this.favOrderedRun = this.favShuffleEvents = []; this.albumExpected = this.favShuffleWindowStart = 0; this.midnightTriple = { trackIndex: null, count: 0 }; },
-  ensureSession(n) { if (!this.id || n - this.lastActiveAt > SESSION_GAP_MS) this.reset(n); },
-  onStart({ ts }) { this.ensureSession(ts); this.lastActiveAt = ts; if (isBetweenLocalTime(ts, '11:11:00', '11:11:30')) Ach.unlock('exact_time_11_11'); if (!isBetweenLocalTime(ts, '00:00:00', '00:30:00')) this.midnightTriple = { trackIndex: null, count: 0 }; },
-  onListenStop({ trackIndex, ts, listenedMs, durationMs, ended, flags }) {
-    this.ensureSession(ts); this.lastActiveAt = ts;
-    const v = isValidListen(listenedMs, ended), f = isFullListen(listenedMs, durationMs, ended), S = StatsStore.s;
-    if (!v && !f) return;
-
-    if (flags.favoritesOnly && !flags.shuffle && f && flags.isFavoriteNow) {
-      if (!this.favOrderedRun.length || trackIndex === this.favOrderedRun[this.favOrderedRun.length - 1] + 1) this.favOrderedRun.push(trackIndex);
-      else this.favOrderedRun = [trackIndex];
-      if (this.favOrderedRun.length >= 5) Ach.unlock('favorites_order_5_full');
-    } else if (!flags.favoritesOnly || flags.shuffle || !flags.isFavoriteNow) this.favOrderedRun = [];
-
-    if (flags.favoritesOnly && flags.shuffle) {
-      const cut = ts - FAVORITES_WINDOW_MS;
-      if (v && !flags.isFavoriteNow) { this.favShuffleEvents = []; this.favShuffleWindowStart = 0; }
-      else if (f && flags.isFavoriteNow) {
-        this.favShuffleEvents.push({ ts, trackIndex }); this.favShuffleEvents = this.favShuffleEvents.filter(e => e.ts >= cut);
-        if (!this.favShuffleWindowStart || this.favShuffleWindowStart < cut) this.favShuffleWindowStart = ts;
-        if (new Set(this.favShuffleEvents.map(e => e.trackIndex)).size >= 5) Ach.unlock('favorites_shuffle_5_full');
-      }
-    } else { this.favShuffleEvents = []; this.favShuffleWindowStart = 0; }
-
-    if (durationMs > 0 && listenedMs >= 0.6 * durationMs) {
-      if (this.albumExpected === 0) this.albumFirstAt = ts;
-      if (trackIndex === this.albumExpected && (ts - this.albumFirstAt) <= ALBUM_SESSION_LIMIT_MS) {
-        if (++this.albumExpected === 16) { Ach.unlock('album_in_order_session'); this.albumExpected = 0; this.albumFirstAt = ts; }
-      } else { this.albumExpected = trackIndex === 0 ? 1 : 0; this.albumFirstAt = ts; }
-    }
-
-    if (f && isBetweenLocalTime(ts, '00:00:00', '00:30:00')) {
-      if (this.midnightTriple.trackIndex === null || this.midnightTriple.trackIndex === trackIndex) { if (++this.midnightTriple.count >= 3) Ach.unlock('midnight_triple'); this.midnightTriple.trackIndex = trackIndex; }
-      else this.midnightTriple = { trackIndex, count: 1 };
-    }
-
-    if (v) {
-      S._last7 = (S._last7 || []).filter(e => e.ts >= ts - 604800000); S._last7.push({ ts, trackIndex });
-      if (new Set(S._last7.map(e => e.trackIndex)).size === 16) Ach.unlock('album_any_order_7d');
-
-      if (isWeekendLocal(ts)) {
-        const id = getISOWeekId(ts), wd = new Date(ts).getDay(), dayKey = localDayKey(ts);
-        S._weeks = S._weeks || {}; S._weeks[id] = S._weeks[id] || { sat:false, sun:false };
-        if (wd === 6) S._weeks[id].sat = true; if (wd === 0) S._weeks[id].sun = true;
-        if (S._weeks[id].sat && S._weeks[id].sun) Ach.unlock('weekend_warrior');
-        
-        S._weekendDay = S._weekendDay || {}; S._weekendDay[dayKey] = S._weekendDay[dayKey] || new Set(); S._weekendDay[dayKey].add(trackIndex);
-        if (S._weekendDay[dayKey].size === 16) Ach.unlock('weekend_album');
-      }
-    }
-  }
-};
-
+const SESSION_GAP_MS=1800000,FAVORITES_WINDOW_MS=7200000,ALBUM_SESSION_LIMIT_MS=14400000,Session={id:null,startedAt:0,lastActiveAt:0,favOrderedRun:[],albumExpected:0,albumFirstAt:0,favShuffleEvents:[],favShuffleWindowStart:0,midnightTriple:{trackIndex:null,count:0},reset(n=Date.now()){this.id=crypto.randomUUID();this.startedAt=this.lastActiveAt=this.albumFirstAt=n;this.favOrderedRun=this.favShuffleEvents=[];this.albumExpected=this.favShuffleWindowStart=0;this.midnightTriple={trackIndex:null,count:0}},ensureSession(n){if(!this.id||n-this.lastActiveAt>SESSION_GAP_MS)this.reset(n)},onStart({ts}){this.ensureSession(ts);this.lastActiveAt=ts;if(isBetweenLocalTime(ts,'11:11:00','11:11:30'))Ach.unlock('exact_time_11_11');if(!isBetweenLocalTime(ts,'00:00:00','00:30:00'))this.midnightTriple={trackIndex:null,count:0}},onListenStop({trackIndex,ts,listenedMs,durationMs,ended,flags}){this.ensureSession(ts);this.lastActiveAt=ts;const v=isValidListen(listenedMs,ended),f=isFullListen(listenedMs,durationMs,ended),S=StatsStore.s;if(!v&&!f)return;if(flags.favoritesOnly&&!flags.shuffle&&f&&flags.isFavoriteNow){if(!this.favOrderedRun.length||trackIndex===this.favOrderedRun[this.favOrderedRun.length-1]+1)this.favOrderedRun.push(trackIndex);else this.favOrderedRun=[trackIndex];if(this.favOrderedRun.length>=5)Ach.unlock('favorites_order_5_full')}else if(!flags.favoritesOnly||flags.shuffle||!flags.isFavoriteNow)this.favOrderedRun=[];if(flags.favoritesOnly&&flags.shuffle){const cut=ts-FAVORITES_WINDOW_MS;if(v&&!flags.isFavoriteNow){this.favShuffleEvents=[];this.favShuffleWindowStart=0}else if(f&&flags.isFavoriteNow){this.favShuffleEvents.push({ts,trackIndex});this.favShuffleEvents=this.favShuffleEvents.filter(e=>e.ts>=cut);if(!this.favShuffleWindowStart||this.favShuffleWindowStart<cut)this.favShuffleWindowStart=ts;if(new Set(this.favShuffleEvents.map(e=>e.trackIndex)).size>=5)Ach.unlock('favorites_shuffle_5_full')}}else{this.favShuffleEvents=[];this.favShuffleWindowStart=0}if(durationMs>0&&listenedMs>=0.6*durationMs){if(this.albumExpected===0)this.albumFirstAt=ts;if(trackIndex===this.albumExpected&&(ts-this.albumFirstAt)<=ALBUM_SESSION_LIMIT_MS){if(++this.albumExpected===16){Ach.unlock('album_in_order_session');this.albumExpected=0;this.albumFirstAt=ts}}else{this.albumExpected=trackIndex===0?1:0;this.albumFirstAt=ts}}if(f&&isBetweenLocalTime(ts,'00:00:00','00:30:00')){if(this.midnightTriple.trackIndex===null||this.midnightTriple.trackIndex===trackIndex){if(++this.midnightTriple.count>=3)Ach.unlock('midnight_triple');this.midnightTriple.trackIndex=trackIndex}else this.midnightTriple={trackIndex,count:1}}if(v){S._last7=(S._last7||[]).filter(e=>e.ts>=ts-604800000);S._last7.push({ts,trackIndex});if(new Set(S._last7.map(e=>e.trackIndex)).size===16)Ach.unlock('album_any_order_7d');if(isWeekendLocal(ts)){const id=getISOWeekId(ts),wd=new Date(ts).getDay(),dayKey=localDayKey(ts);S._weeks=S._weeks||{};S._weeks[id]=S._weeks[id]||{sat:!1,sun:!1};if(wd===6)S._weeks[id].sat=!0;if(wd===0)S._weeks[id].sun=!0;if(S._weeks[id].sat&&S._weeks[id].sun)Ach.unlock('weekend_warrior');S._weekendDay=S._weekendDay||{};S._weekendDay[dayKey]=S._weekendDay[dayKey]||new Set();S._weekendDay[dayKey].add(trackIndex);if(S._weekendDay[dayKey].size===16)Ach.unlock('weekend_album')}}}};
 const ACH_META = {
   play_first:{tier:1, core:true, title:'Первое знакомство', short:'Запустите любой трек.', desc:'Первый валидный запуск любого трека в приложении.', howTo:'Нажмите Play и дослушайте хотя бы 13 секунд (или до конца).'},
   unique_5_tracks:{tier:1, core:true, title:'Разный вкус', short:'Послушайте 5 разных треков.', desc:'Засчитывается валидное прослушивание 5 уникальных треков.', howTo:'Включайте разные треки и слушайте ≥13 сек каждый (или до конца).'},
