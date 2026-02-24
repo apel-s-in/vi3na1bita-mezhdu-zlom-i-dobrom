@@ -28,7 +28,41 @@ html,body{height:100%}
 body{min-height:100vh;margin:0;padding:env(safe-area-inset-top) 0 0;display:flex;flex-direction:column;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 .hidden{display:none!important}
 
-/* promo */
+/* ═══ REUSABLE: panels & cards ═══ */
+.panel{border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--brd);box-shadow:0 2px 12px #0004}
+.card{padding:10px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+
+/* ═══ REUSABLE: buttons ═══ */
+.btn{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer;color:#fff;transition:opacity .2s}
+.btn:hover{opacity:.8}
+.btn-red{background:var(--red)}
+.btn-blue{background:var(--blue)}
+.btn-gray{background:#444}
+.btn-green{background:#27b34c}
+.btn-ghost{background:rgba(255,255,255,.1);color:var(--txt)}
+.btn-dark{background:#2a2a2a;color:rgba(255,255,255,.9);border:1px solid var(--brd)}
+
+/* ═══ REUSABLE: progress bars ═══ */
+.bar-track{width:100%;border-radius:3px;overflow:hidden;background:rgba(255,255,255,.1)}
+.bar-track-sm{height:6px}
+.bar-track-md{height:8px}
+.bar-track-lg{height:20px;border-radius:10px;background:#2a2a2a}
+.bar-fill{height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--blue));transition:width .3s}
+
+/* ═══ REUSABLE: active state for control buttons ═══ */
+.ctrl-on{color:var(--red)!important;background:rgba(232,1,0,.2)!important}
+
+/* ═══ ANIMATIONS (shared) ═══ */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes starPulse{50%{transform:scale(1.3)}}
+@keyframes pulse{50%{transform:scale(1.1)}}
+@keyframes lyricsGradient{0%,100%{background-position:0 50%}50%{background-position:100% 50%;filter:hue-rotate(30deg)}}
+@keyframes hint-emoji-bounce{0%,100%{transform:translateY(0) scale(1)}28%{transform:translateY(-8px) scale(1.08)}}
+@keyframes pulseRed{0%,93%,100%{border-color:var(--red);box-shadow:0 2px 8px #0005;transform:scale(1)}95%,97%{border-color:#f00;box-shadow:0 0 25px #e80100;transform:scale(1.05)}96%,98%{border-color:var(--red);box-shadow:0 2px 8px #0005;transform:scale(1)}}
+
+/* ═══ PROMO ═══ */
 #promocode-block{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:100}
 .promo-inner{display:flex;flex-direction:column;align-items:center;min-width:260px;padding:36px 26px 32px;border-radius:16px;background:rgba(15,18,24,.98);box-shadow:0 6px 24px #0008}
 .promo-cover{width:256px;height:256px;display:block;margin:0 0 19px;object-fit:cover;border-radius:12px;background:var(--bg);box-shadow:0 4px 24px #000c}
@@ -38,11 +72,11 @@ body{min-height:100vh;margin:0;padding:env(safe-area-inset-top) 0 0;display:flex
 #promo-btn:disabled{opacity:.5;cursor:not-allowed}
 #promo-error{margin-top:10px;color:#ff6b6b;font-size:14px}
 
-/* layout */
+/* ═══ LAYOUT ═══ */
 #main-block{max-width:420px;width:100%;margin:0 auto;flex:1 0 auto;display:flex;flex-direction:column;align-items:center;padding:0 10px}
 header{width:100%;text-align:center;margin:0 auto}
 
-/* cover */
+/* ═══ COVER ═══ */
 #cover-wrap{width:100%;max-width:400px;margin:24px auto 0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative}
 .cover-gallery-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:44px;height:44px;padding:0;border:0;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .2s}
 .cover-gallery-arrow:hover{opacity:.8}
@@ -50,12 +84,12 @@ header{width:100%;text-align:center;margin:0 auto}
 #cover-gallery-arrow-right{right:7px}
 #cover{width:100%;aspect-ratio:1;display:block;object-fit:cover;border-radius:12px;box-shadow:0 4px 24px #0005}
 
-/* socials */
+/* ═══ SOCIALS ═══ */
 .socials-under-cover{margin:14px auto 8px;width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:12px;font-size:1.03em}
 .socials-under-cover a{color:var(--blue);text-decoration:none;transition:color .2s}
 .socials-under-cover a:hover{color:var(--txt)}
 
-/* tracks */
+/* ═══ TRACKS ═══ */
 .track-list{margin:0 auto;max-width:370px;width:100%;font-size:1.05em;color:#eee}
 .track-list.filtered .track:not(.is-favorite){display:none!important}
 .track{display:flex;align-items:center;padding:7px 8px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .13s}
@@ -66,13 +100,12 @@ header{width:100%;text-align:center;margin:0 auto}
 .like-star{margin-left:auto;width:19px;height:19px;padding:0;border:0;background:none;cursor:pointer;opacity:.97;transition:transform .2s,filter .13s}
 .like-star:hover{filter:brightness(1.13);transform:scale(1.1)}
 .like-star.animating{animation:starPulse .3s}
-@keyframes starPulse{50%{transform:scale(1.3)}}
 
-/* logo */
+/* ═══ LOGO ═══ */
 .logo-bottom{width:23vw;max-width:112px;min-width:66px;height:auto;display:block;margin:0 auto 15px!important;cursor:pointer;transition:transform .1s;will-change:transform;transform:translateZ(0);z-index:10;position:relative}
 .logo-pulsing{animation:none!important}
 
-/* lyrics */
+/* ═══ LYRICS ═══ */
 .lyrics-player-block{width:100%;margin:8px 0 3px}
 #lyrics-window{width:100%;height:8.5em;margin-bottom:7px;position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:center;overflow:hidden;border-radius:12px;background:rgba(34,34,34,.98);box-shadow:0 8px 24px #0007;transition:height .2s,opacity .2s,margin .2s}
 #lyrics-window.lyrics-hidden{height:0!important;opacity:0;margin:0;pointer-events:none}
@@ -83,20 +116,16 @@ header{width:100%;text-align:center;margin:0 auto}
 .lyrics-window-line.active{opacity:1;color:var(--red);font-weight:700;text-shadow:0 1px 7px #73161644;background:rgba(0,0,0,.07);border-radius:8px;font-size:1.19em}
 .lyrics-animated-bg{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity .5s;background:linear-gradient(45deg,rgba(232,1,0,.15),rgba(77,170,255,.15),rgba(232,1,0,.15));background-size:400% 400%}
 .lyrics-animated-bg.active{opacity:1;animation:lyricsGradient 10s ease infinite}
-@keyframes lyricsGradient{0%,100%{background-position:0 50%}50%{background-position:100% 50%;filter:hue-rotate(30deg)}}
-#lyrics-window.animation-active .lyrics-window-line.active{animation:lyricsGlow 2s ease-in-out infinite}
-@keyframes lyricsGlow{0%,50%,100%{opacity:1}}
 .lyrics-placeholder{opacity:.75;text-align:center;padding:10px 0;color:#c9c9c9}
 .lyrics-spinner{width:22px;height:22px;border:2px solid rgba(255,255,255,.25);border-top-color:var(--blue);border-radius:50%;margin:6px auto;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .lyrics-countdown{font:700 46px/1 "SF Mono",Monaco,monospace;color:var(--blue);text-align:center;padding:8px 0}
 .lyrics-countdown.fade-out{transition:opacity .25s}
 
-/* audio hidden */
+/* ═══ AUDIO (hidden) ═══ */
 .audio-wrapper{width:100%;max-width:395px;margin:0 auto}
 #audio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 
-/* player controls */
+/* ═══ PLAYER CONTROLS ═══ */
 .player-controls{display:flex;flex-direction:column;gap:5px;margin:5px 0;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.3)}
 .player-controls-row{display:flex;align-items:center;justify-content:center;gap:12px}
 .player-control-btn{width:32px;height:32px;padding:4px;border:0;border-radius:50%;background:none;color:var(--blue);cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;position:relative;transition:all .2s}
@@ -113,17 +142,16 @@ header{width:100%;text-align:center;margin:0 auto}
 .player-control-btn.main svg{width:30px;height:30px}
 .player-control-btn img{width:22px;height:22px}
 .player-control-btn.favorites-active img{filter:drop-shadow(0 0 4px gold)}
-@keyframes pulse{50%{transform:scale(1.1)}}
 .player-control-btn.repeat-active svg,.player-control-btn.favorites-active img{animation:pulse 2s infinite}
 
-/* progress */
+/* ═══ PROGRESS (player) ═══ */
 .player-progress-wrapper{width:100%;margin:3px 0 5px}
 .player-progress-bar{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.1);cursor:pointer;overflow:visible}
 .player-progress-fill{height:100%;width:0;border-radius:3px;position:relative;background:linear-gradient(90deg,var(--red),var(--blue));transition:width .1s linear}
 .player-progress-handle{position:absolute;top:50%;right:-10px;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 8px #0005;z-index:2}
 .time-in-controls{min-width:45px;text-align:center;user-select:none;font:13px "SF Mono",Monaco,monospace;color:var(--blue)}
 
-/* volume */
+/* ═══ VOLUME ═══ */
 .volume-control-wrapper{width:100%;margin:5px 0;padding:0 10px}
 .volume-header{display:none!important}
 .volume-icon{width:24px;height:24px;cursor:pointer;opacity:.8;transition:opacity .2s}
@@ -138,7 +166,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 2px 8px #0005}
 .volume-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:none;cursor:pointer;box-shadow:0 2px 8px #0005}
 
-/* sleep timer */
+/* ═══ SLEEP TIMER ═══ */
 .sleep-timer-btn{width:44px;height:44px;padding:8px;border:0;border-radius:50%;background:none;color:var(--blue);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;transition:all .2s}
 .sleep-timer-btn:hover{background:rgba(77,170,255,.2);transform:scale(1.1)}
 .sleep-timer-btn.active{color:var(--red);background:rgba(232,1,0,.2)}
@@ -159,7 +187,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .sleep-btn-secondary{background:rgba(255,255,255,.1);color:var(--txt)}
 .sleep-btn:hover{opacity:.8}
 
-/* lyrics toggle */
+/* ═══ LYRICS TOGGLE & ACTION BUTTONS ═══ */
 .player-buttons-wrapper{width:100%;margin-top:10px;position:relative;display:flex;flex-direction:column;align-items:center;gap:9px}
 .lyrics-toggle-btn{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;transition:all .2s;user-select:none;z-index:5}
 .lyrics-toggle-btn-visual{font-size:36px;line-height:1;pointer-events:none;transition:all .2s}
@@ -171,12 +199,11 @@ header{width:100%;text-align:center;margin:0 auto}
 .karaoke-btn,.player-download-btn{min-width:148px;padding:4px 16px;margin:0 auto;display:block;text-align:center;border:0;border-radius:7px;background:none;color:var(--blue)!important;cursor:pointer;font-weight:700;text-transform:uppercase;text-decoration:underline;transition:all .18s}
 .karaoke-btn:hover,.player-download-btn:hover{background:#273050;color:#fff!important}
 
-/* bottom */
+/* ═══ BOTTOM CONTROLS ═══ */
 .bottom-controls-center{width:100%;max-width:280px;margin:32px auto 0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:env(safe-area-inset-bottom)}
 .filter-favorites-btn{display:block;min-width:100%;margin:0 auto 15px;padding:10px 20px;border-radius:12px;border:2px solid var(--brd);background:linear-gradient(135deg,#2a2a2a,#1a1a1a);color:var(--blue);font-size:.95em;font-weight:700;white-space:nowrap;text-align:center;cursor:pointer;transition:all .3s;box-shadow:0 2px 8px #0005}
 .filter-favorites-btn:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 4px 12px #0008}
 .filter-favorites-btn.filtered{background:linear-gradient(135deg,#4a1a1a,#2a0a0a);border-color:var(--red);color:#fff;animation:pulseRed 20s infinite}
-@keyframes pulseRed{0%,93%,100%{border-color:var(--red);box-shadow:0 2px 8px #0005;transform:scale(1)}95%,97%{border-color:#f00;box-shadow:0 0 25px #e80100;transform:scale(1.05)}96%,98%{border-color:var(--red);box-shadow:0 2px 8px #0005;transform:scale(1)}}
 .no-favorites-message{margin:20px;padding:30px;border-radius:12px;background:rgba(255,255,255,.05);text-align:center;color:#888;font-size:1.1em}
 .no-favorites-message .star-icon{margin-bottom:10px;font-size:3em;opacity:.5}
 #install-pwa-btn,#download-album-main{width:98%;margin:15px 0 5px;padding:8px 13px;border:0;border-radius:7px;cursor:pointer;color:#fff;font-size:1.07em;font-weight:700;box-shadow:0 4px 14px #0005;transition:background .2s;background:var(--blue)}
@@ -185,6 +212,8 @@ header{width:100%;text-align:center;margin:0 auto}
 #download-album-main:hover{background:#c60000}
 .hotkeys-btn,.feedback-link,.support-link{display:block;width:100%;padding:8px;border:0;background:none;text-align:center;font-weight:700;text-transform:uppercase;cursor:pointer;color:var(--blue)!important;text-decoration:underline!important;transition:color .18s}
 .hotkeys-btn:hover,.feedback-link:hover,.support-link:hover{color:#fff!important}
+
+/* ═══ OFFLINE BUTTON ═══ */
 .offline-btn{display:block;margin:0 auto;min-width:102px;height:38px;border:0;border-radius:9px;cursor:pointer;font-size:1.05em;font-weight:700;box-shadow:0 2px 8px #06000032;transition:background .2s}
 .offline-btn.online{background:var(--red);color:#fff}
 .offline-btn.offline{background:#27b34c;color:#fff}
@@ -194,18 +223,16 @@ header{width:100%;text-align:center;margin:0 auto}
 .offline-progress-bar{height:100%;background:#2fed54;transition:width .33s}
 .offline-desc{margin-top:5px;text-align:center;font-size:.97em;opacity:.85}
 
-/* modals — shared */
+/* ═══ MODALS (shared) ═══ */
 .modal-bg{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.62);backdrop-filter:blur(4px)}
 .modal-bg.active{display:flex;animation:fadeIn .3s}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 .modal-feedback{position:relative;max-width:96vw;min-width:215px;padding:34px 20px 21px;border-radius:14px;background:var(--mbg);box-shadow:0 4px 32px #0009;animation:slideUp .3s}
 .modal-feedback .bigclose{position:absolute;top:13px;right:13px;width:32px;height:32px;border:0;border-radius:50%;background:none;color:#eee;cursor:pointer;transition:transform .2s}
 .modal-feedback .bigclose:hover{transform:scale(1.1)}
 .modal-feedback .bigclose svg{width:31px;height:31px}
 .download-modal-title{margin-bottom:13px;text-align:center;font-size:1.12em;font-weight:700}
 
-/* checkbox */
+/* ═══ CHECKBOX ═══ */
 .checkbox-container{position:relative;display:flex;align-items:center;margin:12px 0;padding-left:32px;cursor:pointer;user-select:none}
 .checkbox-container input{position:absolute;opacity:0;cursor:pointer;height:0;width:0}
 .checkmark{position:absolute;left:0;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:4px;background:#2a2a2a;border:2px solid #444;transition:all .2s}
@@ -215,7 +242,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .checkbox-container input:checked~.checkmark:after{display:block}
 .checkbox-container input:disabled~.checkmark{opacity:.5;cursor:not-allowed}
 
-/* progress + buttons */
+/* ═══ DOWNLOAD PROGRESS ═══ */
 .progress-bar{width:100%;height:20px;margin:20px 0;border-radius:10px;overflow:hidden;background:#2a2a2a}
 .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--red),#f44);transition:width .3s}
 .size-info{margin:15px 0;padding:20px;border-radius:8px;background:#1f1f1f;text-align:center}
@@ -225,7 +252,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .btn-primary{background:var(--red);color:#fff}
 .btn-secondary:hover,.btn-primary:hover{opacity:.8}
 
-/* toasts */
+/* ═══ TOASTS ═══ */
 .toast{position:fixed;left:50%;bottom:80px;z-index:9999;max-width:90%;padding:15px 20px;border-radius:12px;background:#2a2a2a;box-shadow:0 4px 20px #0005;transform:translateX(-50%) translateY(100px);opacity:0;transition:all .3s;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast-content{display:flex;align-items:center;gap:10px}
@@ -237,7 +264,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .toast-warning{border-left:4px solid #ff9800}
 .toast-offline{border-left:4px solid #666}
 
-/* iOS install */
+/* ═══ iOS INSTALL ═══ */
 .ios-install-prompt{position:fixed;left:0;right:0;bottom:0;z-index:10000;padding:20px;border-radius:20px 20px 0 0;background:#1a1a1a;box-shadow:0 -4px 20px #0005;transform:translateY(100%);transition:transform .3s}
 .ios-install-prompt.show{transform:translateY(0)}
 .ios-prompt-content{max-width:400px;margin:0 auto;text-align:center}
@@ -247,11 +274,11 @@ header{width:100%;text-align:center;margin:0 auto}
 .ios-volume-notice{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);z-index:1000;display:none;max-width:90%;padding:12px 20px;border-radius:20px;background:rgba(0,0,0,.9);color:#fff;font-size:14px;text-align:center}
 .ios-volume-notice.show{display:block;animation:slideUp .3s}
 
-/* tooltip */
+/* ═══ TOOLTIP ═══ */
 .tooltip{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);z-index:1000;margin-bottom:5px;padding:4px 8px;border-radius:4px;background:rgba(0,0,0,.9);color:#fff;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s}
 .player-control-btn:hover .tooltip{opacity:1}
 
-/* hotkeys */
+/* ═══ HOTKEYS MODAL ═══ */
 .hotkeys-modal{position:relative;max-width:450px;max-height:80vh;overflow-y:auto;padding:24px 20px;border-radius:14px;background:var(--mbg);box-shadow:0 4px 32px #0009;animation:slideUp .3s}
 .hotkeys-modal h2{margin-bottom:20px;text-align:center;color:var(--red);font-size:1.3em}
 .hotkeys-section{margin-bottom:20px}
@@ -260,7 +287,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .hotkey-combo{min-width:50px;text-align:center;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.1);color:#fff;font-family:monospace;font-weight:700}
 .hotkey-desc{flex:1;margin-left:15px;color:rgba(255,255,255,.8)}
 
-/* achievements */
+/* ═══ ACHIEVEMENTS ═══ */
 .ach-progress-root{width:100%;max-width:395px;margin:12px auto 8px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--brd);box-shadow:0 2px 12px #0004;position:relative}
 .ach-progress-header{display:flex;align-items:center;justify-content:center;margin-bottom:8px}
 .ach-progress-title{color:#fff;font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:.98em}
@@ -277,21 +304,20 @@ header{width:100%;text-align:center;margin:0 auto}
 .backup-btn.secondary{background:#2a2a2a;color:rgba(255,255,255,.9);border:1px solid var(--brd)}
 .backup-btn:hover{opacity:.9}
 
-/* tamper */
+/* ═══ TAMPER BANNER ═══ */
 .tamper-banner{margin-top:10px;padding:10px 12px;border-radius:10px;background:#3a2424;border:1px solid #8a2a2a;color:#ffb3b3}
 .tamper-banner .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .tamper-banner button{padding:8px 10px;border:0;border-radius:8px;cursor:pointer;font-weight:700}
 .tamper-banner .primary{background:var(--red);color:#fff}
 .tamper-banner .secondary{background:#2a2a2a;color:#fff;border:1px solid #555}
 
-/* hint bubble */
+/* ═══ HINT BUBBLE ═══ */
 .ach-hint-bubble{position:relative;z-index:1;max-width:100%;margin-bottom:10px;padding:8px 10px;border-radius:10px;background:#1f2533;border:1px solid var(--brd);color:#e9f0ff;box-shadow:0 4px 20px #0006;font-size:.92em;cursor:pointer}
 .ach-hint-bubble:hover{border-color:var(--blue);box-shadow:0 4px 24px rgba(77,170,255,.25)}
 .ach-hint-emoji{display:inline-block;width:1.4em;height:1.4em;vertical-align:middle;margin-right:.2em;animation:hint-emoji-bounce 1.5s cubic-bezier(.58,1.9,.3,1) infinite}
-@keyframes hint-emoji-bounce{0%,100%{transform:translateY(0) scale(1)}28%{transform:translateY(-8px) scale(1.08)}}
 .ach-last-earn{margin-top:8px;display:flex;gap:8px}
 
-/* achievements modal */
+/* ═══ ACHIEVEMENTS MODAL ═══ */
 .ach-modal{width:96vw;max-width:420px;max-height:80vh;overflow:hidden;padding-bottom:10px}
 .ach-modal h2{margin:0 0 10px;text-align:center;color:var(--blue);font-size:1.12em}
 .ach-tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:6px 0 10px}
@@ -312,7 +338,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .ach-lock{color:#9aa8c4;font-size:.92em}
 .ach-modal .sticky-head{position:sticky;top:0;z-index:1;padding-top:10px;background:var(--mbg)}
 
-/* stats */
+/* ═══ STATS ═══ */
 .my-stats-root{width:100%;max-width:395px;margin:4px auto 0;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.3);border:1px solid var(--brd);box-shadow:0 2px 12px #0004}
 .my-stats-header{width:100%;padding:10px 12px;border:0;background:#1f2533;color:#e9f0ff;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;font-size:.98em;font-weight:800;text-transform:uppercase;cursor:pointer}
 .my-stats-header .chev{transition:transform .2s}
@@ -334,7 +360,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .chart-row .fill{height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--blue))}
 .chart-row .val{font-size:.86em;color:rgba(255,255,255,.8);text-align:right}
 
-/* responsive */
+/* ═══ RESPONSIVE ═══ */
 @media(max-width:600px){.like-star{width:16px;height:16px}.logo-bottom{max-width:66vw}.volume-control-wrapper{padding:0 5px}.sleep-menu{bottom:auto;top:100%;margin:10px 0 0}.lyrics-toggle-btn{width:48px;min-height:48px}.hotkeys-btn{display:none!important}.ach-hint-bubble{font-size:.86em}}
 @media(max-width:420px){.modal-feedback{padding:13px 3vw}}
 @media(max-width:380px){.stats-grid{grid-template-columns:1fr}}
