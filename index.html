@@ -386,7 +386,34 @@ header{width:100%;text-align:center;margin:0 auto}
   body{padding-top:env(safe-area-inset-top)}
   .bottom-controls-center{padding-bottom:calc(env(safe-area-inset-bottom) + 10px)}
 }
+/* lyrics: countdown / spinner / placeholder */
+.lyrics-placeholder{
+  opacity:.75;
+  text-align:center;
+  padding:10px 0;
+  font-size:1em;
+  color:#c9c9c9;
+}
+.lyrics-spinner{
+  width:22px;height:22px;
+  border:2px solid rgba(255,255,255,.25);
+  border-top-color: var(--secondary-color);
+  border-radius:50%;
+  margin:6px auto;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 
+.lyrics-countdown{
+  font: 700 46px/1 "SF Mono",Monaco,"Courier New",monospace;
+  color: var(--secondary-color);
+  text-align:center;
+  padding:8px 0;
+  letter-spacing:.04em;
+}
+.lyrics-countdown.fade-out{
+  transition: opacity .25s ease;
+}
 /* no hover */
 @media (hover:none){.tooltip{display:none}}
 </style>
@@ -1285,7 +1312,7 @@ function toggleAnimation() {
   document.querySelector('.lyrics-animated-bg')?.classList.toggle('active', animationEnabled);
   $('lyrics-window')?.classList.toggle('animation-active', animationEnabled);
   NotificationSystem[animationEnabled ? 'success' : 'info'](animationEnabled ? '✨ Анимация лирики включена' : 'Анимация лирики выключена');
-  localStorage.setItem('animationEnabled', animationEnabled ? '1' : '0');
+  localStorage.setItem('animationEnabled', animationEnabled ? '1' : '0'); LyricsController.setAnim(animationEnabled);
 }
 
 function toggleBit() {
@@ -1547,8 +1574,17 @@ function renderLyricsBlock() {
     </div>`;
   
   const tr = config.tracks[currentTrack], a = $('audio'); a.src = tr.audio;
-  prefetchNextTrackAssets(); loadLyrics(tr.lyrics); setupMediaSession();
-  restorePlayerButtonsState(); initializePlayerControls(); initializeLyricsMode(); applyLyricsViewMode();
+  prefetchNextTrackAssets();
+  LyricsController.bootstrapFromStorage();
+  LyricsController.setMode(lyricsViewMode);         // синхронизируем твой режим с контроллером
+  LyricsController.setAnim(animationEnabled);        // синхронизируем анимацию
+  LyricsController.onTrackChange(tr);
+  setupMediaSession();
+
+  restorePlayerButtonsState();
+  initializePlayerControls();
+  initializeLyricsMode();
+  applyLyricsViewMode();
   if (bitEnabled) {
     stopLogoPulsation(); audioContext = audioSource = analyser = null;
     setTimeout(() => { initAudioContext(); startLogoPulsation(); }, 100);
@@ -1595,7 +1631,7 @@ function onAudioMetadataLoaded() {
 function onAudioTimeUpdate() {
   const a = $('audio'), c = a.currentTime, d = a.duration;
   if (!isSeekingProgress && d > 0 && $('player-progress-fill')) $('player-progress-fill').style.width = `${(c / d) * 100}%`;
-  renderLyricsEnhanced(c);
+  LyricsController.renderTick(c);
   const now = Date.now();
   if (now - lastTimeUpdate >= 1000) {
     lastTimeUpdate = now;
@@ -1756,7 +1792,7 @@ function restoreLyricsViewMode() { const s = localStorage.getItem('lyricsViewMod
 function saveLyricsViewMode() { localStorage.setItem('lyricsViewMode', lyricsViewMode); }
 function toggleLyricsView() {
   const modes = ['normal', 'hidden', 'expanded']; lyricsViewMode = modes[(modes.indexOf(lyricsViewMode) + 1) % modes.length];
-  applyLyricsViewMode(); saveLyricsViewMode();
+  applyLyricsViewMode(); saveLyricsViewMode(); LyricsController.setMode(lyricsViewMode);
   NotificationSystem.info({ 'normal': '📝 Обычный вид лирики', 'hidden': '🚫 Лирика скрыта', 'expanded': '📖 Расширенный вид лирики' }[lyricsViewMode]);
 }
 
@@ -1885,8 +1921,9 @@ function setupMediaSession() {
 }
 
 function loadLyrics(file) {
-  fetch(file).then(r => r.json()).then(js => { currentLyrics = js; renderLyrics(0); })
-    .catch(err => { console.error('Failed to load lyrics:', err); currentLyrics = []; });
+  // оставляем для совместимости: LyricsController работает по track.lyrics,
+  // а не по одному URL
+  return;
 }
 
 function renderLyrics(time) {
@@ -2346,7 +2383,275 @@ function openFeedbackModal() { NotificationSystem.info('Обратная свя�
 function closeFeedbackModal() {}
 
 const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+// ==================== LYRICS CONTROLLER (optimized) ====================
+const LyricsController = (() => {
+  const LS = { VIEW: 'lyricsViewMode', ANIM: 'animationEnabled' };
+  const SS = { C404: 'lyrics_404_cache:v2', PRE: 'lyrics_cache_' };
+  const NO_LYR = '__NO_LYRICS__';
+  const PENDING = new Map();
 
+  const st = {
+    list: [],
+    has: false,
+    mode: 'normal',      // normal | hidden | expanded
+    anim: false,
+    activeIdx: -100,     // last rendered active line index, or negative values for countdown state
+    firstTime: null,     // first line time
+    lastCountdownSec: null
+  };
+
+  const dom = { win:null, lyr:null, bg:null };
+
+  const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} };
+  const sess = (k, v) => {
+    try {
+      if (v === undefined) { const r = sessionStorage.getItem(k); return r ? JSON.parse(r) : null; }
+      sessionStorage.setItem(k, JSON.stringify(v));
+    } catch {}
+  };
+
+  const c404 = {
+    get: () => sess(SS.C404) || {},
+    has: (u) => !!c404.get()[u],
+    add: (u) => {
+      const m = c404.get(); m[u] = Date.now();
+      const keys = Object.keys(m);
+      if (keys.length > 50) keys.sort((a,b)=>m[a]-m[b]).slice(0, 20).forEach(x => delete m[x]);
+      sess(SS.C404, m);
+    }
+  };
+
+  function initDom() {
+    const blk = document.getElementById('lyricsplayerblock');
+    if (!blk) return false;
+    dom.win = blk.querySelector('#lyrics-window');
+    dom.lyr = blk.querySelector('#lyrics');
+    dom.bg  = blk.querySelector('.lyrics-animated-bg');
+    return !!dom.win && !!dom.lyr;
+  }
+
+  function parse(arr) {
+    st.list = (Array.isArray(arr) ? arr : [])
+      .map(i => ({
+        time: Number(i?.time),
+        text: String(i?.line ?? i?.text ?? '').trim()
+      }))
+      .filter(x => Number.isFinite(x.time) && x.text.length > 0)
+      .sort((a,b) => a.time - b.time);
+
+    st.has = st.list.length > 0;
+    st.firstTime = st.has ? st.list[0].time : null;
+    st.activeIdx = -100;
+    st.lastCountdownSec = null;
+  }
+
+  // Авто-нормализация секунд/миллисекунд:
+  // если таймкоды "как миллисекунды", приводим к секундам.
+  function normalizeTimesIfNeeded() {
+    if (!st.has) return;
+    // эвристика: если первая строка > 300 (5 минут) и все времена целые/крупные — вероятно ms
+    const t0 = st.firstTime;
+    if (t0 && t0 > 300) {
+      // если при делении на 1000 становится "адекватно"
+      const div = t0 / 1000;
+      if (div > 0 && div < 300) {
+        st.list = st.list.map(x => ({ ...x, time: x.time / 1000 }));
+        st.firstTime = st.list[0].time;
+      }
+    }
+  }
+
+  async function fetchLyricsJson(url) {
+    const u = String(url || '').trim();
+    if (!u || c404.has(u)) return null;
+
+    const k = SS.PRE + u;
+    const cached = sess(k);
+    if (cached) return cached === NO_LYR ? null : cached;
+
+    if (PENDING.has(u)) return PENDING.get(u);
+
+    const p = (async () => {
+      try {
+        const r = await fetch(u, { cache: 'force-cache', headers: { Accept: 'application/json' } });
+        if (!r.ok) { if (r.status === 404) c404.add(u); throw new Error('HTTP ' + r.status); }
+        const j = await r.json();
+        if (Array.isArray(j)) { sess(k, j); return j; }
+      } catch (e) {
+        // если оффлайн/заблокирована сеть — не ставим "навечно нет лирики"
+        const netOk = navigator.onLine;
+        if (!netOk) return null;
+      }
+      sess(k, NO_LYR);
+      return null;
+    })();
+
+    PENDING.set(u, p);
+    const res = await p;
+    PENDING.delete(u);
+    return res;
+  }
+
+  function setPlaceholder(html) {
+    if (!initDom()) return;
+    dom.lyr.innerHTML = html;
+  }
+
+  function updateWindowMode() {
+    if (!initDom()) return;
+
+    // применяем режимы окна (normal/hidden/expanded)
+    dom.win.classList.remove('lyrics-normal','lyrics-hidden','lyrics-expanded');
+    dom.win.classList.add(`lyrics-${st.mode}`);
+
+    // анимация
+    const anim = st.anim && st.mode !== 'hidden' && st.has;
+    dom.bg?.classList.toggle('active', anim);
+    dom.win?.classList.toggle('animation-active', anim);
+  }
+
+  function computeActiveIndex(posSec) {
+    // бинарный поиск вместо полного цикла по всем строкам
+    let lo = 0, hi = st.list.length - 1, ans = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (posSec >= st.list[mid].time) { ans = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    return ans;
+  }
+
+  function renderWindow(activeIdx) {
+    if (!initDom() || !st.has) return;
+
+    const winSz = (st.mode === 'expanded') ? 9 : 5;
+    const half = (winSz - 1) / 2;
+    const start = Math.max(0, activeIdx - half);
+    const padTop = Math.max(0, half - activeIdx);
+    const end = Math.min(st.list.length, start + winSz - padTop);
+
+    let html = '';
+    for (let i = 0; i < padTop; i++) html += '<div class="lyrics-window-line"></div>';
+    for (let i = start; i < end; i++) {
+      html += `<div class="lyrics-window-line${i === activeIdx ? ' active' : ''}">${escapeHtml(st.list[i].text)}</div>`;
+    }
+    const drawn = padTop + (end - start);
+    for (let i = drawn; i < winSz; i++) html += '<div class="lyrics-window-line"></div>';
+
+    dom.lyr.innerHTML = html;
+  }
+
+  // Отсчёт до первой строки: показываем, если первая строка "не сразу"
+  const COUNTDOWN_THRESHOLD_SEC = 5;
+
+  function renderTick(posSec) {
+    if (st.mode === 'hidden') return;
+    if (!initDom()) return;
+
+    if (!st.has) return; // UI "нет текста" ставим отдельно
+
+    normalizeTimesIfNeeded();
+
+    const first = st.firstTime ?? 0;
+
+    // countdown mode
+    if (posSec < first && first > COUNTDOWN_THRESHOLD_SEC) {
+      const rem = first - posSec;
+      const sec = Math.ceil(rem);
+
+      // обновляем только если изменилась секунда,
+      // либо rem < 1 (нужен fade по opacity)
+      if (st.lastCountdownSec === sec && rem >= 1) return;
+
+      st.lastCountdownSec = sec;
+      st.activeIdx = -sec; // негативные значения = состояние отсчёта
+
+      const style = rem < 1 ? ` style="opacity:${Math.max(0, Math.min(1, rem)).toFixed(2)}"` : '';
+      const cls = rem < 1 ? ' fade-out' : '';
+      dom.lyr.innerHTML = `<div class="lyrics-countdown${cls}"${style}>${sec}</div>`;
+      return;
+    }
+
+    // normal timed lyrics
+    const idx = computeActiveIndex(posSec);
+    if (idx === st.activeIdx) return; // ключевая оптимизация
+    st.activeIdx = idx;
+    st.lastCountdownSec = null;
+    renderWindow(idx);
+  }
+
+  async function onTrackChange(track) {
+    st.has = false;
+    st.list = [];
+    st.firstTime = null;
+    st.activeIdx = -100;
+    st.lastCountdownSec = null;
+
+    updateWindowMode();
+
+    if (!initDom()) return;
+
+    if (!track?.lyrics) {
+      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
+      return;
+    }
+
+    setPlaceholder('<div class="lyrics-spinner"></div>');
+
+    const data = await fetchLyricsJson(track.lyrics);
+    if (data) {
+      parse(data);
+      normalizeTimesIfNeeded();
+      updateWindowMode();
+      // первичная отрисовка (на 0 секунде)
+      renderTick(0);
+    } else {
+      st.has = false;
+      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
+    }
+  }
+
+  function setMode(mode) {
+    if (!['normal','hidden','expanded'].includes(mode)) mode = 'normal';
+    st.mode = mode;
+    store(LS.VIEW, mode);
+    updateWindowMode();
+
+    // при смене режима принудительно перерисуем текущее состояние
+    st.activeIdx = -100;
+    const a = document.getElementById('audio');
+    if (a && !Number.isNaN(a.currentTime)) renderTick(a.currentTime);
+  }
+
+  function toggleMode() {
+    const modes = ['normal','hidden','expanded'];
+    const next = modes[(modes.indexOf(st.mode) + 1) % modes.length];
+    setMode(next);
+    NotificationSystem?.info?.({ normal: '📝 Обычный вид лирики', hidden: '🚫 Лирика скрыта', expanded: '📖 Расширенный вид лирики' }[next]);
+  }
+
+  function setAnim(enabled) {
+    st.anim = !!enabled;
+    store(LS.ANIM, st.anim ? '1' : '0');
+    updateWindowMode();
+  }
+
+  function bootstrapFromStorage() {
+    const m = store(LS.VIEW);
+    st.mode = ['normal','hidden','expanded'].includes(m) ? m : 'normal';
+    st.anim = store(LS.ANIM) === '1';
+  }
+
+  return {
+    bootstrapFromStorage,
+    onTrackChange,
+    renderTick,
+    toggleMode,
+    setMode,
+    setAnim,
+    getState: () => ({ ...st })
+  };
+})();
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator && 'caches' in window) console.log('PWA features supported');
   else console.warn('PWA features not fully supported');
