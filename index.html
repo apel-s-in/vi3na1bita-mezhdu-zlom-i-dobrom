@@ -556,6 +556,252 @@ class NotificationSystem {
   static offline(msg) { this.show(msg, 'offline'); }
 }
 
+/* ==================== escapeHtml + LYRICS CONTROLLER (moved up) ==================== */
+const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+const LyricsController = (() => {
+  const LS = { VIEW: 'lyricsViewMode', ANIM: 'animationEnabled' };
+  const SS = { C404: 'lyrics_404_cache:v2', PRE: 'lyrics_cache_' };
+  const NO_LYR = '__NO_LYRICS__';
+  const PENDING = new Map();
+
+  const st = {
+    list: [],
+    has: false,
+    mode: 'normal',      // normal | hidden | expanded
+    anim: false,
+    activeIdx: -100,     // last rendered active line index, or negative values for countdown state
+    firstTime: null,     // first line time
+    lastCountdownSec: null,
+    _normalized: false
+  };
+
+  const dom = { win:null, lyr:null, bg:null };
+
+  const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} };
+  const sess = (k, v) => {
+    try {
+      if (v === undefined) { const r = sessionStorage.getItem(k); return r ? JSON.parse(r) : null; }
+      sessionStorage.setItem(k, JSON.stringify(v));
+    } catch {}
+  };
+
+  const c404 = {
+    get: () => sess(SS.C404) || {},
+    has: (u) => !!c404.get()[u],
+    add: (u) => {
+      const m = c404.get(); m[u] = Date.now();
+      const keys = Object.keys(m);
+      if (keys.length > 50) keys.sort((a,b)=>m[a]-m[b]).slice(0, 20).forEach(x => delete m[x]);
+      sess(SS.C404, m);
+    }
+  };
+
+  function initDom() {
+    const blk = document.getElementById('lyricsplayerblock');
+    if (!blk) return false;
+    dom.win = blk.querySelector('#lyrics-window');
+    dom.lyr = blk.querySelector('#lyrics');
+    dom.bg  = blk.querySelector('.lyrics-animated-bg');
+    return !!dom.win && !!dom.lyr;
+  }
+
+  function parse(arr) {
+    st.list = (Array.isArray(arr) ? arr : [])
+      .map(i => ({ time: Number(i?.time), text: String(i?.line ?? i?.text ?? '').trim() }))
+      .filter(x => Number.isFinite(x.time) && x.text.length > 0)
+      .sort((a,b) => a.time - b.time);
+
+    st.has = st.list.length > 0;
+    st.firstTime = st.has ? st.list[0].time : null;
+    st.activeIdx = -100;
+    st.lastCountdownSec = null;
+    st._normalized = false;
+  }
+
+  function normalizeTimesIfNeeded() {
+    if (!st.has || st._normalized) return;
+    st._normalized = true;
+
+    const t0 = st.firstTime;
+    if (!t0) return;
+
+    // эвристика ms->sec: если ранние таймкоды выглядят как миллисекунды
+    // (например 15000 вместо 15)
+    if (t0 > 300) {
+      const div = t0 / 1000;
+      if (div > 0 && div < 300) {
+        st.list = st.list.map(x => ({ ...x, time: x.time / 1000 }));
+        st.firstTime = st.list[0].time;
+      }
+    }
+  }
+
+  async function fetchLyricsJson(url) {
+    const u = String(url || '').trim();
+    if (!u || c404.has(u)) return null;
+
+    const k = SS.PRE + u;
+    const cached = sess(k);
+    if (cached) return cached === NO_LYR ? null : cached;
+
+    if (PENDING.has(u)) return PENDING.get(u);
+
+    const p = (async () => {
+      try {
+        const r = await fetch(u, { cache: 'force-cache', headers: { Accept: 'application/json' } });
+        if (!r.ok) { if (r.status === 404) c404.add(u); throw new Error('HTTP ' + r.status); }
+        const j = await r.json();
+        if (Array.isArray(j)) { sess(k, j); return j; }
+      } catch (e) {
+        if (!navigator.onLine) return null;
+      }
+      sess(k, NO_LYR);
+      return null;
+    })();
+
+    PENDING.set(u, p);
+    const res = await p;
+    PENDING.delete(u);
+    return res;
+  }
+
+  function setPlaceholder(html) {
+    if (!initDom()) return;
+    dom.lyr.innerHTML = html;
+  }
+
+  function updateWindowMode() {
+    if (!initDom()) return;
+
+    dom.win.classList.remove('lyrics-normal','lyrics-hidden','lyrics-expanded');
+    dom.win.classList.add(`lyrics-${st.mode}`);
+
+    const anim = st.anim && st.mode !== 'hidden' && st.has;
+    dom.bg?.classList.toggle('active', anim);
+    dom.win?.classList.toggle('animation-active', anim);
+  }
+
+  function computeActiveIndex(posSec) {
+    let lo = 0, hi = st.list.length - 1, ans = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (posSec >= st.list[mid].time) { ans = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    return ans;
+  }
+
+  function renderWindow(activeIdx) {
+    if (!initDom() || !st.has) return;
+
+    const winSz = (st.mode === 'expanded') ? 9 : 5;
+    const half = (winSz - 1) / 2;
+    const start = Math.max(0, activeIdx - half);
+    const padTop = Math.max(0, half - activeIdx);
+    const end = Math.min(st.list.length, start + winSz - padTop);
+
+    let html = '';
+    for (let i = 0; i < padTop; i++) html += '<div class="lyrics-window-line"></div>';
+    for (let i = start; i < end; i++) {
+      html += `<div class="lyrics-window-line${i === activeIdx ? ' active' : ''}">${escapeHtml(st.list[i].text)}</div>`;
+    }
+    const drawn = padTop + (end - start);
+    for (let i = drawn; i < winSz; i++) html += '<div class="lyrics-window-line"></div>';
+
+    dom.lyr.innerHTML = html;
+  }
+
+  const COUNTDOWN_THRESHOLD_SEC = 5;
+
+  function renderTick(posSec) {
+    if (st.mode === 'hidden') return;
+    if (!initDom()) return;
+    if (!st.has) return;
+
+    normalizeTimesIfNeeded();
+
+    const first = st.firstTime ?? 0;
+
+    if (posSec < first && first > COUNTDOWN_THRESHOLD_SEC) {
+      const rem = first - posSec;
+      const sec = Math.ceil(rem);
+
+      if (st.lastCountdownSec === sec && rem >= 1) return;
+
+      st.lastCountdownSec = sec;
+      st.activeIdx = -sec;
+
+      const style = rem < 1 ? ` style="opacity:${Math.max(0, Math.min(1, rem)).toFixed(2)}"` : '';
+      const cls = rem < 1 ? ' fade-out' : '';
+      dom.lyr.innerHTML = `<div class="lyrics-countdown${cls}"${style}>${sec}</div>`;
+      return;
+    }
+
+    const idx = computeActiveIndex(posSec);
+    if (idx === st.activeIdx) return;
+    st.activeIdx = idx;
+    st.lastCountdownSec = null;
+    renderWindow(idx);
+  }
+
+  async function onTrackChange(track) {
+    st.has = false;
+    st.list = [];
+    st.firstTime = null;
+    st.activeIdx = -100;
+    st.lastCountdownSec = null;
+    st._normalized = false;
+
+    updateWindowMode();
+    if (!initDom()) return;
+
+    if (!track?.lyrics) {
+      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
+      return;
+    }
+
+    setPlaceholder('<div class="lyrics-spinner"></div>');
+
+    const data = await fetchLyricsJson(track.lyrics);
+    if (data) {
+      parse(data);
+      normalizeTimesIfNeeded();
+      updateWindowMode();
+      const a = document.getElementById('audio');
+      renderTick(a && Number.isFinite(a.currentTime) ? a.currentTime : 0);
+    } else {
+      st.has = false;
+      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
+    }
+  }
+
+  function setMode(mode) {
+    if (!['normal','hidden','expanded'].includes(mode)) mode = 'normal';
+    st.mode = mode;
+    store(LS.VIEW, mode);
+    updateWindowMode();
+
+    st.activeIdx = -100;
+    const a = document.getElementById('audio');
+    if (a && Number.isFinite(a.currentTime)) renderTick(a.currentTime);
+  }
+
+  function setAnim(enabled) {
+    st.anim = !!enabled;
+    store(LS.ANIM, st.anim ? '1' : '0');
+    updateWindowMode();
+  }
+
+  function bootstrapFromStorage() {
+    const m = store(LS.VIEW);
+    st.mode = ['normal','hidden','expanded'].includes(m) ? m : 'normal';
+    st.anim = store(LS.ANIM) === '1';
+  }
+
+  return { bootstrapFromStorage, onTrackChange, renderTick, setMode, setAnim, getState: () => ({ ...st }) };
+})();
+
 const getDeviceHash = () => {
   let h = localStorage.getItem('device_hash'); if (h) return h;
   const b = new Uint8Array(16); crypto.getRandomValues(b);
@@ -1265,11 +1511,9 @@ function initializeMainUi() {
   restoreLyricsViewMode();
 
   // init LyricsController once
-  try {
-    LyricsController?.bootstrapFromStorage?.();
-    LyricsController?.setMode?.(lyricsViewMode);
-    LyricsController?.setAnim?.(animationEnabled);
-  } catch(e) {}
+  LyricsController.bootstrapFromStorage();
+  LyricsController.setMode(lyricsViewMode);
+  LyricsController.setAnim(animationEnabled);
 
   if (localStorage.getItem('favoritesFilter') === '1' && getLiked().length > 0) {
     favoritesFilterActive = false;
@@ -1320,7 +1564,7 @@ function toggleAnimation() {
   $('lyrics-window')?.classList.toggle('animation-active', animationEnabled);
   NotificationSystem[animationEnabled ? 'success' : 'info'](animationEnabled ? '✨ Анимация лирики включена' : 'Анимация лирики выключена');
   localStorage.setItem('animationEnabled', animationEnabled ? '1' : '0');
-try { LyricsController?.setAnim?.(animationEnabled); } catch(e) {}
+LyricsController.setAnim(animationEnabled);
 }
 
 function toggleBit() {
@@ -1584,9 +1828,10 @@ function renderLyricsBlock() {
   
   const tr = config.tracks[currentTrack], a = $('audio'); a.src = tr.audio;
   prefetchNextTrackAssets();
-  try { LyricsController?.setMode?.(lyricsViewMode); } catch(e) {}
-  try { LyricsController?.setAnim?.(animationEnabled); } catch(e) {}
-  try { LyricsController?.onTrackChange?.(tr); } catch(e) {}
+  cancelLyricsTick(); // stop any pending frame from previous track
+  LyricsController.setMode(lyricsViewMode);
+  LyricsController.setAnim(animationEnabled);
+  LyricsController.onTrackChange(tr);
   setupMediaSession();
 
   restorePlayerButtonsState();
@@ -1623,7 +1868,8 @@ function scheduleLyricsTick(posSec) {
     }
     __lyricsLastFrameTs = ts;
 
-    LyricsController.renderTick(__lyricsLastPos);
+    // render only when player/lyrics block exists
+    if (document.getElementById('lyricsplayerblock')) LyricsController.renderTick(__lyricsLastPos);
   });
 }
 
@@ -1691,6 +1937,7 @@ function onAudioEnded() {
 function seekToPosition(e) {
   const a = $('audio'), r = e.currentTarget.getBoundingClientRect(), pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   a.currentTime = a.duration * pct;
+  scheduleLyricsTick(a.currentTime);
 }
 
 function startSeekDrag(e) {
@@ -1701,7 +1948,9 @@ function startSeekDrag(e) {
   };
   const endHandler = ev => {
     const r = $('player-progress-bar').getBoundingClientRect(), x = ev.changedTouches ? ev.changedTouches[0].clientX : ev.clientX, pct = Math.max(0, Math.min(1, (x - r.left) / r.width));
-    $('audio').currentTime = $('audio').duration * pct; isSeekingProgress = false;
+    $('audio').currentTime = $('audio').duration * pct;
+    isSeekingProgress = false;
+    scheduleLyricsTick($('audio').currentTime);
     ['mousemove','mouseup','touchmove','touchend'].forEach(evt => document.removeEventListener(evt, evt.includes('move') ? moveHandler : endHandler));
   };
   ['mousemove','mouseup','touchmove','touchend'].forEach(evt => document.addEventListener(evt, evt.includes('move') ? moveHandler : endHandler));
@@ -1832,7 +2081,7 @@ function toggleLyricsView() {
   const modes = ['normal', 'hidden', 'expanded']; lyricsViewMode = modes[(modes.indexOf(lyricsViewMode) + 1) % modes.length];
   applyLyricsViewMode();
   saveLyricsViewMode();
-  try { LyricsController?.setMode?.(lyricsViewMode); } catch(e) {}
+  LyricsController.setMode(lyricsViewMode);
   NotificationSystem.info({ 'normal': '📝 Обычный вид лирики', 'hidden': '🚫 Лирика скрыта', 'expanded': '📖 Расширенный вид лирики' }[lyricsViewMode]);
 }
 
@@ -2403,276 +2652,8 @@ window.addEventListener('appinstalled', () => Ach.unlock('pwa_installed'));
 function openFeedbackModal() { NotificationSystem.info('Обратная связь в Telegram — скоро будет'); }
 function closeFeedbackModal() {}
 
-const escapeHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-// ==================== LYRICS CONTROLLER (optimized) ====================
-const LyricsController = (() => {
-  const LS = { VIEW: 'lyricsViewMode', ANIM: 'animationEnabled' };
-  const SS = { C404: 'lyrics_404_cache:v2', PRE: 'lyrics_cache_' };
-  const NO_LYR = '__NO_LYRICS__';
-  const PENDING = new Map();
-
-  const st = {
-    list: [],
-    has: false,
-    mode: 'normal',      // normal | hidden | expanded
-    anim: false,
-    activeIdx: -100,     // last rendered active line index, or negative values for countdown state
-    firstTime: null,     // first line time
-    lastCountdownSec: null
-  };
-
-  const dom = { win:null, lyr:null, bg:null };
-
-  const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} };
-  const sess = (k, v) => {
-    try {
-      if (v === undefined) { const r = sessionStorage.getItem(k); return r ? JSON.parse(r) : null; }
-      sessionStorage.setItem(k, JSON.stringify(v));
-    } catch {}
-  };
-
-  const c404 = {
-    get: () => sess(SS.C404) || {},
-    has: (u) => !!c404.get()[u],
-    add: (u) => {
-      const m = c404.get(); m[u] = Date.now();
-      const keys = Object.keys(m);
-      if (keys.length > 50) keys.sort((a,b)=>m[a]-m[b]).slice(0, 20).forEach(x => delete m[x]);
-      sess(SS.C404, m);
-    }
-  };
-
-  function initDom() {
-    const blk = document.getElementById('lyricsplayerblock');
-    if (!blk) return false;
-    dom.win = blk.querySelector('#lyrics-window');
-    dom.lyr = blk.querySelector('#lyrics');
-    dom.bg  = blk.querySelector('.lyrics-animated-bg');
-    return !!dom.win && !!dom.lyr;
-  }
-
-  function parse(arr) {
-    st.list = (Array.isArray(arr) ? arr : [])
-      .map(i => ({
-        time: Number(i?.time),
-        text: String(i?.line ?? i?.text ?? '').trim()
-      }))
-      .filter(x => Number.isFinite(x.time) && x.text.length > 0)
-      .sort((a,b) => a.time - b.time);
-
-    st.has = st.list.length > 0;
-    st.firstTime = st.has ? st.list[0].time : null;
-    st.activeIdx = -100;
-    st.lastCountdownSec = null;
-  }
-
-  // Авто-нормализация секунд/миллисекунд:
-  // если таймкоды "как миллисекунды", приводим к секундам.
-  function normalizeTimesIfNeeded() {
-    if (!st.has) return;
-    // эвристика: если первая строка > 300 (5 минут) и все времена целые/крупные — вероятно ms
-    const t0 = st.firstTime;
-    if (t0 && t0 > 300) {
-      // если при делении на 1000 становится "адекватно"
-      const div = t0 / 1000;
-      if (div > 0 && div < 300) {
-        st.list = st.list.map(x => ({ ...x, time: x.time / 1000 }));
-        st.firstTime = st.list[0].time;
-      }
-    }
-  }
-
-  async function fetchLyricsJson(url) {
-    const u = String(url || '').trim();
-    if (!u || c404.has(u)) return null;
-
-    const k = SS.PRE + u;
-    const cached = sess(k);
-    if (cached) return cached === NO_LYR ? null : cached;
-
-    if (PENDING.has(u)) return PENDING.get(u);
-
-    const p = (async () => {
-      try {
-        const r = await fetch(u, { cache: 'force-cache', headers: { Accept: 'application/json' } });
-        if (!r.ok) { if (r.status === 404) c404.add(u); throw new Error('HTTP ' + r.status); }
-        const j = await r.json();
-        if (Array.isArray(j)) { sess(k, j); return j; }
-      } catch (e) {
-        // если оффлайн/заблокирована сеть — не ставим "навечно нет лирики"
-        const netOk = navigator.onLine;
-        if (!netOk) return null;
-      }
-      sess(k, NO_LYR);
-      return null;
-    })();
-
-    PENDING.set(u, p);
-    const res = await p;
-    PENDING.delete(u);
-    return res;
-  }
-
-  function setPlaceholder(html) {
-    if (!initDom()) return;
-    dom.lyr.innerHTML = html;
-  }
-
-  function updateWindowMode() {
-    if (!initDom()) return;
-
-    // применяем режимы окна (normal/hidden/expanded)
-    dom.win.classList.remove('lyrics-normal','lyrics-hidden','lyrics-expanded');
-    dom.win.classList.add(`lyrics-${st.mode}`);
-
-    // анимация
-    const anim = st.anim && st.mode !== 'hidden' && st.has;
-    dom.bg?.classList.toggle('active', anim);
-    dom.win?.classList.toggle('animation-active', anim);
-  }
-
-  function computeActiveIndex(posSec) {
-    // бинарный поиск вместо полного цикла по всем строкам
-    let lo = 0, hi = st.list.length - 1, ans = 0;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (posSec >= st.list[mid].time) { ans = mid; lo = mid + 1; }
-      else hi = mid - 1;
-    }
-    return ans;
-  }
-
-  function renderWindow(activeIdx) {
-    if (!initDom() || !st.has) return;
-
-    const winSz = (st.mode === 'expanded') ? 9 : 5;
-    const half = (winSz - 1) / 2;
-    const start = Math.max(0, activeIdx - half);
-    const padTop = Math.max(0, half - activeIdx);
-    const end = Math.min(st.list.length, start + winSz - padTop);
-
-    let html = '';
-    for (let i = 0; i < padTop; i++) html += '<div class="lyrics-window-line"></div>';
-    for (let i = start; i < end; i++) {
-      html += `<div class="lyrics-window-line${i === activeIdx ? ' active' : ''}">${escapeHtml(st.list[i].text)}</div>`;
-    }
-    const drawn = padTop + (end - start);
-    for (let i = drawn; i < winSz; i++) html += '<div class="lyrics-window-line"></div>';
-
-    dom.lyr.innerHTML = html;
-  }
-
-  // Отсчёт до первой строки: показываем, если первая строка "не сразу"
-  const COUNTDOWN_THRESHOLD_SEC = 5;
-
-  function renderTick(posSec) {
-    if (st.mode === 'hidden') return;
-    if (!initDom()) return;
-
-    if (!st.has) return; // UI "нет текста" ставим отдельно
-
-    normalizeTimesIfNeeded();
-
-    const first = st.firstTime ?? 0;
-
-    // countdown mode
-    if (posSec < first && first > COUNTDOWN_THRESHOLD_SEC) {
-      const rem = first - posSec;
-      const sec = Math.ceil(rem);
-
-      // обновляем только если изменилась секунда,
-      // либо rem < 1 (нужен fade по opacity)
-      if (st.lastCountdownSec === sec && rem >= 1) return;
-
-      st.lastCountdownSec = sec;
-      st.activeIdx = -sec; // негативные значения = состояние отсчёта
-
-      const style = rem < 1 ? ` style="opacity:${Math.max(0, Math.min(1, rem)).toFixed(2)}"` : '';
-      const cls = rem < 1 ? ' fade-out' : '';
-      dom.lyr.innerHTML = `<div class="lyrics-countdown${cls}"${style}>${sec}</div>`;
-      return;
-    }
-
-    // normal timed lyrics
-    const idx = computeActiveIndex(posSec);
-    if (idx === st.activeIdx) return; // ключевая оптимизация
-    st.activeIdx = idx;
-    st.lastCountdownSec = null;
-    renderWindow(idx);
-  }
-
-  async function onTrackChange(track) {
-    st.has = false;
-    st.list = [];
-    st.firstTime = null;
-    st.activeIdx = -100;
-    st.lastCountdownSec = null;
-
-    updateWindowMode();
-
-    if (!initDom()) return;
-
-    if (!track?.lyrics) {
-      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
-      return;
-    }
-
-    setPlaceholder('<div class="lyrics-spinner"></div>');
-
-    const data = await fetchLyricsJson(track.lyrics);
-    if (data) {
-      parse(data);
-      normalizeTimesIfNeeded();
-      updateWindowMode();
-      // первичная отрисовка (на 0 секунде)
-      renderTick(0);
-    } else {
-      st.has = false;
-      setPlaceholder('<div class="lyrics-placeholder">Текст не найден</div>');
-    }
-  }
-
-  function setMode(mode) {
-    if (!['normal','hidden','expanded'].includes(mode)) mode = 'normal';
-    st.mode = mode;
-    store(LS.VIEW, mode);
-    updateWindowMode();
-
-    // при смене режима принудительно перерисуем текущее состояние
-    st.activeIdx = -100;
-    const a = document.getElementById('audio');
-    if (a && !Number.isNaN(a.currentTime)) renderTick(a.currentTime);
-  }
-
-  function toggleMode() {
-    const modes = ['normal','hidden','expanded'];
-    const next = modes[(modes.indexOf(st.mode) + 1) % modes.length];
-    setMode(next);
-    NotificationSystem?.info?.({ normal: '📝 Обычный вид лирики', hidden: '🚫 Лирика скрыта', expanded: '📖 Расширенный вид лирики' }[next]);
-  }
-
-  function setAnim(enabled) {
-    st.anim = !!enabled;
-    store(LS.ANIM, st.anim ? '1' : '0');
-    updateWindowMode();
-  }
-
-  function bootstrapFromStorage() {
-    const m = store(LS.VIEW);
-    st.mode = ['normal','hidden','expanded'].includes(m) ? m : 'normal';
-    st.anim = store(LS.ANIM) === '1';
-  }
-
-  return {
-    bootstrapFromStorage,
-    onTrackChange,
-    renderTick,
-    toggleMode,
-    setMode,
-    setAnim,
-    getState: () => ({ ...st })
-  };
-})();
+// escapeHtml moved up with LyricsController
+// LyricsController moved up (see earlier in file)
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator && 'caches' in window) console.log('PWA features supported');
   else console.warn('PWA features not fully supported');
