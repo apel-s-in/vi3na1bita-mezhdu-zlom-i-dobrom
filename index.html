@@ -525,7 +525,7 @@ const FeatureFlags={
   achievementsLogic:(localStorage.getItem('ff_achievements_logic')??'0')==='1'
 };
 localStorage.setItem('secret_start_at', '1');
-const DOM={};let config=null,promoPassed=!1,configLoaded=!1,coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'],coverGalleryIdx=0,coverAutoplay=null,currentTrack=-1,currentLyrics=[],autoPlayEnabled=!0,offlineMode=!1,offlineDownloading=!1,deferredPrompt=null,shuffleMode=!1,shuffledPlaylist=[],shuffleIndex=0,repeatMode=!1,favoritesOnlyMode=!1,availableTracks=[],favoritesFilterActive=!1,animationEnabled=!1,bitEnabled=!1,bitIntensity=100,audioContext=null,analyser=null,audioSource=null,animationFrame=null,hasShownAnimationWarning=!1,hasShownBitWarning=!1,downloadOptions={includeCovers:!0,includeLyrics:!0,onlyFavorites:!1,fullAlbum:!0},filesToDownload=[];
+const DOM={};let config=null,promoPassed=!1,configLoaded=!1,coverGalleryArr=['Cover.png','Cover01.png','Cover02.png','Cover03.png'],coverGalleryIdx=0,coverAutoplay=null,currentTrack=-1,autoPlayEnabled=!0,offlineMode=!1,offlineDownloading=!1,deferredPrompt=null,shuffleMode=!1,shuffledPlaylist=[],shuffleIndex=0,repeatMode=!1,favoritesOnlyMode=!1,availableTracks=[],favoritesFilterActive=!1,animationEnabled=!1,bitEnabled=!1,bitIntensity=100,audioContext=null,analyser=null,audioSource=null,animationFrame=null,hasShownAnimationWarning=!1,hasShownBitWarning=!1,downloadOptions={includeCovers:!0,includeLyrics:!0,onlyFavorites:!1,fullAlbum:!0},filesToDownload=[];
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').then(async r=>{console.log('Service Worker registered',r);await navigator.serviceWorker.ready;syncOfflineState();try{r.active&&r.active.postMessage({type:'REQUEST_OFFLINE_STATE'})}catch(e){}try{r.update()}catch(e){}setInterval(async()=>{try{const x=await navigator.serviceWorker.getRegistration();if(x)x.update()}catch(e){}},36e5);r.addEventListener('updatefound',()=>{const w=r.installing;w.addEventListener('statechange',()=>{if(w.state==='activated')NotificationSystem.info('Приложение обновлено')})})});let __swReloaded=!1;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(__swReloaded)return;__swReloaded=!0;try{NotificationSystem.info('Обновление применено, перезагрузка...')}catch(e){}setTimeout(()=>location.reload(),300)});navigator.serviceWorker.addEventListener('message',e=>{const m=e.data||{};if(m.type==='CACHE_UPDATED')console.log('Cache updated to version:',m.version);if(m.type==='OFFLINE_STATE'){offlineMode=!!m.value;setOfflineUIState(offlineMode?'offline':'online')}if(m.type==='CLEAR_ALL_POSITIONS')PositionManager.clearAll()})}function syncOfflineState(){offlineMode=localStorage.getItem('offlineMode')==='1';if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'SET_OFFLINE_MODE',value:offlineMode})}
 
 class NotificationSystem {
@@ -1264,6 +1264,13 @@ function initializeMainUi() {
   setOfflineUIState(offlineMode ? 'offline' : 'online');
   restoreLyricsViewMode();
 
+  // init LyricsController once
+  try {
+    LyricsController?.bootstrapFromStorage?.();
+    LyricsController?.setMode?.(lyricsViewMode);
+    LyricsController?.setAnim?.(animationEnabled);
+  } catch(e) {}
+
   if (localStorage.getItem('favoritesFilter') === '1' && getLiked().length > 0) {
     favoritesFilterActive = false;
     setTimeout(toggleFavoritesFilter, 500);
@@ -1312,7 +1319,8 @@ function toggleAnimation() {
   document.querySelector('.lyrics-animated-bg')?.classList.toggle('active', animationEnabled);
   $('lyrics-window')?.classList.toggle('animation-active', animationEnabled);
   NotificationSystem[animationEnabled ? 'success' : 'info'](animationEnabled ? '✨ Анимация лирики включена' : 'Анимация лирики выключена');
-  localStorage.setItem('animationEnabled', animationEnabled ? '1' : '0'); LyricsController.setAnim(animationEnabled);
+  localStorage.setItem('animationEnabled', animationEnabled ? '1' : '0');
+try { LyricsController?.setAnim?.(animationEnabled); } catch(e) {}
 }
 
 function toggleBit() {
@@ -1378,7 +1386,7 @@ function reattachAudioEventListeners(a) {
     cancelLyricsTick();
     Stats.onPauseOrStop({ ended: false });
     updatePlayPauseIcon();
-  });;
+  });
 
   a.addEventListener('canplay', () => {
     if (bitEnabled && !analyser) {
@@ -1576,15 +1584,13 @@ function renderLyricsBlock() {
   
   const tr = config.tracks[currentTrack], a = $('audio'); a.src = tr.audio;
   prefetchNextTrackAssets();
-  LyricsController.bootstrapFromStorage();
-  LyricsController.setMode(lyricsViewMode);         // синхронизируем твой режим с контроллером
-  LyricsController.setAnim(animationEnabled);        // синхронизируем анимацию
-  LyricsController.onTrackChange(tr);
+  try { LyricsController?.setMode?.(lyricsViewMode); } catch(e) {}
+  try { LyricsController?.setAnim?.(animationEnabled); } catch(e) {}
+  try { LyricsController?.onTrackChange?.(tr); } catch(e) {}
   setupMediaSession();
 
   restorePlayerButtonsState();
   initializePlayerControls();
-  initializeLyricsMode();
   applyLyricsViewMode();
   if (bitEnabled) {
     stopLogoPulsation(); audioContext = audioSource = analyser = null;
@@ -1819,12 +1825,14 @@ setInterval(() => { const a = $('audio'); if (a && !a.paused) saveCurrentPositio
 
 const getLyricsButtonLabel = () => ({ 'normal': 'Скрыть лирику', 'hidden': 'Показать лирику (увеличенный вид)', 'expanded': 'Показать лирику (обычный размер)' })[lyricsViewMode] || 'Управление лирикой';
 
-let lyricsViewMode = 'normal', lyricsUpdateInterval = null;
+let lyricsViewMode = 'normal';
 function restoreLyricsViewMode() { const s = localStorage.getItem('lyricsViewMode'); if (s && ['normal', 'hidden', 'expanded'].includes(s)) lyricsViewMode = s; }
 function saveLyricsViewMode() { localStorage.setItem('lyricsViewMode', lyricsViewMode); }
 function toggleLyricsView() {
   const modes = ['normal', 'hidden', 'expanded']; lyricsViewMode = modes[(modes.indexOf(lyricsViewMode) + 1) % modes.length];
-  applyLyricsViewMode(); saveLyricsViewMode(); LyricsController.setMode(lyricsViewMode);
+  applyLyricsViewMode();
+  saveLyricsViewMode();
+  try { LyricsController?.setMode?.(lyricsViewMode); } catch(e) {}
   NotificationSystem.info({ 'normal': '📝 Обычный вид лирики', 'hidden': '🚫 Лирика скрыта', 'expanded': '📖 Расширенный вид лирики' }[lyricsViewMode]);
 }
 
@@ -1843,22 +1851,11 @@ function applyLyricsViewMode() {
   tb.setAttribute('title', `${lbl} (Y)`);
 }
 
-function pauseLyricsRendering() {}
-function resumeLyricsRendering() {}
-function updateLyricsWindowSize() {}
+// legacy lyrics rendering hooks removed (handled by LyricsController)
 
-function renderLyricsEnhanced(t) {
-  if (lyricsViewMode === 'hidden') return;
-  const el = $('lyrics'); if (!el) return;
-  if (!currentLyrics?.length) return (el.innerHTML = "");
-  let act = 0; for (let i = 0; i < currentLyrics.length; i++) { if (t >= currentLyrics[i].time) act = i; }
-  const sz = window.lyricsWindowSize || 5, cl = window.lyricsCenterLine || 2, st = Math.max(0, act - cl), pt = Math.max(0, cl - act), rows = Array(pt).fill('<div class="lyrics-window-line"></div>');
-  for (let i = st; i < Math.min(currentLyrics.length, st + sz - pt); i++) rows.push(`<div class="lyrics-window-line${i === act ? ' active' : ''}">${currentLyrics[i]?.line || ""}</div>`);
-  while (rows.length < sz) rows.push('<div class="lyrics-window-line"></div>');
-  el.innerHTML = rows.join("");
-}
+// renderLyricsEnhanced removed (LyricsController does optimized rendering)
 
-function initializeLyricsMode() { restoreLyricsViewMode(); window.lyricsWindowSize = lyricsViewMode === 'expanded' ? 9 : 5; window.lyricsCenterLine = Math.floor(window.lyricsWindowSize / 2); }
+// initializeLyricsMode removed (LyricsController handles window sizing)
 
 function togglePlayPause() { const a = $('audio'); if (!a) return; a.paused ? a.play() : a.pause(); }
 function updatePlayPauseIcon() { const a = $('audio'), i = $('play-pause-icon'); if (a && i) i.innerHTML = a.paused ? '<path d="M8 5v14l11-7z"/>' : '<path d="M6 6h4v12H6zM14 6h4v12h-4z"/>'; }
@@ -1966,29 +1963,7 @@ function setupMediaSession() {
   for (const [k, v] of Object.entries(binds)) ms.setActionHandler(k, v);
 }
 
-function loadLyrics(file) {
-  // оставляем для совместимости: LyricsController работает по track.lyrics,
-  // а не по одному URL
-  return;
-}
-
-function renderLyrics(time) {
-  const el = document.getElementById("lyrics");
-  if (!el) return;
-  if (!currentLyrics?.length) return (el.innerHTML = "");
-  
-  let active = currentLyrics.findIndex(l => time < l.time) - 1;
-  if (active === -2) active = currentLyrics.length - 1; 
-  if (active < 0) active = 0;
-  
-  const win = 5, start = Math.max(0, active - 2), padTop = Math.max(0, 2 - active);
-  const rows = Array(padTop).fill('<div class="lyrics-window-line"></div>');
-  for (let i = start; i < Math.min(currentLyrics.length, start + win - padTop); i++) {
-    rows.push(`<div class="lyrics-window-line${i === active ? ' active' : ''}">${currentLyrics[i]?.line || ""}</div>`);
-  }
-  while (rows.length < win) rows.push('<div class="lyrics-window-line"></div>');
-  el.innerHTML = rows.join("");
-}
+// legacy loadLyrics/renderLyrics removed (LyricsController fetches & renders)
 
 function copyLyrics() {
   const t = config?.tracks?.[currentTrack];
