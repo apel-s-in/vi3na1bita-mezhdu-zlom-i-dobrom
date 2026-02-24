@@ -467,6 +467,18 @@ header{width:100%;text-align:center;margin:0 auto}
 <div class="modal-bg" id="albumDownloadModal"><div class="modal-feedback" style="max-width: 400px;"><h2 style="text-align: center; margin-bottom: 25px;">Между Злом и Добром</h2><div class="download-options"><label class="checkbox-container"><input type="checkbox" id="includeCovers" checked><span class="checkmark"></span>Обложки (галерея)</label><label class="checkbox-container"><input type="checkbox" id="includeLyrics" checked><span class="checkmark"></span>Тексты песен</label><hr style="margin: 15px 0; border-color: #333;"><label class="checkbox-container"><input type="checkbox" id="onlyFavorites"><span class="checkmark"></span>Только избранные песни</label><label class="checkbox-container"><input type="checkbox" id="fullAlbum" checked><span class="checkmark"></span>Полностью альбом</label></div><div class="modal-buttons"><button onclick="closeAlbumDownloadModal()" class="btn-secondary">ОТМЕНА</button><button onclick="prepareDownload()" class="btn-primary">СКАЧАТЬ</button></div></div></div>
 <div class="modal-bg" id="modal-backup-prompt"><div class="modal-feedback" style="max-width:400px;"><button class="bigclose" onclick="closeBackupPrompt()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Сохраните ваши достижения</div><div style="color:#bbb;line-height:1.5;margin-bottom:10px;">Сохраните файл резервной копии, чтобы не потерять прогресс. При утере данных приз может быть не подтверждён без файла.</div><label class="checkbox-container" style="margin-top:6px;"><input type="checkbox" id="backup-opt-never"><span class="checkmark"></span>Не напоминать больше</label><label class="checkbox-container" style="margin-top:6px;"><input type="checkbox" id="backup-opt-5"><span class="checkmark"></span>Напомнить через 5 достижений</label><div style="display:flex;gap:8px;justify-content:center;margin-top:12px;"><button class="btn-secondary" onclick="closeBackupPromptWithChoice()">Отмена</button><button class="btn-primary" onclick="backupExportWithLevel()">Сохранить…</button></div></div></div>
 <div class="modal-bg" id="reset-modal"><div class="modal-feedback" style="max-width:320px;"><button class="bigclose" onclick="closeResetModal()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div style="font-size:1.12em;font-weight:700;margin-bottom:10px;">Очистка данных</div><button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeResetModal();promptReset('stats')">Очистить статистику</button><button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeResetModal();promptReset('ach')">Очистить достижения</button><button class="offline-btn online" style="width:98%;" onclick="closeResetModal();promptReset('all')">Сбросить всё</button></div></div>
+
+<div class="modal-bg" id="modal-offline">
+  <div class="modal-feedback" style="max-width: 420px;">
+    <button class="bigclose" onclick="closeOfflineModal()" title="Закрыть">
+      <svg viewBox="0 0 48 48">
+        <line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        <line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="offline-step"></div>
+  </div>
+</div>
 <div class="modal-bg" id="backup-actions-modal"><div class="modal-feedback" style="max-width:360px;"><button class="bigclose" onclick="closeBackupActions()" title="Закрыть"><svg viewBox="0 0 48 48"><line x1="12" y1="12" x2="36" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><line x1="36" y1="12" x2="12" y2="36" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg></button><div class="download-modal-title">Сохранение достижений</div><button class="offline-btn online" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupExportWithLevel()">Сохранить на устройство</button>
 <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();backupShare()">Отправить</button>
 <button class="offline-btn" style="width:98%;margin-bottom:10px;" onclick="closeBackupActions();document.getElementById('backup-file-input').click()">Импорт</button>
@@ -1312,13 +1324,40 @@ function initAudioContext() {
 
 function reattachAudioEventListeners(a) {
   if (!a) return;
-  ['loadedmetadata','timeupdate','seeking','seeked','ended','volumechange'].forEach(e => a.addEventListener(e, window['onAudio'+e.charAt(0).toUpperCase()+e.slice(1)]));
+
+  // ВАЖНО: у нас НЕ совпадают имена обработчиков с автогенерацией из eventName,
+  // поэтому маппим явно.
+  const handlers = {
+    loadedmetadata: onAudioMetadataLoaded,
+    timeupdate: onAudioTimeUpdate,
+    seeking: onAudioSeeking,
+    seeked: onAudioSeeked,
+    ended: onAudioEnded,
+    volumechange: onVolumeChange
+  };
+
+  Object.entries(handlers).forEach(([evt, fn]) => {
+    if (typeof fn === 'function') a.addEventListener(evt, fn);
+  });
+
   a.addEventListener('play', () => {
     if (bitEnabled && audioContext?.state === 'suspended') audioContext.resume();
-    Stats.onStart(currentTrack); Session.onStart({ trackIndex: currentTrack, ts: Date.now() }); updatePlayPauseIcon();
+    Stats.onStart(currentTrack);
+    Session.onStart({ trackIndex: currentTrack, ts: Date.now() });
+    updatePlayPauseIcon();
   });
-  a.addEventListener('pause', () => { Stats.onPauseOrStop({ ended: false }); updatePlayPauseIcon(); });
-  a.addEventListener('canplay', () => { if (bitEnabled && !analyser) { initAudioContext(); startLogoPulsation(); } });
+
+  a.addEventListener('pause', () => {
+    Stats.onPauseOrStop({ ended: false });
+    updatePlayPauseIcon();
+  });
+
+  a.addEventListener('canplay', () => {
+    if (bitEnabled && !analyser) {
+      initAudioContext();
+      startLogoPulsation();
+    }
+  });
 }
 
 function startLogoPulsation() {
@@ -2122,6 +2161,10 @@ function offlineUIClick() {
 }
 
 const closeOfflineModal = () => getEl('modal-offline')?.classList.remove('active');
+
+getEl('modal-offline')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeOfflineModal();
+});
 
 function nextOfflineChoice() {
   const d = getDownloadStats();
