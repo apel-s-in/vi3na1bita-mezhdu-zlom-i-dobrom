@@ -394,7 +394,59 @@ header{width:100%;text-align:center;margin:0 auto}
 </head>
 <body>
 <div id="promocode-block"><div class="promo-inner"><img class="promo-cover" src="Cover.png" alt="Обложка" draggable="false"/><h2>Вход по промокоду</h2><input id="promo-inp" type="text" placeholder="Введите промокод" autocomplete="off" autofocus disabled /><button id="promo-btn" onclick="checkPromo()" disabled>Войти</button><div id="promo-error"></div></div></div>
-<div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive"><div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div><div style="margin-top:6px; color:#ffd1d1;">Ваша статистика была изменена извне. Импортируйте валидный бэкап для восстановления прогресса.</div><div class="actions"><button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button><button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button></div></div><div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div></div></header><div class="track-list" id="track-list"></div><div class="bottom-controls-center"><button class="filter-favorites-btn" id="filter-favorites-btn" onclick="toggleFavoritesFilter()">Скрыть не отмеченные ⭐ песни</button><img class="logo-bottom" id="logo-bottom" src="img/logo.png" alt="Логотип" onclick="handleLogoClick()"/><button id="install-pwa-btn" style="display: none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button><button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button><div id="my-stats-root" class="my-stats-root"><button class="my-stats-header" id="my-stats-toggle" type="button" aria-expanded="false">МОЯ СТАТИСТИКА<span class="chev" aria-hidden="true">▼</span></button><div class="my-stats-body" id="my-stats-body" hidden></div></div><!-- prizes removed -->
+<div id="main-block" class="hidden">
+  <header>
+    <div id="cover-wrap">
+      <button class="cover-gallery-arrow" id="cover-gallery-arrow-left" aria-label="Предыдущая обложка" type="button">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true">
+          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+        </svg>
+      </button>
+
+      <img id="cover" src="Cover.png" alt="Обложка" draggable="false" />
+
+      <button class="cover-gallery-arrow" id="cover-gallery-arrow-right" aria-label="Следующая обложка" type="button">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true">
+          <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="socials-under-cover" id="social-links" aria-label="Социальные сети"></div>
+
+    <div id="ach-progress-root" class="ach-progress-root">
+      <div class="ach-progress-header ach-center">
+        <div class="ach-progress-title">ДОСТИЖЕНИЯ</div>
+      </div>
+
+      <div class="ach-progress-bars">
+        <div class="ach-bar ach-bar-single">
+          <div class="ach-bar-fill" id="ach-one-fill"></div>
+        </div>
+      </div>
+
+      <div class="ach-done-label" id="ach-done-label"></div>
+      <div class="ach-hint-bubble" id="ach-hint-bubble" role="button" tabindex="0"></div>
+      <div class="ach-lock" id="ach-secret-label" style="display:none; text-align:center; margin-top:8px;"></div>
+    </div>
+
+    <div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive">
+      <div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div>
+      <div style="margin-top:6px; color:#ffd1d1;">Ваша статистика была изменена извне. Импортируйте валидный бэкап для восстановления прогресса.</div>
+      <div class="actions">
+        <button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button>
+        <button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button>
+      </div>
+    </div>
+
+    <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
+
+    <input id="backup-file-input" type="file" accept="application/json" style="display:none" />
+  </header>
+
+  <div class="track-list" id="track-list"></div>
+
+  <div class="bottom-controls-center"><button class="filter-favorites-btn" id="filter-favorites-btn" onclick="toggleFavoritesFilter()">Скрыть не отмеченные ⭐ песни</button><img class="logo-bottom" id="logo-bottom" src="img/logo.png" alt="Логотип" onclick="handleLogoClick()"/><button id="install-pwa-btn" style="display: none;">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</button><button id="download-album-main" onclick="openAlbumDownloadModal()">СКАЧАТЬ ВЕСЬ АЛЬБОМ</button><div id="my-stats-root" class="my-stats-root"><button class="my-stats-header" id="my-stats-toggle" type="button" aria-expanded="false">МОЯ СТАТИСТИКА<span class="chev" aria-hidden="true">▼</span></button><div class="my-stats-body" id="my-stats-body" hidden></div></div><!-- prizes removed -->
 <!-- global stats removed --><button class="hotkeys-btn" id="hotkeys-btn" style="display:none;" onclick="showHotkeysModal()">ГОРЯЧИЕ КЛАВИШИ</button><span class="feedback-link" id="feedback-link">ОБРАТНАЯ СВЯЗЬ</span><button class="support-link" id="support-link" type="button">ПОДДЕРЖАТЬ</button><button class="offline-btn online" id="offline-btn" onclick="offlineUIClick()">ONLINE</button></div></div>
 <!-- feedback modal removed -->
 <!-- prizes modals removed -->
