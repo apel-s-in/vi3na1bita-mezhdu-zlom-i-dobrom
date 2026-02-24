@@ -1593,7 +1593,37 @@ function renderLyricsBlock() {
 }
 
 let lastTimeUpdate = 0, isSeekingProgress = false, isMuted = false, sleepTimerInterval = null, sleepTimerTarget = null, sleepTimerMode = null, hasShownIOSVolumeNotice = false;
+// ===== Lyrics RAF scheduler (limit ~30fps) =====
+let __lyricsRAF = 0;
+let __lyricsLastFrameTs = 0;
+let __lyricsLastPos = 0;
+const __LYRICS_FPS = 30;
+const __LYRICS_FRAME_MS = 1000 / __LYRICS_FPS;
 
+function scheduleLyricsTick(posSec) {
+  __lyricsLastPos = posSec;
+
+  if (__lyricsRAF) return; // уже запланирован кадр
+
+  __lyricsRAF = requestAnimationFrame((ts) => {
+    __lyricsRAF = 0;
+
+    // ограничение по fps
+    if (ts - __lyricsLastFrameTs < __LYRICS_FRAME_MS) {
+      // если рано — планируем следующий кадр
+      scheduleLyricsTick(__lyricsLastPos);
+      return;
+    }
+    __lyricsLastFrameTs = ts;
+
+    LyricsController.renderTick(__lyricsLastPos);
+  });
+}
+
+function cancelLyricsTick() {
+  if (__lyricsRAF) cancelAnimationFrame(__lyricsRAF);
+  __lyricsRAF = 0;
+}
 function initializePlayerControls() {
   const pb = $('player-progress-bar'), vs = $('volume-slider');
   if (pb) { pb.addEventListener('click', seekToPosition); pb.addEventListener('mousedown', startSeekDrag); pb.addEventListener('touchstart', startSeekDrag, { passive: false }); }
@@ -1631,7 +1661,7 @@ function onAudioMetadataLoaded() {
 function onAudioTimeUpdate() {
   const a = $('audio'), c = a.currentTime, d = a.duration;
   if (!isSeekingProgress && d > 0 && $('player-progress-fill')) $('player-progress-fill').style.width = `${(c / d) * 100}%`;
-  LyricsController.renderTick(c);
+  scheduleLyricsTick(c);
   const now = Date.now();
   if (now - lastTimeUpdate >= 1000) {
     lastTimeUpdate = now;
@@ -1804,9 +1834,9 @@ function applyLyricsViewMode() {
   if (lyricsViewMode === 'hidden') pauseLyricsRendering(); else { resumeLyricsRendering(); updateLyricsWindowSize(); }
 }
 
-function pauseLyricsRendering() { if ($('lyrics')) $('lyrics').style.display = 'none'; }
-function resumeLyricsRendering() { if ($('lyrics')) { $('lyrics').style.display = ''; const a = $('audio'); if (a && !a.paused) renderLyrics(a.currentTime); } }
-function updateLyricsWindowSize() { window.lyricsWindowSize = lyricsViewMode === 'expanded' ? 9 : 5; window.lyricsCenterLine = Math.floor(window.lyricsWindowSize / 2); const a = $('audio'); if (a) renderLyrics(a.currentTime); }
+function pauseLyricsRendering() {}
+function resumeLyricsRendering() {}
+function updateLyricsWindowSize() {}
 
 function renderLyricsEnhanced(t) {
   if (lyricsViewMode === 'hidden') return;
