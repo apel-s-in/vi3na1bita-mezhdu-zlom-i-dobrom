@@ -522,7 +522,7 @@ const ACH_RULES = [
   { id: 'streak_7', test: S => (S.streak?.max || 0) >= 7 },
   { id: 'time_listened_5h', test: S => (S.totals.totalSeconds || 0) >= 18000 },
   { id: 'play_100_total', test: S => (S.totals.totalValidPlays || 0) >= 100 },
-  { id: 'fav_8:{tier:4,core:false,title:'Коллекционер',short:'Отметьте 8 избранных.',desc:'Широкий пул избранных открывает больше челленджей.',howTo:'Поставьте звёздочку на 8 треках.'},fav_8: { test: S => (S.likedCount || 0) >= 8 },
+  { id: 'fav_8', test: S => (S.likedCount || 0) >= 8 },
   { id: 'socials_all_visited', test: S => { const v = S.socialsVisited || {}; return App.config && App.config.socials && App.config.socials.length > 0 && App.config.socials.every(s => v[s.name || s.url]) } },
   { id: 'sleep_timer_5', test: S => (S.sleepTimerStops || 0) >= 5 },
   { id: 'full_50_total', test: S => (S.totals.totalFullPlays || 0) >= 50 },
@@ -568,7 +568,7 @@ const Ach = {
     this._checkFavOrder(S, ctx);
     this._checkFavShuffle(S, ctx);
     this._checkAlbumAnyOrder7d(S);
-    this._checkAlbumOrderSession(S, ctx);
+    this._checkAlbumInOrderSession(S, ctx);
     this._checkWeekendAlbum(S);
   },
   _checkWeekend(S, ctx) {
@@ -1156,7 +1156,7 @@ function bindAudioElement() {
   if (ps) a.volume = normVol(ps.vol);
 
   const handlers = {
-    play() { $('btn-play') && ($('btn-play').textContent = '⏸'); Session.resume();eBitPulsation() },
+    play() { $('btn-play') && ($('btn-play').textContent = '⏸'); Session.resume(); resumeBitPulsation() },
     pause() { $('btn-play') && ($('btn-play').textContent = '▶️'); Session.pause() },
     ended() { onTrackEnded() },
     timeupdate() {
