@@ -303,7 +303,7 @@ header{width:100%;text-align:center;margin:0 auto}
 .backup-btn.secondary{background:#2a2a2a;color:rgba(255,255,255,.9);border:1px solid var(--border-color)}
 .backup-btn:hover{opacity:.9}
 .ach-progress-root.cloud-saved{padding-bottom:8px;margin-bottom:8px}
-.ach-progress-root.cloud-saved .ach-backup-controls{display:none!important}
+/* cloud disabled: всегда показываем локальные кнопки бэкапа */
 
 /* tamper banner */
 .tamper-banner{margin-top:10px;padding:10px 12px;border-radius:10px;background:#3a2424;border:1px solid #8a2a2a;color:#ffb3b3}
@@ -414,38 +414,48 @@ header{width:100%;text-align:center;margin:0 auto}
 
     <div class="socials-under-cover" id="social-links" aria-label="Социальные сети"></div>
 
-    <div id="ach-progress-root" class="ach-progress-root">
-      <div class="ach-progress-header ach-center">
-        <div class="ach-progress-title">ПРОГРЕСС ДОСТИЖЕНИЙ</div>
+    <!-- Прогресс достижений -->
+    <div id="ach-progress-root" class="ach-progress-root" aria-live="polite">
+      <!-- подсказка сразу под соцблоком -->
+      <div class="ach-hint-bubble" id="ach-hint-bubble" role="status">
+        ✨ Мы готовим достижения. Слушайте — прогресс уже копится.
       </div>
 
+      <!-- Новый заголовок по центру и КАПСОМ -->
+      <div class="ach-progress-header ach-center">
+        <span class="ach-progress-title">ПРОГРЕСС ДОСТИЖЕНИЙ</span>
+      </div>
+
+      <!-- ОДНА шкала прогресса + подпись ВЫПОЛНЕНО: X / Y -->
       <div class="ach-progress-bars">
         <div class="ach-bar ach-bar-single">
-          <div class="ach-bar-fill" id="ach-one-fill"></div>
+          <div class="ach-bar-fill" id="ach-one-fill" style="width:0%"></div>
+        </div>
+        <div class="ach-done-label" id="ach-done-label">ВЫПОЛНЕНО: 0 / 34</div>
+        <!-- Новая строка-счётчик секретных (показывается после старта секретного этапа) -->
+        <div class="ach-done-label" id="ach-secret-label" style="display:none;">СЕКРЕТНЫЕ: 0 / 0</div>
+      </div>
+
+      <!-- Кнопки резервной копии -->
+      <div class="ach-backup-controls" id="ach-backup-controls">
+        <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
+        <input type="file" id="backup-file-input" accept="application/json" hidden />
+      </div>
+
+      <!-- Anti‑tamper баннер (скрыт по умолчанию) -->
+      <div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive">
+        <div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div>
+        <div style="margin-top:6px; color:#ffd1d1;">
+          Для участия в призах импортируйте валидный бэкап, иначе прогресс может не подтверждаться.
+        </div>
+        <div class="actions">
+          <button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button>
+          <button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button>
         </div>
       </div>
 
-      <div class="ach-done-label" id="ach-done-label"></div>
-
-      <div class="ach-backup-controls" id="ach-backup-controls">
-        <button class="backup-btn" id="backup-export-btn" type="button">СОХРАНИТЬ ДОСТИЖЕНИЯ</button>
-      </div>
-
-      <div class="ach-hint-bubble" id="ach-hint-bubble" role="button" tabindex="0"></div>
-      <div class="ach-lock" id="ach-secret-label" style="display:none; text-align:center; margin-top:8px;"></div>
-
-    <div id="tamper-banner" class="tamper-banner hidden" role="alert" aria-live="assertive">
-      <div style="font-weight:800; letter-spacing:.04em; text-transform:uppercase;">Обнаружены изменения данных</div>
-      <div style="margin-top:6px; color:#ffd1d1;">Ваша статистика была изменена извне. Импортируйте валидный бэкап для восстановления прогресса.</div>
-      <div class="actions">
-        <button class="primary" type="button" onclick="openBackupActions()">Восстановить достижения</button>
-        <button class="secondary" type="button" onclick="NotificationSystem.info('Откройте меню «Сохранение достижений», чтобы импортировать ваш файл бэкапа');">Подробнее</button>
-      </div>
+      <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
     </div>
-
-    <div class="ach-last-earn" id="ach-last-earn" aria-hidden="true"></div>
-
-    <input id="backup-file-input" type="file" accept="application/json" style="display:none" />
   </header>
 
   <div class="track-list" id="track-list"></div>
